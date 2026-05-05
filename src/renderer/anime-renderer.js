@@ -83,7 +83,12 @@ function renderFollowingCarousel(result) {
 
   let list = []
   if (result && result.success && result.data && result.data.code === 0) {
-    if (result.data.data && result.data.data.list && Array.isArray(result.data.data.list)) {
+    if (result.data.data && result.data.data.modules && Array.isArray(result.data.data.modules)) {
+      const followingModule = result.data.data.modules.find(mod => mod.title && mod.title.includes('追'))
+      if (followingModule && followingModule.items && Array.isArray(followingModule.items)) {
+        list = followingModule.items
+      }
+    } else if (result.data.data && result.data.data.list && Array.isArray(result.data.data.list)) {
       list = result.data.data.list
     } else if (result.data.list && Array.isArray(result.data.list)) {
       list = result.data.list
@@ -110,7 +115,7 @@ function renderFollowingCarousel(result) {
     const card = document.createElement('div')
     card.className = 'following-card'
     const title = anime.title || anime.season_title || ''
-    const cover = anime.cover || anime.horizontal_pic || ''
+    const cover = anime.cover || ''
     const progress = anime.progress || ''
     const total = anime.total_count || anime.new_ep?.index_show || ''
     const badge = anime.is_finish ? '完结' : '连载'

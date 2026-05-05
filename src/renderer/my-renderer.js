@@ -264,9 +264,10 @@ function handleHistoryScroll() {
     return
   }
 
-  const scrollTop = document.documentElement.scrollTop || document.body.scrollTop
-  const scrollHeight = document.documentElement.scrollHeight || document.body.scrollHeight
-  const clientHeight = document.documentElement.clientHeight || document.body.clientHeight
+  const scrollElement = document.querySelector('.content') || document.documentElement
+  const scrollTop = scrollElement.scrollTop
+  const scrollHeight = scrollElement.scrollHeight
+  const clientHeight = scrollElement.clientHeight
 
   if (scrollTop + clientHeight >= scrollHeight - 300) {
     loadHistory(true)
@@ -280,13 +281,16 @@ if (tabsContainer) {
   tabsContainer.style.top = '64px'
   tabsContainer.style.left = '80px'
   tabsContainer.style.right = '0'
-  tabsContainer.style.zIndex = '100'
+  tabsContainer.style.zIndex = '50'
   tabsContainer.style.backgroundColor = '#f4f4f4'
   tabsContainer.style.paddingTop = '8px'
   tabsContainer.style.paddingBottom = '8px'
 }
 
-window.addEventListener('scroll', handleHistoryScroll)
+const contentElement = document.querySelector('.content')
+if (contentElement) {
+  contentElement.addEventListener('scroll', handleHistoryScroll)
+}
 
 function getMpvPath() {
   return localStorage.getItem('mpvPath') || ''
@@ -533,16 +537,16 @@ function appendVideos(videos) {
 
 async function loadFavorites() {
   try {
-    const result = await ipcRenderer.invoke('get-favorites')
+    const result = await ipcRenderer.invoke('get-favorites', 166434448, 1, 36)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
         bvid: item.bvid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
         pic: fixImageUrl(item.pic || ''),
-        play: formatPlayCount(item.stat?.view || item.play || 0),
-        duration: formatDuration(item.duration || item.length || 0),
-        author: item.owner?.name || item.author || '未知UP主',
-        owner: item.owner?.mid ? item.owner : { mid: item.mid || '', name: item.author || '未知UP主' }
+        play: formatPlayCount(item.cnt_info?.play || item.play || 0),
+        duration: formatDuration(item.duration || 0),
+        author: item.upper?.name || item.author || '未知UP主',
+        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' }
       })).filter(v => v.bvid || v.title)
 
       if (videos.length > 0) {

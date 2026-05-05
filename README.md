@@ -4,30 +4,34 @@
 
 ## TODO
 
-- [X] MPV播放器
-
-  - [X] 实现点击打开mpv播放器播放视频
-  - [X] 实现播放器弹幕支持
-- [ ] up主页面向下滚动两个滚动条的问题
+- [x] MPV播放器
+  - [x] 实现点击打开mpv播放器播放视频
+  - [x] 实现播放器弹幕支持
+- [ ] up主页面（空间页面）
+  - [ ] 向下滚动两个滚动条的问题
 - [ ] 我的页面
-
   - [ ] 历史记录页面
-
-    - [ ] 向下滚动无法加载更多内容
+    - [x] 向下滚动无法加载更多内容
     - [ ] 点击已经播放过的视频，从上次播放的时间开始播放
   - [ ] 我的收藏
+    - [x] 默认收藏夹
+    - [ ] 我创建的收藏夹
+    - [ ] 我收藏与订阅
+  - [ ] 我的追番
+  - [ ] 我的追剧
+  - [x] 稍后再看
 - [ ] 设置页面
-
-  - [ ] 快捷键绑定
-- [ ] 其他
-
-  - [X] 主题切换
-  - [X] 快捷键设置
-  - [ ] 搜索框聚焦后移动顶部栏中间，显示搜索历史和热搜
-    - [ ] 热搜接口：[api.bilibili.com/x/web-interface/wbi/search/square?limit=10&amp;platform=web&amp;web_location=333.1365&amp;w_rid=33c27013429cc439349b6d7f3523bbb8&amp;wts=1777972362](https://api.bilibili.com/x/web-interface/wbi/search/square?limit=10&platform=web&web_location=333.1365&w_rid=33c27013429cc439349b6d7f3523bbb8&wts=1777972362)
+  - [x] 快捷键绑定
+  - [ ] 整体规划快捷键
+  - [ ] 手柄支持 （优先级低）
+- [x] 其他
+  - [x] 主题切换
+  - [x] 快捷键设置
+  - [x] 搜索框聚焦后移动顶部栏中间，显示搜索历史和热搜
+  - [ ] 大会员视频非会员账号点击后没有任何提示
+- [ ] 动态页面
+  - [ ] 左侧点击右更新用户后，小红点没有取消
 - [ ] 追番页面
-
-  - [ ] 我的追番：[api.bilibili.com/x/space/bangumi/follow/list?vmid=320634848&amp;type=1&amp;pn=1&amp;ps=1&amp;playform=web&amp;follow_status=0&amp;web_location=333.1387&amp;w_rid=b5af7e17d8a47613ddde84114a37e267&amp;wts=1777972567](https://api.bilibili.com/x/space/bangumi/follow/list?vmid=320634848&type=1&pn=1&ps=1&playform=web&follow_status=0&web_location=333.1387&w_rid=b5af7e17d8a47613ddde84114a37e267&wts=1777972567)
 - [ ] 影视页面
 
 ## 功能特性
@@ -95,7 +99,7 @@ electron-s/
 
 **Windows:**
 
-1. 下载 MPV: [https://mpv.io/installation/](https://mpv.io/installation/)
+1. 下载 MPV: <https://mpv.io/installation/>
 2. 将 mpv.exe 所在目录添加到系统 PATH，或在设置中指定路径
 
 **macOS:**
@@ -147,14 +151,14 @@ npm start
 
 ## 打包应用
 
-| 命令                    | 说明              |
-| :---------------------- | :---------------- |
-| `npm start`           | 启动开发模式      |
-| `npm run build`       | 打包当前系统版本  |
+| 命令                    | 说明            |
+| :-------------------- | :------------ |
+| `npm start`           | 启动开发模式        |
+| `npm run build`       | 打包当前系统版本      |
 | `npm run build:win`   | 打包 Windows 版本 |
 | `npm run build:mac`   | 打包 macOS 版本   |
 | `npm run build:linux` | 打包 Linux 版本   |
-| `npm run clean`       | 清理打包产物      |
+| `npm run clean`       | 清理打包产物        |
 
 打包后的应用位于 `dist/` 目录下。
 
@@ -204,7 +208,7 @@ ISC
 - 感谢 Electron 社区的支持
 - 感谢 MPV 播放器项目
 
----
+***
 
 **开发者**: zuorn
 **版本**: 1.0.0

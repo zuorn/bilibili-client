@@ -39,7 +39,7 @@ let pageStates = {
   media: { pageNum: 1, loading: false, hasMore: true },
   search: { keyword: '', pageNum: 1, loading: false, hasMore: true },
   up: { mid: null, name: '', offset: '', loading: false, hasMore: true },
-  my: {}
+  my: { historyCursor: null, hasMoreHistory: true, isHistoryLoading: false, tabsOriginalOffset: null, favoritesPageNum: 1, hasMoreFavorites: true, isFavoritesLoading: false, toviewPageNum: 1, hasMoreToview: true, isToviewLoading: false }
 }
 
 let currentQCode = null
@@ -76,6 +76,14 @@ function initEventListeners() {
 
   document.getElementById('sidebarUserAvatar').addEventListener('click', () => navigateToPage('my'))
   document.getElementById('sidebarBackBtn').addEventListener('click', goBack)
+  const searchInputClearBtn = document.getElementById('searchInputClearBtn')
+
+  function showSearchClearButton(show) {
+    if (searchInputClearBtn) {
+      searchInputClearBtn.style.display = show ? 'flex' : 'none'
+    }
+  }
+
   document.getElementById('searchBtn').addEventListener('click', e => {
     e.stopPropagation()
     e.preventDefault()
@@ -103,6 +111,18 @@ function initEventListeners() {
     
     handleSearch()
   })
+
+  if (searchInputClearBtn) {
+    searchInputClearBtn.addEventListener('click', e => {
+      e.stopPropagation()
+      e.preventDefault()
+      const searchInput = document.getElementById('searchInput')
+      if (searchInput) {
+        searchInput.value = ''
+        showSearchClearButton(false)
+      }
+    })
+  }
   document.getElementById('searchInput').addEventListener('keydown', handleSearchOnEnter)
   
   const searchInput = document.getElementById('searchInput')
@@ -168,14 +188,159 @@ function initEventListeners() {
       if (tabName === 'history') {
         document.getElementById('history-content').style.display = 'block'
         document.getElementById('favorites-content').style.display = 'none'
+        document.getElementById('bangumi-content')?.style.setProperty('display', 'none')
+        document.getElementById('toview-content').style.display = 'none'
+        document.getElementById('historySearchInput').placeholder = '搜索你的历史记录'
         if (currentUser?.isLogin) loadHistory()
       } else if (tabName === 'favorites') {
         document.getElementById('history-content').style.display = 'none'
         document.getElementById('favorites-content').style.display = 'block'
-        if (currentUser?.isLogin) loadFavorites()
+        document.getElementById('bangumi-content')?.style.setProperty('display', 'none')
+        document.getElementById('toview-content').style.display = 'none'
+        document.getElementById('historySearchInput').placeholder = '搜索你的收藏内容'
+        if (currentUser?.isLogin) {
+          document.getElementById('favoritesGrid').style.display = 'grid'
+          pageStates.my.favoritesPageNum = 1
+          pageStates.my.hasMoreFavorites = true
+          pageStates.my.isFavoritesLoading = false
+          loadFavorites()
+        }
+      } else if (tabName === 'bangumi') {
+        console.log('bangumi tab clicked')
+        document.getElementById('history-content').style.display = 'none'
+        document.getElementById('favorites-content').style.display = 'none'
+        const bangumiContent = document.getElementById('bangumi-content')
+        console.log('bangumi-content element:', bangumiContent)
+        if (bangumiContent) {
+          bangumiContent.style.display = 'block'
+          console.log('bangumi-content display set to block')
+        }
+        loadBangumi(1)
+      } else if (tabName === 'drama') {
+        console.log('drama tab clicked')
+        document.getElementById('history-content').style.display = 'none'
+        document.getElementById('favorites-content').style.display = 'none'
+        const bangumiContent = document.getElementById('bangumi-content')
+        console.log('bangumi-content element:', bangumiContent)
+        if (bangumiContent) {
+          bangumiContent.style.display = 'block'
+          console.log('bangumi-content display set to block')
+        }
+        loadBangumi(3)
+      } else if (tabName === 'later') {
+        document.getElementById('history-content').style.display = 'none'
+        document.getElementById('favorites-content').style.display = 'none'
+        document.getElementById('bangumi-content')?.style.setProperty('display', 'none')
+        document.getElementById('toview-content').style.display = 'block'
+        document.getElementById('historySearchInput').placeholder = '搜索你的稍后再看'
+        if (currentUser?.isLogin) {
+          document.getElementById('toviewGrid').style.display = 'grid'
+          pageStates.my.toviewPageNum = 1
+          pageStates.my.hasMoreToview = true
+          pageStates.my.isToviewLoading = false
+          loadToview()
+        }
+      } else if (tabName === 'favorites') {
+        document.getElementById('historySearchInput').placeholder = '搜索你的收藏内容'
+      } else if (tabName === 'history') {
+        document.getElementById('historySearchInput').placeholder = '搜索你的历史记录'
       }
     })
   })
+
+  const historySearchInput = document.getElementById('historySearchInput')
+  const historySearchBtn = document.getElementById('historySearchBtn')
+  const searchClearBtn = document.getElementById('searchClearBtn')
+
+  function getCurrentTab() {
+    const activeTab = document.querySelector('.my-tab.active')
+    return activeTab ? activeTab.dataset.tab : 'history'
+  }
+
+  function showClearButton(show) {
+    if (searchClearBtn) {
+      searchClearBtn.style.display = show ? 'flex' : 'none'
+    }
+  }
+
+  function reloadCurrentTab() {
+    const currentTab = getCurrentTab()
+    console.log('Reloading tab:', currentTab)
+
+    if (currentTab === 'history') {
+      pageStates.my.historyCursor = null
+      pageStates.my.hasMoreHistory = true
+      pageStates.my.isHistoryLoading = false
+      loadHistory()
+    } else if (currentTab === 'favorites') {
+      pageStates.my.favoritesPageNum = 1
+      pageStates.my.hasMoreFavorites = true
+      pageStates.my.isFavoritesLoading = false
+      loadFavorites()
+    } else if (currentTab === 'later') {
+      pageStates.my.toviewPageNum = 1
+      pageStates.my.hasMoreToview = true
+      pageStates.my.isToviewLoading = false
+      loadToview()
+    }
+  }
+
+  function performSearch(keyword) {
+    const currentTab = getCurrentTab()
+    console.log('Searching in tab:', currentTab, 'keyword:', keyword)
+
+    if (currentTab === 'history') {
+      searchHistory(keyword)
+    } else if (currentTab === 'favorites') {
+      searchFavorites(keyword)
+    } else if (currentTab === 'later') {
+      searchToview(keyword)
+    }
+
+    if (keyword) {
+      showClearButton(true)
+    }
+  }
+
+  if (historySearchBtn) {
+    historySearchBtn.addEventListener('click', () => {
+      const keyword = historySearchInput.value.trim()
+      if (keyword) {
+        performSearch(keyword)
+      }
+    })
+  }
+
+  if (historySearchInput) {
+    historySearchInput.addEventListener('keyup', (e) => {
+      const keyword = historySearchInput.value.trim()
+      showClearButton(keyword.length > 0)
+      
+      if (e.key === 'Enter') {
+        if (keyword) {
+          performSearch(keyword)
+        }
+      }
+    })
+
+    historySearchInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        e.stopPropagation()
+        historySearchInput.value = ''
+        showClearButton(false)
+        reloadCurrentTab()
+        historySearchInput.blur()
+      }
+    })
+  }
+
+  if (searchClearBtn) {
+    searchClearBtn.addEventListener('click', () => {
+      historySearchInput.value = ''
+      showClearButton(false)
+      reloadCurrentTab()
+    })
+  }
 
   document.getElementById('myLoginBtn')?.addEventListener('click', openLoginModal)
   document.getElementById('myLoginBtn2')?.addEventListener('click', openLoginModal)
@@ -277,17 +442,6 @@ function updateBackButton() {
   }
 }
 
-function loadPageContent(page) {
-  const actions = {
-    home: () => { pageStates.home.pageNum = 1; pageStates.home.hasMore = true; fetchVideos(1, false) },
-    popular: () => { pageStates.popular.pageNum = 1; pageStates.popular.hasMore = true; fetchPopularVideos(1, false) },
-    anime: () => { loadAnimePage() },
-    media: () => { pageStates.media.pageNum = 1; pageStates.media.hasMore = true; fetchMedia(1, false) },
-    my: () => { if (currentUser?.isLogin) loadHistory() }
-  }
-  actions[page]?.()
-}
-
 function fixImageUrl(url) {
   if (!url) return 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 9"></svg>'
   return url.startsWith('//') ? 'https:' + url : url
@@ -373,7 +527,7 @@ function appendVideos(videos, containerId, onAuthorClick) {
 
 function showEmptyMessage(containerId, message) {
   const container = document.getElementById(containerId)
-  if (container) container.innerHTML = `<div style="padding: 40px; text-align: center; color: #999;">${message}</div>`
+  if (container) container.innerHTML = `<div style="padding: 40px; text-align: center; color: #999; max-width: 80%; margin: 0 auto;">${message}</div>`
 }
 
 async function fetchVideos(page = 1, append = false) {
@@ -551,6 +705,7 @@ function renderFollowingCarousel(result) {
   if (!container) return
 
   let list = []
+  console.log('renderFollowingCarousel result:', result)
   if (result && result.success && result.data && result.data.code === 0) {
     if (result.data.data && result.data.data.list && Array.isArray(result.data.data.list)) {
       list = result.data.data.list
@@ -561,6 +716,7 @@ function renderFollowingCarousel(result) {
     }
   }
 
+  console.log('Following list length:', list.length)
   if (list.length === 0) {
     container.innerHTML = `
       <div class="empty-carousel">
@@ -579,7 +735,7 @@ function renderFollowingCarousel(result) {
     const card = document.createElement('div')
     card.className = 'following-card'
     const title = anime.title || anime.season_title || ''
-    const cover = anime.cover || anime.horizontal_pic || ''
+    const cover = anime.cover || ''
     const progress = anime.progress || ''
     const total = anime.total_count || anime.new_ep?.index_show || ''
     const badge = anime.is_finish ? '完结' : '连载'
@@ -870,6 +1026,7 @@ async function handleSearch() {
   const keyword = document.getElementById('searchInput').value.trim()
   if (!keyword) return
 
+  showSearchClearButton(true)
   saveSearchHistory(keyword)
   
   pageStates.search.keyword = keyword
@@ -1206,6 +1363,8 @@ function updateMyPageUI(user) {
     if (logoutBtn) logoutBtn.style.display = 'block'
     document.querySelectorAll('.no-login-area').forEach(area => area.style.display = 'none')
     document.getElementById('historyGrid').style.display = 'grid'
+    document.getElementById('favoritesGrid').style.display = 'grid'
+    document.getElementById('toviewGrid').style.display = 'grid'
   } else {
     loginText.textContent = '点击登录'
     if (myAvatar) myAvatar.innerHTML = `<svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" fill="#f5f5f5"/><circle cx="24" cy="20" r="8" fill="#e0e0e0"/><circle cx="20" cy="18" r="1.5" fill="#999"/><circle cx="28" cy="18" r="1.5" fill="#999"/><path d="M20 26 Q24 30 28 26" stroke="#999" stroke-width="2" fill="none"/></svg>`
@@ -1213,6 +1372,8 @@ function updateMyPageUI(user) {
     if (logoutBtn) logoutBtn.style.display = 'none'
     document.querySelectorAll('.no-login-area').forEach(area => area.style.display = 'flex')
     document.getElementById('historyGrid').style.display = 'none'
+    document.getElementById('favoritesGrid').style.display = 'none'
+    document.getElementById('toviewGrid').style.display = 'none'
   }
 }
 
@@ -1297,9 +1458,22 @@ function stopLoginPoll() {
   ipcRenderer.invoke('stop-login-poll')
 }
 
-async function loadHistory() {
+async function loadHistory(append = false) {
+  const state = pageStates.my
+  
+  if (state.isHistoryLoading) return
+  if (!append) {
+    state.historyCursor = null
+    state.hasMoreHistory = true
+  }
+  if (!state.hasMoreHistory && append) {
+    return
+  }
+
+  state.isHistoryLoading = true
+  
   try {
-    const result = await ipcRenderer.invoke('get-history')
+    const result = await ipcRenderer.invoke('get-history', state.historyCursor)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
         bvid: item.bvid || '',
@@ -1311,32 +1485,265 @@ async function loadHistory() {
         mid: item.authorMid || '',
         owner: item.authorMid ? { mid: item.authorMid, name: item.author || '未知UP主' } : null
       }))
-      if (videos.length > 0) renderVideos(videos, 'historyGrid', navigateToUP)
-      else showEmptyMessage('historyGrid', '暂无观看记录')
+
+      if (videos.length > 0) {
+        if (append) {
+          appendVideos(videos, 'historyGrid', navigateToUP)
+        } else {
+          renderVideos(videos, 'historyGrid', navigateToUP)
+        }
+        state.hasMoreHistory = result.hasMore
+        state.historyCursor = result.nextCursor
+      } else if (!append) {
+        showEmptyMessage('historyGrid', '暂无观看记录')
+      }
     }
   } catch (error) {
     console.error('加载历史记录失败:', error)
+    if (!append) showEmptyMessage('historyGrid', '加载历史记录失败')
+  } finally {
+    state.isHistoryLoading = false
   }
 }
 
-async function loadFavorites() {
+async function searchHistory(keyword) {
   try {
-    const result = await ipcRenderer.invoke('get-favorites')
+    const result = await ipcRenderer.invoke('search-history', keyword)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
         bvid: item.bvid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
         pic: fixImageUrl(item.pic || ''),
-        play: formatPlayCount(item.stat?.view || item.play || 0),
-        duration: formatDuration(item.duration || item.length || 0),
-        author: item.owner?.name || item.author || '未知UP主',
-        owner: item.owner?.mid ? item.owner : { mid: item.mid || '', name: item.author || '未知UP主' }
+        play: '观看过',
+        duration: formatDuration(item.duration || 0),
+        author: item.author || '未知UP主',
+        mid: item.authorMid || '',
+        owner: item.authorMid ? { mid: item.authorMid, name: item.author || '未知UP主' } : null
       }))
-      if (videos.length > 0) renderVideos(videos, 'favoritesGrid', navigateToUP)
-      else showEmptyMessage('favoritesGrid', '暂无收藏内容')
+
+      if (videos.length > 0) {
+        renderVideos(videos, 'historyGrid', navigateToUP)
+      } else {
+        showEmptyMessage('historyGrid', `未找到包含 "${keyword}" 的历史记录`)
+      }
+    } else {
+      showEmptyMessage('historyGrid', `未找到包含 "${keyword}" 的历史记录`)
+    }
+  } catch (error) {
+    console.error('搜索历史记录失败:', error)
+    showEmptyMessage('historyGrid', '搜索失败')
+  }
+}
+
+async function loadBangumi(type = 1) {
+  try {
+    const result = await ipcRenderer.invoke('get-bangumi-follow', type, 1)
+    
+    const content = document.getElementById('bangumi-content')
+    const container = document.getElementById('bangumiGrid')
+    
+    if (!content || !container) {
+      console.error('bangumi elements not found')
+      return
+    }
+    
+    content.style.display = 'block'
+    container.innerHTML = ''
+    container.style.display = 'grid'
+    
+    if (!result.success || !result.data || result.data.length === 0) {
+      container.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">暂无追番内容</div>'
+      return
+    }
+    
+    let html = ''
+    result.data.forEach(item => {
+      const coverUrl = item.cover?.startsWith('//') ? 'https:' + item.cover : (item.cover || '')
+      html += `
+        <div style="background-color: #fff; border-radius: 12px; overflow: hidden; box-shadow: 0 2px 8px rgba(0,0,0,0.06); cursor: pointer; transition: all 0.25s;">
+          <div style="background-image: url(${coverUrl}); height: 146px; background-size: cover; background-position: center; position: relative;">
+            <span style="position: absolute; bottom: 4px; right: 4px; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 3px;">${item.total_count}话</span>
+            ${item.badge ? `<span style="position: absolute; top: 4px; left: 4px; background: #FB7299; color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 3px;">${item.badge}</span>` : ''}
+          </div>
+          <div style="padding: 12px;">
+            <div style="font-size: 14px; font-weight: 500; color: #1a1a1a; line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;">${item.title}</div>
+            <div style="margin-top: 8px; font-size: 12px; color: #999;">
+              <span>${item.is_finish ? '已完结' : '连载中'}</span>
+              ${item.stat?.follow ? `<span style="margin-left: 12px;">${item.stat.follow.toLocaleString()}人追番</span>` : ''}
+            </div>
+          </div>
+        </div>
+      `
+    })
+    
+    container.innerHTML = html
+  } catch (error) {
+    console.error('加载追番失败:', error)
+    const container = document.getElementById('bangumiGrid')
+    if (container) {
+      container.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">加载失败</div>'
+    }
+  }
+}
+
+async function loadFavorites(append = false) {
+  const state = pageStates.my
+  if (state.isFavoritesLoading) return
+  if (!append) {
+    state.favoritesPageNum = 1
+    state.hasMoreFavorites = true
+  }
+  if (!state.hasMoreFavorites && append) {
+    return
+  }
+
+  state.isFavoritesLoading = true
+
+  try {
+    const result = await ipcRenderer.invoke('get-favorites', 166434448, state.favoritesPageNum, 36)
+    if (result.success && result.data) {
+      const videos = result.data.map(item => ({
+        bvid: item.bvid || '',
+        title: (item.title || '').replace(/<[^>]+>/g, ''),
+        pic: fixImageUrl(item.pic || ''),
+        play: formatPlayCount(item.cnt_info?.play || item.play || 0),
+        duration: formatDuration(item.duration || 0),
+        author: item.upper?.name || item.author || '未知UP主',
+        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' }
+      }))
+
+      if (videos.length > 0) {
+        if (append) {
+          appendVideos(videos, 'favoritesGrid', navigateToUP)
+        } else {
+          renderVideos(videos, 'favoritesGrid', navigateToUP)
+        }
+        state.hasMoreFavorites = result.hasMore || false
+        state.favoritesPageNum++
+      } else if (!append) {
+        showEmptyMessage('favoritesGrid', '暂无收藏内容')
+      }
     }
   } catch (error) {
     console.error('加载收藏失败:', error)
+    if (!append) {
+      showEmptyMessage('favoritesGrid', '加载收藏失败')
+    }
+  } finally {
+    state.isFavoritesLoading = false
+  }
+}
+
+async function loadToview(append = false) {
+  const state = pageStates.my
+  if (state.isToviewLoading) return
+  if (!append) {
+    state.toviewPageNum = 1
+    state.hasMoreToview = true
+  }
+  if (!state.hasMoreToview && append) {
+    return
+  }
+
+  state.isToviewLoading = true
+
+  try {
+    const result = await ipcRenderer.invoke('get-toview', state.toviewPageNum, 20)
+    if (result.success && result.data) {
+      const videos = result.data.map(item => ({
+        bvid: item.bvid || '',
+        title: (item.title || '').replace(/<[^>]+>/g, ''),
+        pic: fixImageUrl(item.pic || ''),
+        play: formatPlayCount(item.cnt_info?.view || item.play || 0),
+        duration: formatDuration(item.duration || 0),
+        author: item.upper?.name || item.author || '未知UP主',
+        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' },
+        progress: item.progress || 0
+      }))
+
+      if (videos.length > 0) {
+        if (append) {
+          appendVideos(videos, 'toviewGrid', navigateToUP)
+        } else {
+          renderVideos(videos, 'toviewGrid', navigateToUP)
+        }
+        state.hasMoreToview = result.hasMore || false
+        state.toviewPageNum++
+      } else if (!append) {
+        showEmptyMessage('toviewGrid', '暂无稍后再看内容')
+      }
+    }
+  } catch (error) {
+    console.error('加载稍后再看失败:', error)
+    if (!append) {
+      showEmptyMessage('toviewGrid', '加载稍后再看失败')
+    }
+  } finally {
+    state.isToviewLoading = false
+  }
+}
+
+async function searchFavorites(keyword) {
+  try {
+    const result = await ipcRenderer.invoke('get-favorites', 166434448, 1, 36, keyword)
+    if (result.success && result.data) {
+      const videos = result.data.map(item => ({
+        bvid: item.bvid || '',
+        title: (item.title || '').replace(/<[^>]+>/g, ''),
+        pic: fixImageUrl(item.pic || ''),
+        play: formatPlayCount(item.cnt_info?.play || item.play || 0),
+        duration: formatDuration(item.duration || 0),
+        author: item.upper?.name || item.author || '未知UP主',
+        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' }
+      }))
+
+      if (videos.length > 0) {
+        renderVideos(videos, 'favoritesGrid', navigateToUP)
+      } else {
+        showEmptyMessage('favoritesGrid', `未找到包含 "${keyword}" 的收藏内容`)
+      }
+    } else {
+      showEmptyMessage('favoritesGrid', `未找到包含 "${keyword}" 的收藏内容`)
+    }
+  } catch (error) {
+    console.error('搜索收藏失败:', error)
+    showEmptyMessage('favoritesGrid', '搜索失败')
+  }
+}
+
+async function searchToview(keyword) {
+  try {
+    const result = await ipcRenderer.invoke('get-toview', 1, 20)
+    if (result.success && result.data) {
+      const filteredData = result.data.filter(item => {
+        const title = (item.title || '').toLowerCase()
+        const author = (item.author || item.upper?.name || '').toLowerCase()
+        const kw = keyword.toLowerCase()
+        return title.includes(kw) || author.includes(kw)
+      })
+
+      const videos = filteredData.map(item => ({
+        bvid: item.bvid || '',
+        title: (item.title || '').replace(/<[^>]+>/g, ''),
+        pic: fixImageUrl(item.pic || ''),
+        play: formatPlayCount(item.cnt_info?.view || item.play || 0),
+        duration: formatDuration(item.duration || 0),
+        author: item.upper?.name || item.author || '未知UP主',
+        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' },
+        progress: item.progress || 0
+      }))
+
+      if (videos.length > 0) {
+        renderVideos(videos, 'toviewGrid', navigateToUP)
+      } else {
+        showEmptyMessage('toviewGrid', `未找到包含 "${keyword}" 的稍后再看内容`)
+      }
+    } else {
+      showEmptyMessage('toviewGrid', `未找到包含 "${keyword}" 的稍后再看内容`)
+    }
+  } catch (error) {
+    console.error('搜索稍后再看失败:', error)
+    showEmptyMessage('toviewGrid', '搜索失败')
   }
 }
 
@@ -1346,7 +1753,63 @@ function handleScroll() {
 
   const { scrollTop, scrollHeight, clientHeight } = content
 
-  if (currentPage === 'up') {
+  if (currentPage === 'my') {
+    const myTabs = document.querySelector('.my-tabs')
+    const state = pageStates.my
+    
+    if (myTabs) {
+      if (state.tabsOriginalOffset === null) {
+        state.tabsOriginalOffset = myTabs.offsetTop
+        state.tabsHeight = myTabs.offsetHeight
+      }
+      
+      const tabsOffsetTop = state.tabsOriginalOffset
+      
+      if (scrollTop >= tabsOffsetTop - 64) {
+        if (!myTabs.classList.contains('sticky')) {
+          myTabs.classList.add('sticky')
+          
+          const placeholder = document.createElement('div')
+          placeholder.className = 'my-tabs-placeholder'
+          placeholder.style.height = state.tabsHeight + 'px'
+          myTabs.parentNode.insertBefore(placeholder, myTabs.nextSibling)
+        }
+      } else {
+        if (myTabs.classList.contains('sticky')) {
+          myTabs.classList.remove('sticky')
+          
+          const placeholder = document.querySelector('.my-tabs-placeholder')
+          if (placeholder) {
+            placeholder.remove()
+          }
+        }
+      }
+    }
+
+    const historyTab = document.querySelector('.my-tab.active[data-tab="history"]')
+    if (historyTab && scrollTop + clientHeight >= scrollHeight - 300) {
+      if (!state.isHistoryLoading && state.hasMoreHistory) {
+        console.log('触发加载更多历史记录')
+        loadHistory(true)
+      }
+    }
+
+    const favoritesTab = document.querySelector('.my-tab.active[data-tab="favorites"]')
+    if (favoritesTab && scrollTop + clientHeight >= scrollHeight - 300) {
+      if (!state.isFavoritesLoading && state.hasMoreFavorites) {
+        console.log('触发加载更多收藏')
+        loadFavorites(true)
+      }
+    }
+
+    const toviewTab = document.querySelector('.my-tab.active[data-tab="later"]')
+    if (toviewTab && scrollTop + clientHeight >= scrollHeight - 300) {
+      if (!state.isToviewLoading && state.hasMoreToview) {
+        console.log('触发加载更多稍后再看')
+        loadToview(true)
+      }
+    }
+  } else if (currentPage === 'up') {
     console.log('UP主页面滚动:', { scrollTop, scrollHeight, clientHeight, currentPage, pageStates: pageStates.up })
     if (scrollTop + clientHeight >= scrollHeight && !pageStates.up.loading && !pageStates.up.scrollLocked && pageStates.up.hasMore) {
       pageStates.up.scrollLocked = true
@@ -1366,7 +1829,7 @@ function handleScroll() {
 
       const current = states[currentPage]
       if (current && !current.state.loading && current.state.hasMore) {
-        console.log(`Scroll triggered: loading page ${current.state.pageNum + 1}`)
+        console.log(`Scroll triggered: loading page ${current.pageNum + 1}`)
         current.state.pageNum++
         current.action(current.state.pageNum)
       }

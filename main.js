@@ -660,26 +660,37 @@ ipcMain.handle('fetch-following-anime', async (event) => {
   try {
     const navUrl = `https://api.bilibili.com/x/web-interface/nav?${Date.now()}`
     const navResult = await fetchApi(navUrl)
-    
+
     if (navResult.code !== 0 || !navResult.data?.mid) {
       log('获取用户信息失败')
       return { success: false, error: '获取用户信息失败' }
     }
-    
+
     const mid = navResult.data.mid
     const timestamp = Math.floor(Date.now() / 1000)
     const w_rid = generateWRid()
     const endpoint = `https://api.bilibili.com/x/space/bangumi/follow/list?vmid=${mid}&type=1&pn=1&ps=10&playform=web&follow_status=0&web_location=333.1387&w_rid=${w_rid}&wts=${timestamp}`
     log('Using following anime endpoint:', endpoint)
-    
     const result = await fetchApi(endpoint)
     log('Following anime API result code:', result.code)
+    if (result.code === 0 && result.data && result.data.list) {
+      log('Following anime list length:', result.data.list.length)
+    }
     return { success: true, data: result }
   } catch (error) {
     log('Following anime API错误:', error.message)
     return { success: false, error: error.message }
   }
 })
+
+function generateWRid() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+  let result = ''
+  for (let i = 0; i < 32; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return result
+}
 
 function generateWRid() {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
@@ -1386,6 +1397,54 @@ ipcMain.handle('get-history', async (event, cursor = null) => {
   }
 })
 
+ipcMain.handle('search-history', async (event, keyword) => {
+  log('search-history called, keyword:', keyword)
+  try {
+    const url = `https://api.bilibili.com/x/web-interface/history/search?pn=1&keyword=${encodeURIComponent(keyword)}&business=all&add_time_start=0&add_time_end=0&arc_max_duration=0&arc_min_duration=0&device_type=0&web_location=333.1391`
+    log('History search API URL:', url)
+    const result = await fetchApi(url)
+    log('History search result code:', result.code)
+
+    if (result.code === 0 && result.data && result.data.list) {
+      const list = result.data.list || []
+      log('History search list count:', list.length)
+
+      return {
+        success: true,
+        data: list.map(item => {
+          let bvid = item.bvid || ''
+          if (!bvid && item.uri) {
+            const match = item.uri.match(/BV[\w]+/)
+            if (match) bvid = match[0]
+          }
+
+          return {
+            bvid: bvid,
+            title: item.title || item.long_title || '',
+            pic: item.cover || '',
+            duration: item.duration || 0,
+            author: item.author_name || '',
+            authorMid: item.author_mid || '',
+            authorFace: item.author_face || '',
+            viewAt: item.view_at || 0,
+            progress: item.progress || 0,
+            isFinish: item.is_finish || false,
+            historyTime: formatHistoryTime(item.view_at)
+          }
+        }),
+        hasMore: result.data.page?.has_more || false,
+        nextPage: result.data.page?.pn ? result.data.page.pn + 1 : null
+      }
+    } else {
+      log('History search API error:', result.message || 'Unknown error')
+      return { success: false, error: result.message || '搜索历史记录失败' }
+    }
+  } catch (error) {
+    log('Error searching history:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
 function formatHistoryTime(timestamp) {
   if (!timestamp) return '刚刚'
   
@@ -1401,30 +1460,136 @@ function formatHistoryTime(timestamp) {
   return `${date.getMonth() + 1}月${date.getDate()}日`
 }
 
-ipcMain.handle('get-favorites', async () => {
-  log('get-favorites called')
+ipcMain.handle('get-favorites', async (event, mediaId = 166434448, pageNum = 1, pageSize = 36, keyword = '') => {
+  log('get-favorites called, mediaId:', mediaId, 'pageNum:', pageNum, 'pageSize:', pageSize, 'keyword:', keyword)
   try {
-    const url = `https://api.bilibili.com/x/v3/fav/resource/list?media_id=0&pn=1&ps=20&platform=web`
+    const url = `https://api.bilibili.com/x/v3/fav/resource/list?media_id=${mediaId}&pn=${pageNum}&ps=${pageSize}&keyword=${encodeURIComponent(keyword)}&order=mtime&type=0&tid=0&platform=web&web_location=333.1387`
+    log('Favorites API URL:', url)
     const result = await fetchApi(url)
     log('Favorites result code:', result.code)
-    
+
     if (result.code === 0 && result.data && result.data.medias) {
+      const medias = result.data.medias || []
+      log('Favorites medias count:', medias.length)
+
+      if (medias.length > 0) {
+        log('First favorite title:', medias[0].title)
+        log('First favorite bvid:', medias[0].bvid || medias[0].bv_id)
+        log('First favorite upper:', JSON.stringify(medias[0].upper))
+        log('First favorite cnt_info:', JSON.stringify(medias[0].cnt_info))
+      }
+
       return {
         success: true,
-        data: result.data.medias.map(item => ({
-          bvid: item.bvid || '',
+        data: medias.map(item => ({
+          bvid: item.bvid || item.bv_id || '',
           title: item.title || '',
           pic: item.cover || '',
           duration: item.duration || 0,
-          owner: item.upper || null,
-          stat: item.cnt || null
-        }))
+          upper: item.upper || null,
+          cnt_info: item.cnt_info || null,
+          page: item.page || 1,
+          intro: item.intro || '',
+          ctime: item.ctime || 0,
+          pubtime: item.pubtime || 0,
+          fav_time: item.fav_time || 0,
+          media_id: item.id || mediaId
+        })),
+        hasMore: result.data.has_more || false,
+        nextPage: result.data.has_more ? pageNum + 1 : null,
+        mediaInfo: result.data.info || null
       }
     } else {
-      return { success: false, error: '获取收藏失败' }
+      log('Favorites API error:', result.message || 'Unknown error')
+      return { success: false, error: result.message || '获取收藏失败' }
     }
   } catch (error) {
     log('Error getting favorites:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('get-toview', async (event, pageNum = 1, pageSize = 20) => {
+  log('get-toview called, pageNum:', pageNum, 'pageSize:', pageSize)
+  try {
+    const url = `https://api.bilibili.com/x/v2/history/toview/web?pn=${pageNum}&ps=${pageSize}&viewed=0&key=&asc=false&need_split=true&web_location=333.881&w_rid=6c58fd1f8eb22fe808f98d244cc81cfd&wts=1777995347`
+    log('ToView API URL:', url)
+    const result = await fetchApi(url)
+    log('ToView result code:', result.code)
+
+    if (result.code === 0 && result.data) {
+      const items = result.data.list || result.data || []
+      log('ToView items count:', items.length)
+
+      if (items.length > 0) {
+        log('First toview title:', items[0].title)
+        log('First toview bvid:', items[0].bvid)
+      }
+
+      return {
+        success: true,
+        data: items.map(item => ({
+          bvid: item.bvid || '',
+          title: item.title || '',
+          pic: item.pic || item.cover || '',
+          duration: item.duration || item.length || 0,
+          upper: item.owner || item.upper || null,
+          cnt_info: item.stat || item.cnt_info || null,
+          progress: item.progress || 0,
+          view_at: item.view_at || 0,
+          part: item.part || ''
+        })),
+        hasMore: result.data.has_more || (items.length >= pageSize),
+        nextPage: result.data.has_more ? pageNum + 1 : null,
+        total: result.data.total || items.length
+      }
+    } else {
+      log('ToView API error:', result.message || 'Unknown error')
+      return { success: false, error: result.message || '获取稍后再看失败' }
+    }
+  } catch (error) {
+    log('Error getting toview:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('get-bangumi-follow', async (event, type = 1, pageNum = 1) => {
+  log('get-bangumi-follow called, type:', type, 'page:', pageNum)
+  try {
+    const vmid = savedCookies.DedeUserID || 320634848
+    const url = `https://api.bilibili.com/x/space/bangumi/follow/list?vmid=${vmid}&type=${type}&pn=${pageNum}&ps=24&platform=web&follow_status=0`
+    const result = await fetchApi(url)
+    log('Bangumi follow result code:', result.code)
+    log('Bangumi follow result data:', result.data ? 'exists' : 'null')
+    log('Bangumi follow result data.list:', result.data?.list ? 'exists, length: ' + result.data.list.length : 'null or undefined')
+    
+    if (result.code === 0 && result.data && result.data.list) {
+      log('Success: returning bangumi list with', result.data.list.length, 'items')
+      return {
+        success: true,
+        data: result.data.list.map(item => ({
+          season_id: item.season_id || 0,
+          media_id: item.media_id || 0,
+          title: item.title || '',
+          cover: item.cover || '',
+          total_count: item.total_count || 0,
+          is_finish: item.is_finish || 0,
+          is_started: item.is_started || 0,
+          badge: item.badge || '',
+          stat: item.stat || null,
+          new_ep: item.new_ep || null,
+          season_status: item.season_status || 0,
+          url: item.url || '',
+          short_url: item.short_url || ''
+        })),
+        hasMore: result.data.list.length >= 24
+      }
+    } else {
+      log('Failed: bangumi list not available')
+      return { success: false, error: '获取追番失败' }
+    }
+  } catch (error) {
+    log('Error getting bangumi follow:', error.message)
     return { success: false, error: error.message }
   }
 })
