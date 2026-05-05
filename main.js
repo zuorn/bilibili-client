@@ -655,6 +655,140 @@ ipcMain.handle('fetch-anime', async (event, page = 1) => {
   }
 })
 
+ipcMain.handle('fetch-following-anime', async (event) => {
+  log('fetch-following-anime called')
+  try {
+    const navUrl = `https://api.bilibili.com/x/web-interface/nav?${Date.now()}`
+    const navResult = await fetchApi(navUrl)
+    
+    if (navResult.code !== 0 || !navResult.data?.mid) {
+      log('获取用户信息失败')
+      return { success: false, error: '获取用户信息失败' }
+    }
+    
+    const mid = navResult.data.mid
+    const timestamp = Math.floor(Date.now() / 1000)
+    const w_rid = generateWRid()
+    const endpoint = `https://api.bilibili.com/x/space/bangumi/follow/list?vmid=${mid}&type=1&pn=1&ps=10&playform=web&follow_status=0&web_location=333.1387&w_rid=${w_rid}&wts=${timestamp}`
+    log('Using following anime endpoint:', endpoint)
+    
+    const result = await fetchApi(endpoint)
+    log('Following anime API result code:', result.code)
+    return { success: true, data: result }
+  } catch (error) {
+    log('Following anime API错误:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+function generateWRid() {
+  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
+  let result = ''
+  for (let i = 0; i < 32; i++) {
+    result += chars.charAt(Math.floor(Math.random() * chars.length))
+  }
+  return result
+}
+
+ipcMain.handle('fetch-anime-recommend', async (event, seasonType = 1) => {
+  log('fetch-anime-recommend called, seasonType:', seasonType)
+  try {
+    const endpoint = `https://api.bilibili.com/pgc/season/index/result?season_type=${seasonType}&type=1&page=1&pagesize=20&order=0&sort=0`
+    log('Using anime recommend endpoint:', endpoint)
+    const result = await fetchWithRetry(endpoint)
+    if (result && result.success) {
+      log('Anime recommend API成功, code:', result.data.code)
+      log('Anime recommend API data:', JSON.stringify(result.data).substring(0, 1000))
+      return { success: true, data: result.data }
+    }
+    log('Anime recommend API失败, result:', result)
+    return { success: false, error: '获取推荐失败' }
+  } catch (error) {
+    log('Anime recommend API错误:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('fetch-guess-like', async (event) => {
+  log('fetch-guess-like called')
+  try {
+    const endpoint = 'https://api.bilibili.com/pgc/page/web/v3?name=anime'
+    log('Using guess like endpoint:', endpoint)
+    const result = await fetchWithRetry(endpoint)
+    if (result && result.success) {
+      log('Guess like API成功, code:', result.data.code)
+      log('Guess like API data:', JSON.stringify(result.data).substring(0, 1500))
+      return { success: true, data: result.data }
+    }
+    log('Guess like API失败, result:', result)
+    return { success: false, error: '获取猜你喜欢失败' }
+  } catch (error) {
+    log('Guess like API错误:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('fetch-hot-search', async (event) => {
+  log('fetch-hot-search called')
+  try {
+    const endpoint = 'https://api.bilibili.com/x/web-interface/wbi/search/square?limit=10&platform=web&web_location=333.1365&w_rid=33c27013429cc439349b6d7f3523bbb8&wts=1777972362'
+    log('Using hot search endpoint:', endpoint)
+    const result = await fetchWithRetry(endpoint)
+    
+    if (result && result.success && result.data) {
+      const apiData = result.data
+      if (apiData.code === 0 && apiData.data && apiData.data.trending && apiData.data.trending.list) {
+        const hotList = apiData.data.trending.list.map(item => ({
+          keyword: item.keyword || item.show_name || '',
+          title: item.show_name || item.keyword || '',
+          tag: getHotTagFromData(item)
+        }))
+        log('Hot search API成功, items count:', hotList.length)
+        return { success: true, data: { list: hotList } }
+      } else if (apiData.trending && apiData.trending.list) {
+        const hotList = apiData.trending.list.map(item => ({
+          keyword: item.keyword || item.show_name || '',
+          title: item.show_name || item.keyword || '',
+          tag: getHotTagFromData(item)
+        }))
+        log('Hot search API成功(备用格式), items count:', hotList.length)
+        return { success: true, data: { list: hotList } }
+      }
+    }
+    
+    log('热搜API返回数据格式不正确')
+    return { success: false, error: '数据格式不正确' }
+    
+  } catch (error) {
+    log('Hot search API错误:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+function getHotTagFromData(item) {
+  const showName = item.show_name || ''
+  if (showName.includes('新') || showName.includes('回归')) return '新'
+  if (showName.includes('独家')) return '独家'
+  if (showName.includes('番') || showName.includes('动画')) return 'bangumi'
+  if (showName.includes('视频') || showName.includes('直播')) return 'video'
+  return ''
+}
+
+function getMockHotSearchData() {
+  return [
+    { keyword: 'COA', title: 'MRC vs TE COA9冠军争夺战', tag: '新' },
+    { keyword: '烽火联赛春季赛', title: '烽火联赛春季赛季后赛', tag: '新' },
+    { keyword: '打雷霆詹姆斯还有奇迹吗', title: '打雷霆詹姆斯还有奇迹吗', tag: '' },
+    { keyword: '纪录片', title: '3000+纪录片限免倒计时3天', tag: '新' },
+    { keyword: 'UP主优化DeepSeek V4', title: 'UP主优化DeepSeek V4', tag: '' },
+    { keyword: '浏阳烟花厂爆炸', title: '浏阳烟花厂爆炸事故已致26死', tag: '' },
+    { keyword: '新华社记者直击浏阳爆炸事故现场', title: '新华社记者直击浏阳爆炸事故现场', tag: '' },
+    { keyword: '非人哉第三季', title: '非人哉第三季回归', tag: 'bangumi' },
+    { keyword: '司雯嘉谈王心凌俞灏明争议', title: '司雯嘉谈王心凌俞灏明争议', tag: '' },
+    { keyword: '寒战1994隐喻全拆解', title: '寒战1994隐喻全拆解', tag: '' }
+  ]
+}
+
 ipcMain.handle('fetch-media', async (event, seasonType = 2, page = 1) => {
   log('fetch-media called, seasonType:', seasonType, 'page:', page)
   try {
@@ -1351,7 +1485,7 @@ ipcMain.handle('logout', async () => {
 })
 
 ipcMain.handle('open-dev-tools', () => {
-  mainWindow.webContents.openDevTools()
+  mainWindow.webContents.openDevTools({ mode: 'detach' })
   return { success: true }
 })
 

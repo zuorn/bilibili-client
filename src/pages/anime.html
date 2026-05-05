@@ -22,7 +22,7 @@
       <div class="nav-links">
         <a href="#" class="nav-link">推荐</a>
         <a href="#" class="nav-link">热门</a>
-        <a href="#" class="nav-link">追番</a>
+        <a href="#" class="nav-link active">追番</a>
         <a href="#" class="nav-link">影视</a>
       </div>
     </div>
@@ -62,7 +62,8 @@
       <div class="sidebar-item" data-page="home">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
-          <polyline points="9 22 9 12 15 12 15 22"/>
+          <polyline points="12 18 12 10"/>
+          <polyline points="8 14 12 10 16 14"/>
         </svg>
         <span>首页</span>
       </div>
@@ -74,7 +75,7 @@
         </svg>
         <span>热门</span>
       </div>
-      <div class="sidebar-item" data-page="anime">
+      <div class="sidebar-item active" data-page="anime">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="2" y="2" width="20" height="20" rx="2.18" ry="2.18"/>
           <line x1="7" y1="2" x2="7" y2="22"/>
@@ -97,10 +98,43 @@
     </aside>
 
     <main class="content">
-      <div class="page-header">
-        <h2>追番</h2>
+      <div class="anime-section" id="followingSection">
+        <div class="section-header">
+          <h3>我的追番</h3>
+          <a href="#" class="section-more" id="viewAllFollowing">我的追番 &gt;</a>
+        </div>
+        <div class="anime-carousel" id="followingCarousel"></div>
       </div>
-      <div class="anime-grid" id="animeGrid"></div>
+
+      <div class="anime-section" id="bangumiRecommendSection">
+        <div class="section-header">
+          <h3>番剧推荐</h3>
+          <a href="#" class="section-more" id="viewAllBangumi">查看全部 &gt;</a>
+        </div>
+        <div class="anime-grid" id="bangumiGrid"></div>
+      </div>
+
+      <div class="anime-section" id="guochuangRecommendSection">
+        <div class="section-header">
+          <h3>国创推荐</h3>
+          <a href="#" class="section-more" id="viewAllGuochuang">查看全部 &gt;</a>
+        </div>
+        <div class="anime-grid" id="guochuangGrid"></div>
+      </div>
+
+      <div class="anime-section" id="guessYouLikeSection">
+        <div class="section-header">
+          <h3>猜你喜欢</h3>
+          <button class="refresh-btn" id="refreshLike">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="23 4 23 10 17 10"/>
+              <polyline points="1 20 1 14 7 14"/>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+            </svg>
+          </button>
+        </div>
+        <div class="anime-grid" id="likeGrid"></div>
+      </div>
     </main>
   </div>
 

@@ -1,7 +1,11 @@
 /node_modules
 /dist
 /debug.log
+/docs/api.md
+
+
 
 ./debug.log
 ./dist
 ./node_modules
+./docs/api.md

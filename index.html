@@ -36,6 +36,21 @@
           </svg>
         </button>
       </div>
+      <div class="search-dropdown" id="searchDropdown">
+        <div class="search-history">
+          <div class="dropdown-header">
+            <span class="dropdown-title">搜索历史</span>
+            <button class="clear-history-btn" id="clearHistoryBtn">清空</button>
+          </div>
+          <div class="history-tags" id="historyTags"></div>
+        </div>
+        <div class="hot-search">
+          <div class="dropdown-header">
+            <span class="dropdown-title">热搜</span>
+          </div>
+          <div class="hot-list" id="hotList"></div>
+        </div>
+      </div>
       <div class="window-controls">
         <button class="window-control-btn" id="minBtn">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -133,7 +148,43 @@
 
       <!-- 追番页 -->
       <div class="page-content" id="page-anime">
-        <div class="video-grid" id="animeGrid"></div>
+        <div class="anime-section" id="followingSection">
+          <div class="section-header">
+            <h3>我的追番</h3>
+            <a href="#" class="section-more" id="viewAllFollowing">我的追番 &gt;</a>
+          </div>
+          <div class="anime-carousel" id="followingCarousel"></div>
+        </div>
+
+        <div class="anime-section" id="bangumiRecommendSection">
+          <div class="section-header">
+            <h3>番剧推荐</h3>
+            <a href="#" class="section-more" id="viewAllBangumi">查看全部 &gt;</a>
+          </div>
+          <div class="anime-grid" id="bangumiGrid"></div>
+        </div>
+
+        <div class="anime-section" id="guochuangRecommendSection">
+          <div class="section-header">
+            <h3>国创推荐</h3>
+            <a href="#" class="section-more" id="viewAllGuochuang">查看全部 &gt;</a>
+          </div>
+          <div class="anime-grid" id="guochuangGrid"></div>
+        </div>
+
+        <div class="anime-section" id="guessYouLikeSection">
+          <div class="section-header">
+            <h3>猜你喜欢</h3>
+            <button class="refresh-btn" id="refreshLike">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="23 4 23 10 17 10"/>
+                <polyline points="1 20 1 14 7 14"/>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/>
+              </svg>
+            </button>
+          </div>
+          <div class="anime-grid" id="likeGrid"></div>
+        </div>
       </div>
 
       <!-- 影视页 -->

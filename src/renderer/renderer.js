@@ -76,8 +76,71 @@ function initEventListeners() {
 
   document.getElementById('sidebarUserAvatar').addEventListener('click', () => navigateToPage('my'))
   document.getElementById('sidebarBackBtn').addEventListener('click', goBack)
-  document.getElementById('searchBtn').addEventListener('click', handleSearch)
-  document.getElementById('searchInput').addEventListener('keypress', e => e.key === 'Enter' && handleSearch())
+  document.getElementById('searchBtn').addEventListener('click', e => {
+    e.stopPropagation()
+    e.preventDefault()
+    
+    const searchInput = document.getElementById('searchInput')
+    const header = document.querySelector('.header')
+    
+    if (header) {
+      header.classList.remove('search-focused')
+      header.dataset.historyLoaded = ''
+    }
+    
+    if (searchInput) {
+      searchInput.blur()
+      document.activeElement?.blur?.()
+    }
+    
+    setTimeout(() => {
+      const input = document.getElementById('searchInput')
+      if (input) {
+        input.blur()
+      }
+      document.activeElement?.blur?.()
+    }, 0)
+    
+    handleSearch()
+  })
+  document.getElementById('searchInput').addEventListener('keydown', handleSearchOnEnter)
+  
+  const searchInput = document.getElementById('searchInput')
+  if (searchInput) {
+    searchInput.addEventListener('focus', e => {
+      e.stopPropagation()
+      handleSearchFocus()
+    })
+    
+    searchInput.addEventListener('blur', e => {
+      e.stopPropagation()
+      handleSearchBlur()
+    })
+    
+    searchInput.addEventListener('click', e => {
+      e.stopPropagation()
+      const target = e.target
+      const searchBtn = document.getElementById('searchBtn')
+      if (searchBtn && !searchBtn.contains(target)) {
+        handleSearchFocus()
+      }
+    })
+  }
+  
+  document.getElementById('clearHistoryBtn').addEventListener('click', clearSearchHistory)
+  
+  const searchDropdown = document.getElementById('searchDropdown')
+  if (searchDropdown) {
+    searchDropdown.addEventListener('click', e => {
+      e.stopPropagation()
+      const searchInput = document.getElementById('searchInput')
+      if (searchInput) {
+        searchInput.focus()
+      }
+    })
+  }
+  
+
 
   document.getElementById('loginCloseBtn').addEventListener('click', () => {
     stopLoginPoll()
@@ -145,6 +208,7 @@ function initEventListeners() {
 }
 
 function navigateToPage(page) {
+  console.log('navigateToPage called with:', page)
   pageHistory.push(currentPage)
   if (pageHistory.length > 50) pageHistory.shift()
   
@@ -217,7 +281,7 @@ function loadPageContent(page) {
   const actions = {
     home: () => { pageStates.home.pageNum = 1; pageStates.home.hasMore = true; fetchVideos(1, false) },
     popular: () => { pageStates.popular.pageNum = 1; pageStates.popular.hasMore = true; fetchPopularVideos(1, false) },
-    anime: () => { pageStates.anime.pageNum = 1; pageStates.anime.hasMore = true; fetchAnime(1, false) },
+    anime: () => { loadAnimePage() },
     media: () => { pageStates.media.pageNum = 1; pageStates.media.hasMore = true; fetchMedia(1, false) },
     my: () => { if (currentUser?.isLogin) loadHistory() }
   }
@@ -449,6 +513,167 @@ async function fetchAnime(page = 1, append = false) {
   state.loading = false
 }
 
+async function loadAnimePage() {
+  console.log('loadAnimePage called')
+  try {
+    const [followingResult, bangumiResult, guochuangResult, likeResult] = await Promise.all([
+      ipcRenderer.invoke('fetch-following-anime'),
+      ipcRenderer.invoke('fetch-anime-recommend', 1),
+      ipcRenderer.invoke('fetch-anime-recommend', 4),
+      ipcRenderer.invoke('fetch-guess-like')
+    ])
+
+    console.log('bangumiResult:', bangumiResult)
+    console.log('guochuangResult:', guochuangResult)
+
+    renderFollowingCarousel(followingResult)
+    renderAnimeGrid(bangumiResult, 'bangumiGrid')
+    renderAnimeGrid(guochuangResult, 'guochuangGrid')
+    renderAnimeGrid(likeResult, 'likeGrid')
+
+    const refreshBtn = document.getElementById('refreshLike')
+    if (refreshBtn) {
+      refreshBtn.onclick = () => {
+        refreshBtn.classList.add('refreshing')
+        ipcRenderer.invoke('fetch-guess-like').then(result => {
+          renderAnimeGrid(result, 'likeGrid')
+          setTimeout(() => refreshBtn.classList.remove('refreshing'), 500)
+        })
+      }
+    }
+  } catch (error) {
+    console.error('加载追番页面失败:', error)
+  }
+}
+
+function renderFollowingCarousel(result) {
+  const container = document.getElementById('followingCarousel')
+  if (!container) return
+
+  let list = []
+  if (result && result.success && result.data && result.data.code === 0) {
+    if (result.data.data && result.data.data.list && Array.isArray(result.data.data.list)) {
+      list = result.data.data.list
+    } else if (result.data.list && Array.isArray(result.data.list)) {
+      list = result.data.list
+    } else if (result.data.result && Array.isArray(result.data.result)) {
+      list = result.data.result
+    }
+  }
+
+  if (list.length === 0) {
+    container.innerHTML = `
+      <div class="empty-carousel">
+        <p>暂无追番内容</p>
+        <p class="empty-hint">快去追番吧~</p>
+      </div>
+    `
+    return
+  }
+
+  container.innerHTML = ''
+  const scrollContainer = document.createElement('div')
+  scrollContainer.className = 'carousel-scroll'
+
+  list.forEach(anime => {
+    const card = document.createElement('div')
+    card.className = 'following-card'
+    const title = anime.title || anime.season_title || ''
+    const cover = anime.cover || anime.horizontal_pic || ''
+    const progress = anime.progress || ''
+    const total = anime.total_count || anime.new_ep?.index_show || ''
+    const badge = anime.is_finish ? '完结' : '连载'
+
+    card.innerHTML = `
+      <div class="following-cover">
+        <img src="${fixImageUrl(cover)}" alt="${title}" loading="lazy">
+        ${badge ? `<span class="badge ${badge === '完结' ? 'badge-new' : 'badge-update'}">${badge}</span>` : ''}
+        <div class="cover-mask"></div>
+      </div>
+      <div class="following-info">
+        <h4 class="following-title">${title}</h4>
+        <p class="following-progress">${progress ? `看到第${progress}话` : '尚未观看'}</p>
+        <span class="following-total">${total}</span>
+      </div>
+    `
+    card.addEventListener('click', () => {
+      const seasonId = anime.season_id || anime.ss_id || anime.media_id
+      if (seasonId) {
+        ipcRenderer.invoke('open-anime-detail', seasonId)
+      }
+    })
+    scrollContainer.appendChild(card)
+  })
+
+  container.appendChild(scrollContainer)
+}
+
+function renderAnimeGrid(result, containerId) {
+  const container = document.getElementById(containerId)
+  if (!container) return
+
+  let list = []
+  if (result && result.success && result.data) {
+    if (result.data.code === 0) {
+      if (result.data.data && result.data.data.modules && Array.isArray(result.data.data.modules)) {
+        const moduleWithItems = result.data.data.modules.find(m => m.items && Array.isArray(m.items))
+        if (moduleWithItems) {
+          list = moduleWithItems.items.slice(0, 6)
+        }
+      } else if (result.data.data && result.data.data.list && Array.isArray(result.data.data.list)) {
+        list = result.data.data.list.slice(0, 7)
+      } else if (result.data.list && Array.isArray(result.data.list)) {
+        list = result.data.list.slice(0, 7)
+      } else if (result.data.result && Array.isArray(result.data.result)) {
+        list = result.data.result.slice(0, 7)
+      } else if (Array.isArray(result.data.data)) {
+        list = result.data.data.slice(0, 7)
+      }
+    } else if (result.data.code === undefined) {
+      if (result.data.list && Array.isArray(result.data.list)) {
+        list = result.data.list.slice(0, 7)
+      } else if (result.data.items && Array.isArray(result.data.items)) {
+        list = result.data.items.slice(0, 7)
+      }
+    }
+  }
+
+  if (list.length === 0) {
+    container.innerHTML = `<div class="empty-grid">暂无内容</div>`
+    return
+  }
+
+  container.innerHTML = ''
+  list.forEach(anime => {
+    const card = document.createElement('div')
+    card.className = 'anime-card'
+    const title = anime.title || anime.season_title || ''
+    const cover = anime.cover || anime.horizontal_pic || anime.big_cover || ''
+    const score = anime.score || anime.rating || ''
+    const episode = anime.new_ep?.index_show || anime.pub_info || (anime.hover?.text && anime.hover.text.length > 0 ? anime.hover.text[anime.hover.text.length - 1] : '')
+    const badge = anime.is_finish ? '完结' : '连载'
+
+    card.innerHTML = `
+      <div class="anime-cover">
+        <img src="${fixImageUrl(cover)}" alt="${title}" loading="lazy">
+        <span class="anime-badge">${badge}</span>
+        ${score ? `<span class="anime-score">${score}</span>` : ''}
+      </div>
+      <div class="anime-info">
+        <h4 class="anime-title">${title}</h4>
+        <p class="anime-episode">${episode}</p>
+      </div>
+    `
+    card.addEventListener('click', () => {
+      const seasonId = anime.season_id || anime.ss_id || anime.media_id
+      if (seasonId) {
+        ipcRenderer.invoke('open-anime-detail', seasonId)
+      }
+    })
+    container.appendChild(card)
+  })
+}
+
 async function fetchMedia(page = 1, append = false) {
   const state = pageStates.media
   if (state.loading) return
@@ -494,13 +719,175 @@ async function fetchMedia(page = 1, append = false) {
   state.loading = false
 }
 
+function handleSearchFocus() {
+  const header = document.querySelector('.header')
+  
+  if (!header) return
+  
+  // 强制添加类，立即生效
+  header.classList.add('search-focused')
+  
+  // 检查是否已经加载过数据
+  if (!header.dataset.historyLoaded) {
+    loadSearchHistory()
+    loadHotSearch()
+    header.dataset.historyLoaded = 'true'
+  }
+}
+
+function handleSearchBlur() {
+  setTimeout(() => {
+    const header = document.querySelector('.header')
+    const searchInput = document.getElementById('searchInput')
+    const searchDropdown = document.getElementById('searchDropdown')
+    
+    const isSearchInputFocused = searchInput && document.activeElement === searchInput
+    const isDropdownFocused = searchDropdown && searchDropdown.contains(document.activeElement)
+    
+    if (header && !isSearchInputFocused && !isDropdownFocused) {
+      header.classList.remove('search-focused')
+    }
+  }, 300)
+}
+
+function getSearchHistory() {
+  const history = localStorage.getItem('searchHistory')
+  return history ? JSON.parse(history) : []
+}
+
+function saveSearchHistory(keyword) {
+  let history = getSearchHistory()
+  const index = history.indexOf(keyword)
+  if (index > -1) {
+    history.splice(index, 1)
+  }
+  history.unshift(keyword)
+  if (history.length > 10) {
+    history = history.slice(0, 10)
+  }
+  localStorage.setItem('searchHistory', JSON.stringify(history))
+}
+
+function loadSearchHistory() {
+  const history = getSearchHistory()
+  const container = document.getElementById('historyTags')
+  if (!container) return
+  
+  if (history.length === 0) {
+    container.innerHTML = '<span style="color: #999; font-size: 13px;">暂无搜索历史</span>'
+    return
+  }
+  
+  container.innerHTML = history.map(keyword => 
+    `<span class="history-tag" data-keyword="${encodeURIComponent(keyword)}">
+      ${keyword}
+      <span class="history-tag-close">×</span>
+    </span>`
+  ).join('')
+  
+  container.querySelectorAll('.history-tag').forEach(tag => {
+    tag.addEventListener('click', (e) => {
+      const target = e.target
+      if (target.classList.contains('history-tag-close')) {
+        e.stopPropagation()
+        const keyword = decodeURIComponent(tag.dataset.keyword)
+        removeSearchHistory(keyword)
+        return
+      }
+      const keyword = decodeURIComponent(tag.dataset.keyword)
+      document.getElementById('searchInput').value = keyword
+      handleSearch()
+    })
+  })
+}
+
+function removeSearchHistory(keyword) {
+  let history = getSearchHistory()
+  const index = history.indexOf(keyword)
+  if (index > -1) {
+    history.splice(index, 1)
+    localStorage.setItem('searchHistory', JSON.stringify(history))
+    loadSearchHistory()
+  }
+}
+
+function clearSearchHistory() {
+  localStorage.removeItem('searchHistory')
+  loadSearchHistory()
+}
+
+async function loadHotSearch() {
+  const container = document.getElementById('hotList')
+  if (!container) return
+  
+  try {
+    const result = await ipcRenderer.invoke('fetch-hot-search')
+    if (result.success && result.data) {
+      const hotList = result.data.list || result.data || []
+      container.innerHTML = hotList.slice(0, 10).map((item, index) => {
+        const tagClass = item.tag ? getHotTagClass(item.tag) : ''
+        return `
+          <div class="hot-item" data-keyword="${encodeURIComponent(item.keyword || item.title)}">
+            <span class="hot-rank ${index < 3 ? 'top3' : ''}">${index + 1}</span>
+            <span class="hot-title">${item.keyword || item.title}</span>
+            ${item.tag ? `<span class="hot-tag ${tagClass}">${item.tag}</span>` : ''}
+          </div>
+        `
+      }).join('')
+      
+      container.querySelectorAll('.hot-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const keyword = decodeURIComponent(item.dataset.keyword)
+          document.getElementById('searchInput').value = keyword
+          handleSearch()
+        })
+      })
+    } else {
+      container.innerHTML = '<span style="color: #999; font-size: 13px; padding: 8px;">获取热搜失败</span>'
+    }
+  } catch (error) {
+    console.error('获取热搜失败:', error)
+    container.innerHTML = '<span style="color: #999; font-size: 13px; padding: 8px;">获取热搜失败</span>'
+  }
+}
+
+function getHotTagClass(tag) {
+  if (tag.includes('新')) return 'new'
+  if (tag.includes('独家')) return 'exclusive'
+  if (tag.includes('番')) return 'bangumi'
+  if (tag.includes('视频')) return 'video'
+  return ''
+}
+
+function handleSearchOnEnter(e) {
+  if (e.key === 'Enter') {
+    e.preventDefault()
+    handleSearch()
+  }
+}
+
 async function handleSearch() {
   const keyword = document.getElementById('searchInput').value.trim()
   if (!keyword) return
 
+  saveSearchHistory(keyword)
+  
   pageStates.search.keyword = keyword
   pageStates.search.pageNum = 1
   pageStates.search.hasMore = true
+
+  const searchInput = document.getElementById('searchInput')
+  const header = document.querySelector('.header')
+
+  if (header) {
+    header.classList.remove('search-focused')
+    header.dataset.historyLoaded = ''
+  }
+
+  if (searchInput) {
+    searchInput.blur()
+    document.activeElement?.blur?.()
+  }
 
   navigateToPage('search')
   showEmptyMessage('searchGrid', '搜索中...')
@@ -972,7 +1359,7 @@ function handleScroll() {
       const states = {
         home: { state: pageStates.home, action: p => fetchVideos(p, true) },
         popular: { state: pageStates.popular, action: p => fetchPopularVideos(p, true) },
-        anime: { state: pageStates.anime, action: p => fetchAnime(p, true) },
+        anime: { state: pageStates.anime, action: p => {} },
         media: { state: pageStates.media, action: p => fetchMedia(p, true) },
         search: { state: pageStates.search, action: p => searchVideos(pageStates.search.keyword, p, true) }
       }
@@ -1420,10 +1807,11 @@ async function initDynamicPage() {
 }
 
 function loadPageContent(page) {
+  console.log('loadPageContent called with page:', page)
   const actions = {
     home: () => { pageStates.home.pageNum = 1; pageStates.home.hasMore = true; fetchVideos(1, false) },
     popular: () => { pageStates.popular.pageNum = 1; pageStates.popular.hasMore = true; fetchPopularVideos(1, false) },
-    anime: () => { pageStates.anime.pageNum = 1; pageStates.anime.hasMore = true; fetchAnime(1, false) },
+    anime: () => { console.log('Calling loadAnimePage'); loadAnimePage() },
     media: () => { pageStates.media.pageNum = 1; pageStates.media.hasMore = true; fetchMedia(1, false) },
     my: () => { if (currentUser?.isLogin) loadHistory() },
     dynamic: () => initDynamicPage()
@@ -1663,6 +2051,8 @@ function applyShortcuts(e) {
 
   const searchInput = document.getElementById('searchInput')
   const isSearchFocused = searchInput && document.activeElement === searchInput
+  const header = document.querySelector('.header')
+  const isSearchDropdownOpen = header && header.classList.contains('search-focused')
 
   const clearShortcutConfig = userShortcuts.clearSearch
   const backShortcut = userShortcuts.goBack
@@ -1670,9 +2060,15 @@ function applyShortcuts(e) {
   const clearMatch = clearShortcutConfig && matchAnyShortcut(e, clearShortcutConfig.keys)
   const backMatch = backShortcut && matchAnyShortcut(e, backShortcut.keys)
 
-  if (clearMatch && isSearchFocused) {
+  if (clearMatch && isSearchDropdownOpen) {
     e.preventDefault()
-    searchInput.blur()
+    if (searchInput) {
+      searchInput.value = ''
+      searchInput.blur()
+    }
+    if (header) {
+      header.classList.remove('search-focused')
+    }
     return
   }
 
@@ -1685,7 +2081,7 @@ function applyShortcuts(e) {
     }
   }
 
-  if (backMatch && !isSearchFocused) {
+  if (backMatch && !isSearchDropdownOpen) {
     e.preventDefault()
     goBack()
   }

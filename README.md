@@ -1,18 +1,34 @@
 # Bilibili Client
 
-一个基于 Electron 开发的哔哩哔哩桌面客户端，提供简洁优雅的界面和流畅的视频播放体验。
+一个基于 Electron + MPV 开发的哔哩哔哩桌面客户端，提供简洁优雅的界面和流畅的视频播放体验。
 
 ## TODO
 
-- [ ] 播放器
+- [X] MPV播放器
+
+  - [X] 实现点击打开mpv播放器播放视频
   - [X] 实现播放器弹幕支持
-- [ ] 历史记录页面
-  - [ ] 向下滚动无法加载更多内容
-  - [ ] 点击已经播放过的视频，从上次播放的时间开始播放
 - [ ] up主页面向下滚动两个滚动条的问题
-- [ ] 追番页面
-- [ ] 影视页面
 - [ ] 我的页面
+
+  - [ ] 历史记录页面
+
+    - [ ] 向下滚动无法加载更多内容
+    - [ ] 点击已经播放过的视频，从上次播放的时间开始播放
+  - [ ] 我的收藏
+- [ ] 设置页面
+
+  - [ ] 快捷键绑定
+- [ ] 其他
+
+  - [X] 主题切换
+  - [X] 快捷键设置
+  - [ ] 搜索框聚焦后移动顶部栏中间，显示搜索历史和热搜
+    - [ ] 热搜接口：[api.bilibili.com/x/web-interface/wbi/search/square?limit=10&amp;platform=web&amp;web_location=333.1365&amp;w_rid=33c27013429cc439349b6d7f3523bbb8&amp;wts=1777972362](https://api.bilibili.com/x/web-interface/wbi/search/square?limit=10&platform=web&web_location=333.1365&w_rid=33c27013429cc439349b6d7f3523bbb8&wts=1777972362)
+- [ ] 追番页面
+
+  - [ ] 我的追番：[api.bilibili.com/x/space/bangumi/follow/list?vmid=320634848&amp;type=1&amp;pn=1&amp;ps=1&amp;playform=web&amp;follow_status=0&amp;web_location=333.1387&amp;w_rid=b5af7e17d8a47613ddde84114a37e267&amp;wts=1777972567](https://api.bilibili.com/x/space/bangumi/follow/list?vmid=320634848&type=1&pn=1&ps=1&playform=web&follow_status=0&web_location=333.1387&w_rid=b5af7e17d8a47613ddde84114a37e267&wts=1777972567)
+- [ ] 影视页面
 
 ## 功能特性
 
@@ -41,7 +57,6 @@
 - **Axios** - HTTP 请求库
 - **node-mpv** - MPV 播放器控制
 - **electron-builder** - 应用打包工具
-
 
 ## 项目结构
 
