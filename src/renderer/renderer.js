@@ -1026,7 +1026,10 @@ async function handleSearch() {
   const keyword = document.getElementById('searchInput').value.trim()
   if (!keyword) return
 
-  showSearchClearButton(true)
+  const searchInputClearBtn = document.getElementById('searchInputClearBtn')
+  if (searchInputClearBtn) {
+    searchInputClearBtn.style.display = 'flex'
+  }
   saveSearchHistory(keyword)
   
   pageStates.search.keyword = keyword
