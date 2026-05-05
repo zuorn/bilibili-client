@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>哔哩哔哩 - UP主主页</title>
+  <link rel="stylesheet" href="../style/style.css">
+</head>
+<body>
+  <header class="header">
+    <div class="header-left">
+      <button class="logo-btn" id="homeBtn">
+        <svg class="logo" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="50" cy="50" r="45" fill="#FB7299"/>
+          <circle cx="38" cy="42" r="8" fill="white"/>
+          <circle cx="62" cy="42" r="8" fill="white"/>
+          <circle cx="38" cy="42" r="4" fill="#FB7299"/>
+          <circle cx="62" cy="42" r="4" fill="#FB7299"/>
+          <path d="M35 65 Q50 80 65 65" stroke="white" stroke-width="4" fill="none" stroke-linecap="round"/>
+        </svg>
+      </button>
+      <div class="nav-links">
+        <a href="#" class="nav-link">推荐</a>
+        <a href="#" class="nav-link">热门</a>
+        <a href="#" class="nav-link">追番</a>
+        <a href="#" class="nav-link">影视</a>
+      </div>
+    </div>
+    <div class="header-right">
+      <div class="search-box">
+        <input type="text" placeholder="搜索你感兴趣的视频" class="search-input">
+        <button class="search-btn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"/>
+            <path d="M21 21l-4.35-4.35"/>
+          </svg>
+        </button>
+      </div>
+      <div class="window-controls">
+        <button class="window-control-btn" id="minBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 12h12"/>
+          </svg>
+        </button>
+        <button class="window-control-btn" id="maxBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+          </svg>
+        </button>
+        <button class="window-control-btn close-btn" id="closeBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </header>
+  <div class="up-profile-container">
+    <div class="up-info-section">
+      <div class="up-avatar-container">
+        <img id="upAvatar" class="up-avatar" src="" alt="Avatar"/>
+      </div>
+      <div class="up-details">
+        <div class="up-name-row">
+          <h1 id="upName"></h1>
+          <span class="up-level">Lv6</span>
+          <span class="up-vip">
+            <svg viewBox="0 0 32 32" class="vip-icon">
+              <circle cx="16" cy="16" r="14" fill="#fb7299"/>
+              <text x="16" y="22" text-anchor="middle" fill="white" font-size="12" font-weight="bold">大会员</text>
+            </svg>
+          </span>
+        </div>
+        <p id="upSign" class="up-sign"></p>
+      </div>
+      <div class="up-right-content">
+        <div class="up-stats">
+          <div class="stat-item">
+            <span class="stat-value" id="followingCount">0</span>
+            <span class="stat-label">关注数</span>
+          </div>
+          <div class="stat-item">
+            <span class="stat-value" id="fanCount">0</span>
+            <span class="stat-label">粉丝数</span>
+          </div>
+          <!-- <div class="stat-item">
+            <span class="stat-value" id="viewCount">0</span>
+            <span class="stat-label">获赞数</span>
+          </div> -->
+        </div>
+        <div class="up-actions">
+          <button class="follow-btn">+ 关注</button>
+          <button class="message-btn">发消息</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- <div class="up-tabs-wrapper">
+      <div class="up-tabs">
+        <div class="tab-item active" data-tab="dynamic">动态</div>
+        <div class="tab-item" data-tab="videos">投稿</div>
+        <div class="tab-item" data-tab="collection">合集和系列</div>
+      </div>
+    </div> -->
+
+    <div class="up-content">
+      <div class="tab-content active" id="videosTab">
+        <!-- <div class="video-sort">
+          <button class="sort-btn active" data-sort="latest">最新发布</button>
+          <button class="sort-btn" data-sort="popular">最多播放</button>
+        </div> -->
+        <div class="video-grid" id="upVideoGrid">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="../renderer/up-renderer.js"></script>
+</body>
+</html>
