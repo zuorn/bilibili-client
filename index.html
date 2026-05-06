@@ -544,28 +544,95 @@
 
   <!-- 登录弹窗 -->
   <div class="login-modal" id="loginModal" style="display: none;">
+    <div class="login-modal-mask"></div>
     <div class="login-modal-content">
-      <button class="login-close-btn" id="loginCloseBtn">
+      <button type="button" class="login-modal-close" id="loginCloseBtn" aria-label="关闭">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <line x1="18" y1="6" x2="6" y2="18"/>
           <line x1="6" y1="6" x2="18" y2="18"/>
         </svg>
       </button>
-      
-      <div class="login-tabs">
-        <div class="login-tab active" id="qrTab">扫码登录</div>
-        <!-- <div class="login-tab" id="pwdTab">密码登录</div>
-        <div class="login-tab" id="smsTab">验证码登录</div> -->
-      </div>
 
-      <div class="qr-login">
-        <div class="qr-code-container">
-          <div class="qr-code" id="qrCode">
-            <div class="qr-loading">正在加载二维码...</div>
+      <div class="login-modal-main">
+        <div class="login-modal-col login-modal-col--qr">
+          <h2 class="login-modal-qr-title">扫描二维码登录</h2>
+          <div class="qr-code-frame">
+            <div class="qr-code" id="qrCode">
+              <div class="qr-loading">正在加载二维码...</div>
+            </div>
+          </div>
+          <p class="login-modal-qr-hint">请使用 <span class="login-accent-text">哔哩哔哩手机端</span> 扫码登录PC客户端</p>
+          <div class="qr-status" id="qrStatus"></div>
+        </div>
+
+        <div class="login-modal-split" aria-hidden="true"></div>
+
+        <div class="login-modal-col login-modal-col--form">
+          <div class="login-form-tabs">
+            <button type="button" class="login-form-tab" id="pwdTab">密码登录</button>
+            <span class="login-form-tab-gap"></span>
+            <button type="button" class="login-form-tab active" id="smsTab">短信登录</button>
+          </div>
+
+          <div class="login-form-panel-wrap">
+            <div class="pwd-login login-form-panel">
+              <div class="login-field-group">
+                <div class="login-stack-row">
+                  <input type="text" class="login-field-input login-field-input--grow" placeholder="用户名/邮箱/手机号" autocomplete="username">
+                </div>
+                <div class="login-stack-row">
+                  <input type="password" class="login-field-input login-field-input--grow" placeholder="密码" autocomplete="current-password">
+                </div>
+              </div>
+              <button type="button" class="login-submit-btn">登录</button>
+            </div>
+
+            <div class="sms-login login-form-panel active">
+              <div class="login-field-group">
+                <div class="login-stack-row login-stack-row--phone">
+                  <div class="login-country-slot">
+                    <span class="login-country-code">+86</span>
+                    <svg class="login-select-caret" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+                      <path d="M3 4.5L6 7.5L9 4.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/>
+                    </svg>
+                  </div>
+                  <input type="tel" class="login-field-input login-field-input--grow" placeholder="请输入手机号" autocomplete="tel">
+                  <span class="login-inline-split"></span>
+                  <button type="button" class="login-get-code-btn">获取验证码</button>
+                </div>
+                <div class="login-stack-row login-stack-row--code">
+                  <span class="login-code-label">验证码</span>
+                  <input type="text" class="login-field-input login-field-input--grow" placeholder="请输入验证码" autocomplete="one-time-code">
+                </div>
+              </div>
+              <button type="button" class="login-submit-btn">登录/注册</button>
+            </div>
           </div>
         </div>
-        <div class="qr-status" id="qrStatus">请使用哔哩哔哩手机APP扫码登录</div>
       </div>
+
+      <footer class="login-modal-foot">
+        <div class="login-modal-mascots" aria-hidden="true">
+          <svg class="login-mascot login-mascot--left" viewBox="0 0 120 100" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="55" cy="95" rx="48" ry="28" fill="#7ec8f0"/>
+            <circle cx="58" cy="52" r="38" fill="#b8e0ff"/>
+            <ellipse cx="42" cy="48" rx="5" ry="7" fill="#2a2a2a"/>
+            <ellipse cx="72" cy="48" rx="5" ry="7" fill="#2a2a2a"/>
+            <path d="M48 62 Q58 70 68 62" stroke="#6bb3e8" stroke-width="3" fill="none" stroke-linecap="round"/>
+          </svg>
+          <svg class="login-mascot login-mascot--right" viewBox="0 0 120 100" xmlns="http://www.w3.org/2000/svg">
+            <ellipse cx="65" cy="95" rx="48" ry="28" fill="#d4d4d8"/>
+            <circle cx="62" cy="52" r="38" fill="#f0f0f2"/>
+            <ellipse cx="46" cy="48" rx="5" ry="7" fill="#2a2a2a"/>
+            <ellipse cx="76" cy="48" rx="5" ry="7" fill="#2a2a2a"/>
+            <path d="M52 62 Q62 70 72 62" stroke="#c0c0c8" stroke-width="3" fill="none" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="login-footer-copy">
+          <p>未注册过哔哩哔哩的手机号，我们将自动帮你注册账号</p>
+          <p>登录或完成注册即代表你同意 <a href="#" class="login-footer-link">用户协议</a> 和 <a href="#" class="login-footer-link">隐私政策</a></p>
+        </div>
+      </footer>
     </div>
   </div>
 

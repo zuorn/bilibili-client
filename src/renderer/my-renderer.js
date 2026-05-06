@@ -10,7 +10,6 @@ const videoGrid = document.getElementById('videoGrid')
 const noLoginArea = document.querySelector('.no-login-area')
 const devToolsBtn = document.getElementById('devToolsBtn')
 
-const qrTab = document.getElementById('qrTab')
 const pwdTab = document.getElementById('pwdTab')
 const smsTab = document.getElementById('smsTab')
 
@@ -60,37 +59,18 @@ loginArea.addEventListener('click', () => {
   }
 })
 
-qrTab.addEventListener('click', () => {
-  qrTab.classList.add('active')
-  pwdTab.classList.remove('active')
-  smsTab.classList.remove('active')
-
-  document.querySelector('.qr-login').style.display = 'flex'
-  document.querySelector('.pwd-login').style.display = 'none'
-  document.querySelector('.sms-login').style.display = 'none'
-  initQRLogin()
-})
-
 pwdTab.addEventListener('click', () => {
-  qrTab.classList.remove('active')
   pwdTab.classList.add('active')
   smsTab.classList.remove('active')
-
-  document.querySelector('.qr-login').style.display = 'none'
-  document.querySelector('.pwd-login').style.display = 'block'
-  document.querySelector('.sms-login').style.display = 'none'
-  stopLoginPoll()
+  document.querySelector('.pwd-login').classList.add('active')
+  document.querySelector('.sms-login').classList.remove('active')
 })
 
 smsTab.addEventListener('click', () => {
-  qrTab.classList.remove('active')
-  pwdTab.classList.remove('active')
   smsTab.classList.add('active')
-
-  document.querySelector('.qr-login').style.display = 'none'
-  document.querySelector('.pwd-login').style.display = 'none'
-  document.querySelector('.sms-login').style.display = 'block'
-  stopLoginPoll()
+  pwdTab.classList.remove('active')
+  document.querySelector('.sms-login').classList.add('active')
+  document.querySelector('.pwd-login').classList.remove('active')
 })
 
 document.querySelectorAll('.sidebar-item').forEach(item => {
@@ -589,20 +569,19 @@ async function initQRLogin() {
 
       if (qrCodeElement) {
         qrCodeElement.innerHTML = `
-          <img src="https://api.qrserver.com/v1/create-qr-code?size=200x200&data=${encodeURIComponent(qrUrl)}" alt="扫码登录" style="width: 200px; height: 200px;">
+          <img src="https://api.qrserver.com/v1/create-qr-code?size=168x168&data=${encodeURIComponent(qrUrl)}" alt="扫码登录" style="width: 168px; height: 168px;">
         `
       }
 
       if (qrStatusElement) {
-        qrStatusElement.textContent = '请使用哔哩哔哩手机端扫码登录'
-        qrStatusElement.style.color = '#fb7299'
+        qrStatusElement.textContent = ''
       }
 
       startLoginPoll()
     } else {
       if (qrCodeElement) {
         qrCodeElement.innerHTML = `
-          <div style="width: 200px; height: 200px; display: flex; align-items: center; justify-content: center; background: #f5f5f5; border-radius: 8px;">
+          <div style="width: 168px; height: 168px; display: flex; align-items: center; justify-content: center; background: #f5f5f5; border-radius: 8px;">
             <span style="color: #999;">获取二维码失败</span>
           </div>
         `
@@ -616,7 +595,7 @@ async function initQRLogin() {
     console.error('初始化登录失败:', error)
     if (qrCodeElement) {
       qrCodeElement.innerHTML = `
-        <div style="width: 200px; height: 200px; display: flex; align-items: center; justify-content: center; background: #f5f5f5; border-radius: 8px;">
+        <div style="width: 168px; height: 168px; display: flex; align-items: center; justify-content: center; background: #f5f5f5; border-radius: 8px;">
           <span style="color: #999;">网络错误</span>
         </div>
       `

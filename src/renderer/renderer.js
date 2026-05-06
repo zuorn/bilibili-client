@@ -167,16 +167,13 @@ function initEventListeners() {
     document.getElementById('loginModal').style.display = 'none'
   })
 
-  document.querySelectorAll('.login-tab').forEach(tab => {
+  document.querySelectorAll('.login-form-tab').forEach(tab => {
     tab.addEventListener('click', () => {
-      document.querySelectorAll('.login-tab').forEach(t => t.classList.remove('active'))
+      document.querySelectorAll('.login-form-tab').forEach(t => t.classList.remove('active'))
       tab.classList.add('active')
       const tabId = tab.id
-      document.querySelector('.qr-login').style.display = tabId === 'qrTab' ? 'flex' : 'none'
-      document.querySelector('.pwd-login').style.display = tabId === 'pwdTab' ? 'block' : 'none'
-      document.querySelector('.sms-login').style.display = tabId === 'smsTab' ? 'block' : 'none'
-      if (tabId === 'qrTab') initQRLogin()
-      else stopLoginPoll()
+      document.querySelector('.pwd-login')?.classList.toggle('active', tabId === 'pwdTab')
+      document.querySelector('.sms-login')?.classList.toggle('active', tabId === 'smsTab')
     })
   })
 
@@ -1408,10 +1405,9 @@ async function initQRLogin() {
     const result = await ipcRenderer.invoke('get-login-qrcode')
     if (result.success && result.data) {
       currentQCode = result.data.qcode
-      if (qrCodeElement) qrCodeElement.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code?size=200x200&data=${encodeURIComponent(result.data.url)}" alt="扫码登录" style="width: 200px; height: 200px;">`
+      if (qrCodeElement) qrCodeElement.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code?size=168x168&data=${encodeURIComponent(result.data.url)}" alt="扫码登录" style="width: 168px; height: 168px;">`
       if (qrStatusElement) {
-        qrStatusElement.textContent = '请使用哔哩哔哩手机端扫码登录'
-        qrStatusElement.style.color = '#fb7299'
+        qrStatusElement.textContent = ''
       }
       startLoginPoll()
     }
