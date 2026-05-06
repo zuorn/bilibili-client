@@ -1,3 +1,4 @@
+# 项目依赖
 /node_modules
 /dist
 /debug.log
@@ -5,7 +6,25 @@
 
 
 
-./debug.log
-./dist
-./node_modules
-./docs/api.md
+
+# mpv 
+/mpv/mpv.exe
+/mpv/doc
+/mpv/mpv
+/mpv/d3dcompiler_43.dll
+/mpv/fonts
+/mpv/installer
+/mpv/mpv.com
+/mpv/updater.bat
+
+
+# cache
+/mpv/portable_config/cache
+
+# uosc
+/mpv/portable_config/fonts
+/mpv/portable_config/scripts/uosc
+
+
+/mpv/portable_config/script-opts/uosc-all.conf
+

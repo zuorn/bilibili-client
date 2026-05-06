@@ -7,6 +7,8 @@ const crypto = require('crypto')
 const zlib = require('zlib')
 const { URL } = require('url')
 const net = require('net')
+const chalk = require('chalk').default || require('chalk')
+chalk.level = 3
 const { getDanmakuXml, getCidByBvid } = require('./src/utils/getDanmaku')
 const xml2ass = require('./src/utils/xml2ass')
 
@@ -60,10 +62,37 @@ function clearCookies() {
   }
 }
 function log(...args) {
-  const msg = new Date().toISOString() + ' ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')
-  console.log(msg)
+  const timestamp = chalk.gray(new Date().toISOString())
+  let message = ''
+  
+  for (let i = 0; i < args.length; i++) {
+    const arg = args[i]
+    if (typeof arg === 'object') {
+      message += ' ' + chalk.yellow(JSON.stringify(arg))
+    } else if (typeof arg === 'number') {
+      message += ' ' + chalk.cyan(arg.toString())
+    } else if (arg === 'error' || arg === 'Error' || arg?.toString?.().includes('Error')) {
+      message += ' ' + chalk.red(arg)
+    } else if (arg?.toString?.().includes('成功') || arg?.toString?.().includes('success') || arg?.toString?.().includes('Success')) {
+      message += ' ' + chalk.green(arg)
+    } else if (arg?.toString?.().includes('失败') || arg?.toString?.().includes('failed') || arg?.toString?.().includes('Failed')) {
+      message += ' ' + chalk.red(arg)
+    } else if (typeof arg === 'string') {
+      if (arg.startsWith('[') && arg.endsWith(']')) {
+        message += ' ' + chalk.blue(arg)
+      } else {
+        message += ' ' + chalk.white(arg)
+      }
+    } else {
+      message += ' ' + chalk.white(arg?.toString?.() || '')
+    }
+  }
+  
+  console.log(timestamp + message)
+  
   if (!app.isPackaged && logFile) {
-    fs.appendFileSync(logFile, msg + '\n', { encoding: 'utf8' })
+    const plainMsg = new Date().toISOString() + ' ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')
+    fs.appendFileSync(logFile, plainMsg + '\n', { encoding: 'utf8' })
   }
 }
 
