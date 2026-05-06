@@ -46,6 +46,9 @@ let currentQCode = null
 let pollInterval = null
 let qrStatusElement = null
 
+const QR_LOADING_HTML =
+  '<div class="qr-loading" aria-live="polite"><span class="qr-loading-spinner" aria-hidden="true"></span><span class="qr-loading-text">加载中</span></div>'
+
 document.addEventListener('DOMContentLoaded', async () => {
   await loadDefaultShortcuts()
   loadShortcuts()
@@ -1328,15 +1331,38 @@ function playVideo(bvid, cid, title) {
 async function checkLoginStatus() {
   try {
     const result = await ipcRenderer.invoke('get-user-info')
+    console.log('checkLoginStatus result:', result)
+    
     if (result.success && result.data) {
       currentUser = result.data
+      console.log('Current user:', currentUser)
+      console.log('isLogin value:', currentUser.isLogin, 'type:', typeof currentUser.isLogin)
+      
       updateUserAvatar(currentUser)
       updateMyPageUI(currentUser)
       updateSettingsAvatar()
       updateSettingsUserName()
+      
+      const isLoggedIn = currentUser.isLogin === true || currentUser.isLogin === 1
+      console.log('isLoggedIn:', isLoggedIn)
+      
+      if (!isLoggedIn) {
+        console.log('用户未登录，打开登录窗口')
+        setTimeout(() => {
+          openLoginModal()
+        }, 500)
+      }
+    } else if (!result.success) {
+      console.log('获取用户信息失败，尝试打开登录窗口:', result.error)
+      setTimeout(() => {
+        openLoginModal()
+      }, 500)
     }
   } catch (error) {
     console.error('检查登录状态失败:', error)
+    setTimeout(() => {
+      openLoginModal()
+    }, 500)
   }
 }
 
@@ -1391,28 +1417,71 @@ async function handleLogout() {
   }
 }
 
+function mountQrCodeWhenLoaded(qrCodeElement, loginUrl) {
+  const src = `https://api.qrserver.com/v1/create-qr-code?size=200x200&data=${encodeURIComponent(loginUrl)}`
+  const img = new Image()
+  img.alt = '扫码登录'
+  img.style.width = '200px'
+  img.style.height = '200px'
+  img.style.objectFit = 'contain'
+  img.onload = () => {
+    if (!qrCodeElement || !qrCodeElement.isConnected) return
+    qrCodeElement.innerHTML = ''
+    qrCodeElement.appendChild(img)
+  }
+  img.onerror = () => {
+    if (!qrCodeElement || !qrCodeElement.isConnected) return
+    qrCodeElement.innerHTML =
+      '<div class="qr-loading qr-loading--fail"><span class="qr-loading-text">二维码加载失败</span></div>'
+  }
+  img.src = src
+}
+
 async function initQRLogin() {
   stopLoginPoll()
-  const qrCodeElement = document.querySelector('.qr-code')
-  qrStatusElement = document.querySelector('.qr-status')
+
+  const qrCodeElement = document.getElementById('qrCode') || document.querySelector('.qr-code')
+  qrStatusElement = document.getElementById('qrStatus') || document.querySelector('.qr-status')
+
+  if (qrCodeElement) {
+    qrCodeElement.innerHTML = QR_LOADING_HTML
+  }
 
   if (qrStatusElement) {
-    qrStatusElement.textContent = '正在获取二维码...'
-    qrStatusElement.style.color = '#999'
+    qrStatusElement.textContent = ''
+    qrStatusElement.style.color = '#9499a0'
   }
 
   try {
     const result = await ipcRenderer.invoke('get-login-qrcode')
-    if (result.success && result.data) {
+
+    if (result.success && result.data && result.data.url) {
       currentQCode = result.data.qcode
-      if (qrCodeElement) qrCodeElement.innerHTML = `<img src="https://api.qrserver.com/v1/create-qr-code?size=168x168&data=${encodeURIComponent(result.data.url)}" alt="扫码登录" style="width: 168px; height: 168px;">`
       if (qrStatusElement) {
         qrStatusElement.textContent = ''
       }
       startLoginPoll()
+      if (qrCodeElement) {
+        mountQrCodeWhenLoaded(qrCodeElement, result.data.url)
+      }
+    } else {
+      if (qrCodeElement) {
+        qrCodeElement.innerHTML = '<div class="qr-loading qr-loading--fail"><span class="qr-loading-text">获取二维码失败</span></div>'
+      }
+      if (qrStatusElement) {
+        qrStatusElement.textContent = '获取失败，请关闭重试'
+        qrStatusElement.style.color = '#f57070'
+      }
     }
   } catch (error) {
     console.error('初始化登录失败:', error)
+    if (qrCodeElement) {
+      qrCodeElement.innerHTML = '<div class="qr-loading qr-loading--fail"><span class="qr-loading-text">获取二维码失败</span></div>'
+    }
+    if (qrStatusElement) {
+      qrStatusElement.textContent = '网络错误，请检查网络连接'
+      qrStatusElement.style.color = '#f57070'
+    }
   }
 }
 
@@ -1809,10 +1878,9 @@ function handleScroll() {
       }
     }
   } else if (currentPage === 'up') {
-    console.log('UP主页面滚动:', { scrollTop, scrollHeight, clientHeight, currentPage, pageStates: pageStates.up })
-    if (scrollTop + clientHeight >= scrollHeight && !pageStates.up.loading && !pageStates.up.scrollLocked && pageStates.up.hasMore) {
+    const nearBottom = scrollTop + clientHeight >= scrollHeight - 2
+    if (nearBottom && !pageStates.up.loading && !pageStates.up.scrollLocked && pageStates.up.hasMore) {
       pageStates.up.scrollLocked = true
-      console.log('触发加载更多 UP 主视频')
       loadUpVideos(pageStates.up.mid, pageStates.up.offset)
     }
   } else {

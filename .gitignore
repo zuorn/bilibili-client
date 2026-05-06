@@ -1,3 +1,6 @@
+.vscode
+
+
 # 项目依赖
 /node_modules
 /dist
@@ -6,6 +9,7 @@
 
 
 
+/mpv-bak
 
 # mpv 
 /mpv/mpv.exe

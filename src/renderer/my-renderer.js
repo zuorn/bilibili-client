@@ -13,6 +13,9 @@ const devToolsBtn = document.getElementById('devToolsBtn')
 const pwdTab = document.getElementById('pwdTab')
 const smsTab = document.getElementById('smsTab')
 
+const QR_LOADING_HTML =
+  '<div class="qr-loading" aria-live="polite"><span class="qr-loading-spinner" aria-hidden="true"></span><span class="qr-loading-text">加载中</span></div>'
+
 let currentQCode = null
 let pollInterval = null
 let qrStatusElement = null
@@ -548,43 +551,60 @@ async function loadUserFollowings(mid) {
   // 暂时不需要显示关注列表
 }
 
+function mountQrCodeWhenLoaded(qrCodeElement, loginUrl) {
+  const src = `https://api.qrserver.com/v1/create-qr-code?size=200x200&data=${encodeURIComponent(loginUrl)}`
+  const img = new Image()
+  img.alt = '扫码登录'
+  img.style.width = '200px'
+  img.style.height = '200px'
+  img.style.objectFit = 'contain'
+  img.onload = () => {
+    if (!qrCodeElement || !qrCodeElement.isConnected) return
+    qrCodeElement.innerHTML = ''
+    qrCodeElement.appendChild(img)
+  }
+  img.onerror = () => {
+    if (!qrCodeElement || !qrCodeElement.isConnected) return
+    qrCodeElement.innerHTML =
+      '<div class="qr-loading qr-loading--fail"><span class="qr-loading-text">二维码加载失败</span></div>'
+  }
+  img.src = src
+}
+
 async function initQRLogin() {
   stopLoginPoll()
 
   const qrCodeElement = document.querySelector('.qr-code')
   qrStatusElement = document.querySelector('.qr-status')
 
+  if (qrCodeElement) {
+    qrCodeElement.innerHTML = QR_LOADING_HTML
+  }
+
   if (qrStatusElement) {
-    qrStatusElement.textContent = '正在获取二维码...'
-    qrStatusElement.style.color = '#999'
+    qrStatusElement.textContent = ''
+    qrStatusElement.style.color = '#9499a0'
   }
 
   try {
     const result = await ipcRenderer.invoke('get-login-qrcode')
 
-    if (result.success && result.data) {
+    if (result.success && result.data && result.data.url) {
       currentQCode = result.data.qcode
-
       const qrUrl = result.data.url
-
-      if (qrCodeElement) {
-        qrCodeElement.innerHTML = `
-          <img src="https://api.qrserver.com/v1/create-qr-code?size=168x168&data=${encodeURIComponent(qrUrl)}" alt="扫码登录" style="width: 168px; height: 168px;">
-        `
-      }
 
       if (qrStatusElement) {
         qrStatusElement.textContent = ''
       }
 
       startLoginPoll()
+      if (qrCodeElement) {
+        mountQrCodeWhenLoaded(qrCodeElement, qrUrl)
+      }
     } else {
       if (qrCodeElement) {
-        qrCodeElement.innerHTML = `
-          <div style="width: 168px; height: 168px; display: flex; align-items: center; justify-content: center; background: #f5f5f5; border-radius: 8px;">
-            <span style="color: #999;">获取二维码失败</span>
-          </div>
-        `
+        qrCodeElement.innerHTML =
+          '<div class="qr-loading qr-loading--fail"><span class="qr-loading-text">获取二维码失败</span></div>'
       }
       if (qrStatusElement) {
         qrStatusElement.textContent = result.error || '请重试'
@@ -594,11 +614,8 @@ async function initQRLogin() {
   } catch (error) {
     console.error('初始化登录失败:', error)
     if (qrCodeElement) {
-      qrCodeElement.innerHTML = `
-        <div style="width: 168px; height: 168px; display: flex; align-items: center; justify-content: center; background: #f5f5f5; border-radius: 8px;">
-          <span style="color: #999;">网络错误</span>
-        </div>
-      `
+      qrCodeElement.innerHTML =
+        '<div class="qr-loading qr-loading--fail"><span class="qr-loading-text">网络错误</span></div>'
     }
     if (qrStatusElement) {
       qrStatusElement.textContent = '网络错误，请重试'
