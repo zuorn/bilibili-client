@@ -39,14 +39,6 @@ document.querySelectorAll('.nav-link').forEach(link => {
   })
 })
 
-const viewAllFollowing = document.getElementById('viewAllFollowing')
-if (viewAllFollowing) {
-  viewAllFollowing.addEventListener('click', (e) => {
-    e.preventDefault()
-    ipcRenderer.send('open-my', 'bangumi')
-  })
-}
-
 function fixImageUrl(url) {
   if (!url) return 'https://i0.hdslb.com/bfs/archive/placeholder.png'
   if (url.startsWith('//')) return 'https:' + url
@@ -69,6 +61,17 @@ async function loadAnimePage() {
     renderAnimeGrid(bangumiResult, 'bangumiGrid')
     renderAnimeGrid(guochuangResult, 'guochuangGrid')
     renderAnimeGrid(likeResult, 'likeGrid')
+
+    const refreshBtn = document.getElementById('refreshLike')
+    if (refreshBtn) {
+      refreshBtn.onclick = () => {
+        refreshBtn.classList.add('refreshing')
+        ipcRenderer.invoke('fetch-guess-like').then(result => {
+          renderAnimeGrid(result, 'likeGrid')
+          setTimeout(() => refreshBtn.classList.remove('refreshing'), 500)
+        })
+      }
+    }
   } catch (error) {
     console.error('加载追番页面失败:', error)
   }

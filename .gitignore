@@ -5,8 +5,7 @@
 /node_modules
 /dist
 /debug.log
-
-/docs/api-documentation.md
+/docs/api.md
 
 
 
