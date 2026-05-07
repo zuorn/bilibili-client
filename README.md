@@ -30,31 +30,6 @@
 - **node-mpv** - MPV 播放器控制
 - **electron-builder** - 应用打包工具
 
-## 项目结构
-
-```
-electron-s/
-├── main.js                 # 主进程文件
-├── index.html              # 主页面
-├── icon.png                # 应用图标
-├── package.json            # 项目配置
-├── src/
-│   ├── pages/              # 页面文件
-│   │   ├── anime.html      # 追番页
-│   │   ├── dynamic.html    # 动态页
-│   │   ├── media.html      # 影视页
-│   │   ├── my.html         # 个人中心页
-│   │   ├── popular.html    # 热门页
-│   │   └── up-profile.html # UP主主页
-│   ├── renderer/           # 渲染进程脚本
-│   │   ├── renderer.js     # 主渲染进程
-│   │   ├── layout.js       # 布局控制
-│   │   └── ...             # 其他页面渲染脚本
-│   └── style/
-│       └── style.css       # 样式文件
-└── dist/                   # 打包输出目录
-```
-
 ## 安装与运行
 
 ### 前置要求
@@ -67,7 +42,7 @@ electron-s/
 
 **Windows:**
 
-1. 下载 MPV: [https://mpv.io/installation/](https://mpv.io/installation/)
+1. 下载 MPV: <https://mpv.io/installation/>
 2. 将 mpv.exe 所在目录添加到系统 PATH，或在设置中指定路径
 
 **macOS:**
@@ -83,17 +58,6 @@ sudo apt install mpv  # Debian/Ubuntu
 sudo dnf install mpv  # Fedora
 ```
 
-### 安装依赖
-
-```bash
-npm install
-```
-
-### 开发模式
-
-```bash
-npm start
-```
 
 ## 使用说明
 
@@ -117,32 +81,6 @@ npm start
 2. 在"MPV路径"设置项中指定 mpv.exe 的完整路径
 3. 点击"浏览"按钮选择可执行文件
 
-## 打包应用
-
-| 命令                    | 说明              |
-| :---------------------- | :---------------- |
-| `npm start`           | 启动开发模式      |
-| `npm run build`       | 打包当前系统版本  |
-| `npm run build:win`   | 打包 Windows 版本 |
-| `npm run build:mac`   | 打包 macOS 版本   |
-| `npm run build:linux` | 打包 Linux 版本   |
-| `npm run clean`       | 清理打包产物      |
-
-打包后的应用位于 `dist/` 目录下。
-
-## 开发相关
-
-### 主要 API 接口
-
-应用通过哔哩哔哩 Web API 获取数据，主要接口包括：
-
-- 视频推荐：`/x/web-interface/wbi/index/top/feed/rcmd`
-- 热门视频：`/x/web-interface/ranking/v2`
-- 番剧索引：`/pgc/season/index/result`
-- 动态获取：`/x/polymer/web-dynamic/v1/feed/all`
-- 用户信息：`/x/web-interface/nav`
-- 历史记录：`/x/web-interface/history/cursor`
-- 收藏夹：`/x/v3/fav/resource/list`
 
 ### IPC 通信
 
@@ -162,9 +100,7 @@ npm start
 3. **MPV 播放器** - 必须安装 MPV 播放器才能播放视频
 4. **API 限制** - 部分接口可能需要登录才能访问
 
-## 许可证
 
-ISC
 
 ## 免责声明
 
@@ -176,8 +112,8 @@ ISC
 - 感谢 Electron 社区的支持
 - 感谢 MPV 播放器项目
 
----
+***
 
 **开发者**: zuorn
 **版本**: 1.0.0
-**最后更新**: 2026-05-03
+**最后更新**: 2026-05-07

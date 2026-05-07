@@ -887,8 +887,12 @@ ipcMain.on('open-dynamic', () => {
   mainWindow.loadFile('src/pages/dynamic.html')
 })
 
-ipcMain.on('open-my', () => {
-  mainWindow.loadFile('src/pages/my.html')
+ipcMain.on('open-my', (event, tab) => {
+  mainWindow.loadFile('src/pages/my.html').then(() => {
+    if (tab) {
+      mainWindow.webContents.send('my-page-tab', tab)
+    }
+  })
 })
 
 ipcMain.on('open-popular', () => {
@@ -941,19 +945,18 @@ ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmak
       lastReportProgress: 0
     }
     
-    const escapedTitle = videoTitle.replace(/(["\\])/g, '\\$1').replace(/`/g, '\\`')
     const mpvArgs = [
       '--hwdec=auto',
       '--volume=80',
       '--border=no',
-      `--title="${escapedTitle}"`,
+      `--title=${videoTitle}`,
       '--sub-auto=fuzzy',
       '--sub-ass-override=yes'
     ]
 
     if (savedCookies.SESSDATA) {
       const minimalCookie = `SESSDATA=${savedCookies.SESSDATA}; DedeUserID=${savedCookies.DedeUserID}; bili_jct=${savedCookies.bili_jct}`
-      mpvArgs.push(`--http-header-fields="Cookie: ${minimalCookie}"`)
+      mpvArgs.push(`--http-header-fields=Cookie: ${minimalCookie}`)
     }
     log(`[启动计时] 步骤3: 准备mpv参数, 耗时: ${Date.now() - startTime}ms`)
 
@@ -999,13 +1002,7 @@ ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmak
     mpvArgs.push(videoUrl)
 
     log('Starting mpv with command:', mpvExecutable, mpvArgs.join(' '))
-    
-    const mpvDir = path.dirname(mpvExecutable)
-    mpvProcess = spawn(mpvExecutable, mpvArgs, { 
-      shell: true,
-      cwd: mpvDir,
-      windowsHide: true
-    })
+    mpvProcess = spawn(mpvExecutable, mpvArgs)
     
     const totalTime = Date.now() - startTime
     log(`[启动计时] 步骤5: 启动mpv完成, 耗时: ${totalTime}ms`)

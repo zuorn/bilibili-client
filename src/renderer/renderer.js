@@ -1605,13 +1605,19 @@ async function searchHistory(keyword) {
 
 async function loadBangumi(type = 1) {
   try {
+    console.log('=== renderer.js loadBangumi called ===')
     const result = await ipcRenderer.invoke('get-bangumi-follow', type, 1)
+    console.log('=== renderer.js loadBangumi result ===')
+    console.log('result.success:', result.success)
+    console.log('result.data:', result.data)
+    console.log('result.data type:', typeof result.data)
+    console.log('result.data length:', result.data ? result.data.length : 'N/A')
     
     const content = document.getElementById('bangumi-content')
     const container = document.getElementById('bangumiGrid')
     
     if (!content || !container) {
-      console.error('bangumi elements not found')
+      console.error('bangumi elements not found, content:', content, 'container:', container)
       return
     }
     
@@ -1620,9 +1626,12 @@ async function loadBangumi(type = 1) {
     container.style.display = 'grid'
     
     if (!result.success || !result.data || result.data.length === 0) {
+      console.log('=== Showing empty message ===')
       container.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">暂无追番内容</div>'
       return
     }
+    
+    console.log('=== Rendering bangumi items ===')
     
     let html = ''
     result.data.forEach(item => {
