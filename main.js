@@ -22,6 +22,7 @@ let currentVideoInfo = null
 let reportTimer = null
 let cachedMpvPath = null
 let cachedCookieString = null
+let playerWindow = null
 
 let logFile = ''
 let cookieFile = ''
@@ -386,7 +387,8 @@ function createWindow() {
       nodeIntegration: true,
       contextIsolation: false,
       webviewTag: true,
-      sandbox: false
+      sandbox: false,
+      partition: 'persist:main' // 与播放器窗口共享相同的partition
     }
   }
   if (fs.existsSync(iconPath)) {
@@ -903,13 +905,18 @@ ipcMain.on('open-media', () => {
   mainWindow.loadFile('src/pages/media.html')
 })
 
-ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmaku = true) => {
+ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmaku = true, useBuiltin = false) => {
   const startTime = Date.now()
   log(`[启动计时] 开始播放视频, 时间: ${new Date().toLocaleTimeString()}`)
   log(`[启动计时] 弹幕显示设置: ${showDanmaku}`)
+  log(`[启动计时] 使用内置播放器: ${useBuiltin}`)
   
-  log('play-video called with bvid:', bvid, 'cid:', cid, 'title:', title, 'mpvPath:', mpvPath, 'showDanmaku:', showDanmaku)
+  log('play-video called with bvid:', bvid, 'cid:', cid, 'title:', title, 'mpvPath:', mpvPath, 'showDanmaku:', showDanmaku, 'useBuiltin:', useBuiltin)
   stopVideo()
+
+  if (useBuiltin) {
+    return await openBuiltinPlayer(bvid, cid, title)
+  }
 
   try {
     const videoUrl = `https://www.bilibili.com/video/${bvid}`
@@ -1051,6 +1058,414 @@ ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmak
     return { success: true, hasDanmaku: !!danmakuAssPath }
   } catch (error) {
     log('Failed to start MPV:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+async function openBuiltinPlayer(bvid, cid, title) {
+  log('Opening builtin player for:', bvid, title)
+  
+  if (playerWindow) {
+    playerWindow.close()
+    playerWindow = null
+  }
+
+  let finalCid = cid
+  if (!finalCid) {
+    try {
+      const videoInfo = await getVideoInfo(bvid)
+      if (videoInfo && videoInfo.cid) {
+        finalCid = videoInfo.cid
+        log('Got cid from video info:', finalCid)
+      }
+    } catch (error) {
+      log('Failed to get cid:', error.message)
+    }
+  }
+
+  playerWindow = new BrowserWindow({
+    width: 1280,
+    height: 720,
+    minWidth: 800,
+    minHeight: 450,
+    frame: false,
+    menuBarVisible: false,
+    webPreferences: {
+      nodeIntegration: true,
+      contextIsolation: false,
+      webviewTag: true,
+      sandbox: false,
+      partition: 'persist:main' // 使用与主窗口相同的partition
+    }
+  })
+
+  // 添加请求拦截器
+  const session = playerWindow.webContents.session
+  session.webRequest.onBeforeSendHeaders((details, callback) => {
+    const url = details.url
+    if (url.includes('bilivideo.com') || 
+        url.includes('bilivideo.cn') || 
+        url.includes('bilibili.com') ||
+        url.includes('mountaintoys.cn') ||
+        url.includes('hdslb.com')) {
+      log('Intercepting video request:', url.substring(0, 100))
+      details.requestHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      details.requestHeaders['Referer'] = 'https://www.bilibili.com/'
+      details.requestHeaders['Origin'] = 'https://www.bilibili.com'
+    }
+    callback({ requestHeaders: details.requestHeaders })
+  })
+
+  playerWindow.loadFile('src/pages/player.html')
+
+  // 复制主窗口的cookie到播放器窗口
+  const copyCookies = async () => {
+    try {
+      const mainCookies = await mainWindow.webContents.session.cookies.get({})
+      log('Copying', mainCookies.length, 'cookies to player window')
+      
+      const playerSession = playerWindow.webContents.session
+      for (const cookie of mainCookies) {
+        try {
+          await playerSession.cookies.set({
+            url: `https://${cookie.domain.startsWith('.') ? cookie.domain.substring(1) : cookie.domain}`,
+            name: cookie.name,
+            value: cookie.value,
+            domain: cookie.domain,
+            path: cookie.path,
+            secure: cookie.secure,
+            httpOnly: cookie.httpOnly,
+            expirationDate: cookie.expirationDate
+          })
+        } catch (e) {
+          log('Failed to set cookie:', cookie.name, e.message)
+        }
+      }
+    } catch (e) {
+      log('Failed to copy cookies:', e.message)
+    }
+  }
+
+  playerWindow.webContents.on('did-finish-load', async () => {
+    await copyCookies()
+    playerWindow.webContents.send('play-video-data', {
+      bvid: bvid,
+      cid: finalCid,
+      title: title || '哔哩哔哩视频',
+      cookies: savedCookies
+    })
+  })
+
+  playerWindow.on('closed', () => {
+    log('Player window closed')
+    playerWindow = null
+  })
+
+  return { success: true, hasDanmaku: false, playerOpened: true }
+}
+
+ipcMain.handle('minimize-player-window', async () => {
+  if (playerWindow) {
+    playerWindow.minimize()
+  }
+})
+
+ipcMain.handle('maximize-player-window', async () => {
+  if (playerWindow) {
+    if (playerWindow.isMaximized()) {
+      playerWindow.unmaximize()
+    } else {
+      playerWindow.maximize()
+    }
+  }
+})
+
+ipcMain.handle('get-window-position', async () => {
+  if (playerWindow) {
+    const pos = playerWindow.getPosition()
+    return { x: pos[0], y: pos[1] }
+  }
+  return { x: 0, y: 0 }
+})
+
+ipcMain.handle('set-window-position', async (event, x, y) => {
+  if (playerWindow) {
+    playerWindow.setPosition(x, y)
+  }
+})
+
+ipcMain.handle('is-window-maximized', async () => {
+  if (playerWindow) {
+    return playerWindow.isMaximized()
+  }
+  return false
+})
+
+ipcMain.handle('zoom-player-window', async (event, delta) => {
+  if (playerWindow) {
+    if (playerWindow.isFullScreen()) {
+      if (delta > 0) {
+        return
+      } else {
+        playerWindow.setFullScreen(false)
+        return
+      }
+    }
+
+    const currentBounds = playerWindow.getBounds()
+    const minWidth = 640
+    const minHeight = 360
+
+    if (delta < 0 && currentBounds.width <= minWidth && currentBounds.height <= minHeight) {
+      return
+    }
+
+    const scaleFactor = delta > 0 ? 1.2 : 0.8
+    const newWidth = Math.max(minWidth, Math.round(currentBounds.width * scaleFactor))
+    const newHeight = Math.max(minHeight, Math.round(currentBounds.height * scaleFactor))
+
+    const { screen } = require('electron')
+    const primaryDisplay = screen.getPrimaryDisplay()
+    const screenSize = primaryDisplay.workAreaSize
+
+    const windowWillExceedScreen = 
+      newWidth > screenSize.width * 0.95 || 
+      newHeight > screenSize.height * 0.95
+
+    if (delta > 0 && windowWillExceedScreen) {
+      playerWindow.setFullScreen(true)
+      return
+    }
+
+    const widthDelta = newWidth - currentBounds.width
+    const heightDelta = newHeight - currentBounds.height
+    playerWindow.setBounds({
+      x: currentBounds.x - widthDelta / 2,
+      y: currentBounds.y - heightDelta / 2,
+      width: newWidth,
+      height: newHeight
+    }, true)
+  }
+})
+
+ipcMain.handle('set-window-position-smooth', async (event, x, y) => {
+  if (playerWindow) {
+    playerWindow.setPosition(Math.round(x), Math.round(y), false)
+  }
+})
+
+ipcMain.handle('move-to-next-display', async () => {
+  if (playerWindow) {
+    const { screen } = require('electron')
+    const displays = screen.getAllDisplays()
+    
+    if (displays.length <= 1) {
+      return false
+    }
+    
+    const currentBounds = playerWindow.getBounds()
+    const currentDisplay = screen.getDisplayMatching(currentBounds)
+    
+    let nextDisplayIndex = displays.findIndex(d => d.id === currentDisplay.id) + 1
+    if (nextDisplayIndex >= displays.length) {
+      nextDisplayIndex = 0
+    }
+    
+    const nextDisplay = displays[nextDisplayIndex]
+    const newX = nextDisplay.workArea.x + (nextDisplay.workArea.width - currentBounds.width) / 2
+    const newY = nextDisplay.workArea.y + (nextDisplay.workArea.height - currentBounds.height) / 2
+    
+    playerWindow.setBounds({
+      x: Math.round(newX),
+      y: Math.round(newY),
+      width: currentBounds.width,
+      height: currentBounds.height
+    })
+    
+    return true
+  }
+  return false
+})
+
+ipcMain.handle('move-player-window', async (event, direction) => {
+  if (playerWindow && !playerWindow.isFullScreen()) {
+    const currentBounds = playerWindow.getBounds()
+    const step = 50
+    
+    let newX = currentBounds.x
+    let newY = currentBounds.y
+    
+    switch (direction) {
+      case 'up':
+        newY -= step
+        break
+      case 'down':
+        newY += step
+        break
+      case 'left':
+        newX -= step
+        break
+      case 'right':
+        newX += step
+        break
+    }
+    
+    playerWindow.setPosition(newX, newY)
+  }
+})
+
+ipcMain.handle('get-video-url', async (event, bvid, cid) => {
+  const cookieString = Object.entries(savedCookies).map(([k, v]) => `${k}=${v}`).join('; ')
+
+  const qualityLevels = [
+    { qn: 125, name: 'HDR1080P60', fnval: 16 },
+    { qn: 120, name: '4K', fnval: 16 },
+    { qn: 116, name: '1080P60', fnval: 16 },
+    { qn: 112, name: '1080P+', fnval: 16 },
+    { qn: 80, name: '1080P', fnval: 16 },
+    { qn: 74, name: '720P60', fnval: 16 },
+    { qn: 64, name: '720P', fnval: 16 },
+    { qn: 32, name: '480P', fnval: 16 },
+    { qn: 16, name: '360P', fnval: 16 }
+  ]
+
+  for (const level of qualityLevels) {
+    try {
+      const url = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=${level.qn}&fnval=${level.fnval}`
+      log(`=== 尝试清晰度: ${level.name} (qn=${level.qn}) ===`)
+
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': `https://www.bilibili.com/video/${bvid}`,
+          'Cookie': cookieString
+        }
+      })
+
+      const data = await response.json()
+
+      if (data.code !== 0) {
+        log(`❌ ${level.name} 获取失败: ${data.message}`)
+        continue
+      }
+
+      const dash = data.data?.dash
+      if (dash && dash.video && dash.video.length > 0 && dash.audio && dash.audio.length > 0) {
+        dash.video.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
+        const bestVideo = dash.video[0]
+        const videoUrl = bestVideo.baseUrl || bestVideo.url
+        dash.audio.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
+        const audioUrl = dash.audio[0].baseUrl || dash.audio[0].url
+        log(`✅ 成功获取 - 使用 ${level.name} (DASH格式)`)
+        log(`   ├─ 视频URL: ${videoUrl?.substring(0, 80)}...`)
+        log(`   ├─ 音频URL: ${audioUrl?.substring(0, 80)}...`)
+        log(`   └─ 视频码率: ${(bestVideo.bandwidth / 1000).toFixed(0)} kbps`)
+        return {
+          success: true,
+          url: videoUrl,
+          audioUrl: audioUrl,
+          quality: level.name + ' (DASH)',
+          isCombined: false
+        }
+      }
+
+      const durl = data.data?.durl || []
+      if (durl.length > 0) {
+        log(`✅ 成功获取 - 使用 ${level.name} (durl格式 - 音视频合并)`)
+        log(`   └─ 视频URL: ${durl[0].url?.substring(0, 80)}...`)
+        return {
+          success: true,
+          url: durl[0].url,
+          quality: level.name + ' (durl)',
+          backupUrl: durl[0].backup_url?.[0],
+          isCombined: true
+        }
+      }
+      log(`⚠️ ${level.name} 无可用资源，尝试下一个...`)
+    } catch (error) {
+      log(`Quality ${level.name} error: ${error.message}, trying lower...`)
+    }
+  }
+
+  return { success: false, error: '所有清晰度均获取失败' }
+})
+
+ipcMain.handle('get-video-info', async (event, bvid) => {
+  try {
+    const url = `https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`
+    log('Getting video info from:', url)
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': `https://www.bilibili.com/video/${bvid}`
+      }
+    })
+    
+    const data = await response.json()
+    log('Video info response:', data.code)
+    
+    if (data.code !== 0) {
+      throw new Error(data.message || '获取视频信息失败')
+    }
+    
+    return { success: true, data: data.data }
+  } catch (error) {
+    log('Error getting video info:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('get-danmaku', async (event, cid) => {
+  try {
+    const url = `https://api.bilibili.com/x/v1/dm/list.so?oid=${cid}`
+    log('Getting danmaku from:', url)
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      }
+    })
+    
+    const text = await response.text()
+    log('Danmaku loaded, length:', text.length)
+    
+    return { success: true, data: text }
+  } catch (error) {
+    log('Error getting danmaku:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('get-login-info', async () => {
+  try {
+    const url = 'https://api.bilibili.com/x/web-interface/nav'
+    log('Getting login info from:', url)
+    
+    const response = await fetch(url, {
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.bilibili.com/',
+        'Cookie': Object.entries(savedCookies).map(([k, v]) => `${k}=${v}`).join('; ')
+      }
+    })
+    
+    const data = await response.json()
+    log('Login info result:', data.code)
+    
+    if (data.code === 0 && data.data && data.data.isLogin) {
+      return { 
+        success: true, 
+        isLogin: true,
+        uname: data.data.uname || '',
+        face: data.data.face || '',
+        mid: data.data.mid || ''
+      }
+    } else {
+      return { success: true, isLogin: false }
+    }
+  } catch (error) {
+    log('Error getting login info:', error.message)
     return { success: false, error: error.message }
   }
 })

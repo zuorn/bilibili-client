@@ -7,18 +7,68 @@ let pageHistory = []
 let defaultShortcuts = {
   focusSearch: { keys: [['ctrl', 'f'], ['ctrl', 'l']], label: '聚焦搜索框' },
   clearSearch: { keys: [['escape']], label: '取消搜索聚焦' },
-  goBack: { keys: [['alt', 'arrowleft'], ['alt', 'arrowright']], label: '返回上一页' }
+  goBack: { keys: [['alt', 'arrowleft'], ['alt', 'arrowright']], label: '返回上一页' },
+  openSettings: { keys: [['ctrl', 'shift', 's']], label: '打开设置' }
 }
 
 let userShortcuts = JSON.parse(JSON.stringify(defaultShortcuts))
 let currentRecording = { id: null, index: null }
 let shortcutsEnabled = true
 
+function parseConf(content) {
+  const config = {}
+  const lines = content.split('\n')
+  let currentSection = ''
+  
+  for (const line of lines) {
+    const trimmed = line.trim()
+    if (trimmed === '' || trimmed.startsWith('#')) continue
+    
+    if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+      currentSection = trimmed.slice(1, -1)
+      continue
+    }
+    
+    const [key, value] = trimmed.split('=', 2)
+    if (key && value !== undefined) {
+      config[key.trim()] = value.trim()
+    }
+  }
+  
+  return config
+}
+
+function convertConfToShortcuts(conf) {
+  const shortcuts = {}
+  const keys = Object.keys(conf)
+  
+  for (const key of keys) {
+    if (key.endsWith('.label')) {
+      const id = key.replace('.label', '')
+      const label = conf[key]
+      const keysStr = conf[id + '.keys'] || ''
+      
+      const keyCombinations = keysStr.split(',').map(k => {
+        return k.trim().split('+').map(k2 => k2.trim())
+      }).filter(k => k.length > 0 && k[0] !== '')
+      
+      shortcuts[id] = {
+        label: label,
+        keys: keyCombinations
+      }
+    }
+  }
+  
+  return shortcuts
+}
+
 async function loadDefaultShortcuts() {
   try {
-    const response = await fetch('./src/config/defaultShortcuts.json')
+    const response = await fetch('./src/config/defaultShortcuts.conf')
     if (response.ok) {
-      const config = await response.json()
+      const content = await response.text()
+      const conf = parseConf(content)
+      const config = convertConfToShortcuts(conf)
       defaultShortcuts = config
       console.log('默认快捷键配置加载成功:', defaultShortcuts)
       if (!userShortcuts.focusSearch || !userShortcuts.clearSearch || !userShortcuts.goBack) {
@@ -370,6 +420,7 @@ function initEventListeners() {
   document.getElementById('mpvPathBtn')?.addEventListener('click', selectMpvPath)
   initMpvPath()
   initDanmakuToggle()
+  initBuiltinPlayerToggle()
 }
 
 function navigateToPage(page) {
@@ -1322,10 +1373,15 @@ function getMpvPath() {
   return localStorage.getItem('mpvPath') || ''
 }
 
+function useBuiltinPlayer() {
+  return localStorage.getItem('useBuiltinPlayer') === 'true'
+}
+
 function playVideo(bvid, cid, title) {
   const mpvPath = getMpvPath()
   const showDanmaku = localStorage.getItem('showDanmaku') !== 'false'
-  ipcRenderer.invoke('play-video', bvid, cid, title, mpvPath, showDanmaku)
+  const useBuiltin = useBuiltinPlayer()
+  ipcRenderer.invoke('play-video', bvid, cid, title, mpvPath, showDanmaku, useBuiltin)
 }
 
 async function checkLoginStatus() {
@@ -1989,6 +2045,40 @@ function initDanmakuToggle() {
   })
 }
 
+function initBuiltinPlayerToggle() {
+  const builtinPlayerToggle = document.getElementById('useBuiltinPlayer')
+  if (!builtinPlayerToggle) return
+  
+  const savedSetting = localStorage.getItem('useBuiltinPlayer')
+  if (savedSetting !== null) {
+    builtinPlayerToggle.checked = savedSetting === 'true'
+  } else {
+    builtinPlayerToggle.checked = false
+  }
+  
+  builtinPlayerToggle.addEventListener('change', () => {
+    localStorage.setItem('useBuiltinPlayer', builtinPlayerToggle.checked)
+    log('内置播放器设置已更改:', builtinPlayerToggle.checked)
+  })
+}
+
+function initNativePlayerToggle() {
+  const nativePlayerToggle = document.getElementById('nativePlayerToggle')
+  if (!nativePlayerToggle) return
+  
+  const savedSetting = localStorage.getItem('useNativePlayer')
+  if (savedSetting !== null) {
+    nativePlayerToggle.checked = savedSetting === 'true'
+  } else {
+    nativePlayerToggle.checked = false
+  }
+  
+  nativePlayerToggle.addEventListener('change', () => {
+    localStorage.setItem('useNativePlayer', nativePlayerToggle.checked)
+    log('内置播放器设置已更改:', nativePlayerToggle.checked)
+  })
+}
+
 async function selectMpvPath() {
   const result = await ipcRenderer.invoke('select-mpv-path')
   if (result.success && result.path) {
@@ -2484,17 +2574,81 @@ function handleShortcutKeydown(e) {
   e.stopPropagation()
 
   const keys = []
+  const hasModifier = e.ctrlKey || e.shiftKey || e.altKey || e.metaKey
+  
   if (e.ctrlKey) keys.push('ctrl')
   if (e.shiftKey) keys.push('shift')
   if (e.altKey) keys.push('alt')
   if (e.metaKey) keys.push('meta')
 
-  const key = e.key.toLowerCase()
+  const code = e.code
   let nonModifierKey = null
-  if (key !== 'control' && key !== 'shift' && key !== 'alt' && key !== 'meta') {
-    nonModifierKey = key.length === 1 ? key.toUpperCase() : key
+  
+  console.log('Keyboard event code:', code, 'ctrlKey:', e.ctrlKey, 'shiftKey:', e.shiftKey, 'altKey:', e.altKey)
+  
+  const codeMap = {
+    'KeyA': 'a', 'KeyB': 'b', 'KeyC': 'c', 'KeyD': 'd', 'KeyE': 'e', 'KeyF': 'f',
+    'KeyG': 'g', 'KeyH': 'h', 'KeyI': 'i', 'KeyJ': 'j', 'KeyK': 'k', 'KeyL': 'l',
+    'KeyM': 'm', 'KeyN': 'n', 'KeyO': 'o', 'KeyP': 'p', 'KeyQ': 'q', 'KeyR': 'r',
+    'KeyS': 's', 'KeyT': 't', 'KeyU': 'u', 'KeyV': 'v', 'KeyW': 'w', 'KeyX': 'x',
+    'KeyY': 'y', 'KeyZ': 'z',
+    'Digit0': '0', 'Digit1': '1', 'Digit2': '2', 'Digit3': '3', 'Digit4': '4',
+    'Digit5': '5', 'Digit6': '6', 'Digit7': '7', 'Digit8': '8', 'Digit9': '9',
+    'Numpad0': '0', 'Numpad1': '1', 'Numpad2': '2', 'Numpad3': '3', 'Numpad4': '4',
+    'Numpad5': '5', 'Numpad6': '6', 'Numpad7': '7', 'Numpad8': '8', 'Numpad9': '9',
+    'Comma': ',',
+    'Period': '.',
+    'Slash': '/',
+    'Backslash': '\\',
+    'Semicolon': ';',
+    'Quote': '\'',
+    'BracketLeft': '[',
+    'BracketRight': ']',
+    'Equal': '=',
+    'Minus': '-',
+    'Backquote': '`',
+    'ArrowUp': 'arrowup',
+    'ArrowDown': 'arrowdown',
+    'ArrowLeft': 'arrowleft',
+    'ArrowRight': 'arrowright',
+    'Enter': 'enter',
+    'Tab': 'tab',
+    'Space': ' ',
+    'Backspace': 'backspace',
+    'Delete': 'delete',
+    'Escape': 'escape',
+    'Home': 'home',
+    'End': 'end',
+    'PageUp': 'pageup',
+    'PageDown': 'pagedown',
+    'CapsLock': 'capslock',
+    'NumLock': 'numlock',
+    'ScrollLock': 'scrolllock',
+    'Insert': 'insert',
+    'F1': 'f1', 'F2': 'f2', 'F3': 'f3', 'F4': 'f4', 'F5': 'f5',
+    'F6': 'f6', 'F7': 'f7', 'F8': 'f8', 'F9': 'f9', 'F10': 'f10',
+    'F11': 'f11', 'F12': 'f12'
+  }
+  
+  const ignoreCodes = ['ControlLeft', 'ControlRight', 'ShiftLeft', 'ShiftRight', 'AltLeft', 'AltRight', 'MetaLeft', 'MetaRight']
+  
+  if (!ignoreCodes.includes(code)) {
+    if (codeMap[code]) {
+      nonModifierKey = codeMap[code]
+    } else if (code.startsWith('Numpad')) {
+      nonModifierKey = code.replace('Numpad', '')
+      if (nonModifierKey === 'Add') nonModifierKey = '+'
+      else if (nonModifierKey === 'Subtract') nonModifierKey = '-'
+      else if (nonModifierKey === 'Multiply') nonModifierKey = '*'
+      else if (nonModifierKey === 'Divide') nonModifierKey = '/'
+      else if (nonModifierKey === 'Decimal') nonModifierKey = '.'
+    } else {
+      nonModifierKey = code.toLowerCase()
+    }
     keys.push(nonModifierKey)
   }
+
+  console.log('Detected keys:', keys, 'nonModifierKey:', nonModifierKey, 'hasModifier:', hasModifier)
 
   if (nonModifierKey) {
     const id = currentRecording.id
@@ -2621,6 +2775,29 @@ function applyShortcuts(e) {
     e.preventDefault()
     ipcRenderer.invoke('open-dev-tools')
   }
+
+  const settingsShortcut = userShortcuts.openSettings
+  if (settingsShortcut && settingsShortcut.keys && matchAnyShortcut(e, settingsShortcut.keys)) {
+    e.preventDefault()
+    navigateToPage('settings')
+  }
+}
+
+function normalizeKey(key) {
+  const keyMap = {
+    'comma': ',',
+    'period': '.',
+    'slash': '/',
+    'backslash': '\\',
+    'semicolon': ';',
+    'quote': '\'',
+    'bracketleft': '[',
+    'bracketright': ']',
+    'equal': '=',
+    'minus': '-',
+    'backquote': '`'
+  }
+  return keyMap[key.toLowerCase()] || key.toLowerCase()
 }
 
 function isKeyMatch(e, keys) {
@@ -2632,10 +2809,10 @@ function isKeyMatch(e, keys) {
   if (e.metaKey) pressedKeys.push('meta')
   const key = e.key.toLowerCase()
   if (key !== 'control' && key !== 'shift' && key !== 'alt' && key !== 'meta') {
-    pressedKeys.push(key)
+    pressedKeys.push(normalizeKey(key))
   }
   if (pressedKeys.length !== keys.length) return false
-  return keys.every(k => pressedKeys.includes(k.toLowerCase()))
+  return keys.every(k => pressedKeys.includes(normalizeKey(k)))
 }
 
 function matchAnyShortcut(e, keyCombinations) {

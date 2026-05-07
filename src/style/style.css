@@ -249,7 +249,7 @@ body {
 .search-dropdown {
   display: none;
   position: fixed;
-  top: 78px;
+  top: 54px;
   width: 500px;
   max-width: calc(100vw - 280px);
   background: #fff;
@@ -267,7 +267,7 @@ body {
   display: block;
   position: fixed;
   left: 50%;
-  top: 78px;
+  top: 54px;
   transform: translateX(-50%);
   z-index: 9999;
 }

@@ -1,0 +1,1438 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>哔哩哔哩播放器</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100%;
+      background-color: #000;
+      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    }
+
+    .player-container {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+      background-color: #000;
+      position: relative;
+    }
+
+    .player-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 16px;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.75), rgba(0,0,0,0.75));
+      border-bottom: 1px solid #2a2a2a;
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      transform: translateY(-100%);
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      z-index: 100;
+    }
+
+    .player-header.visible {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      flex: 1;
+    }
+
+    .header-middle {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      justify-content: flex-end;
+    }
+
+    .window-control-btn {
+      -webkit-app-region: no-drag;
+    }
+
+    .player-controls.visible {
+      transform: translateY(0);
+      opacity: 1;
+    }
+
+    .control-btn {
+      -webkit-app-region: no-drag;
+    }
+
+    .action-btn {
+      -webkit-app-region: no-drag;
+    }
+
+    .progress-bar {
+      -webkit-app-region: no-drag;
+    }
+
+    .volume-bar {
+      -webkit-app-region: no-drag;
+    }
+
+    .player-title {
+      font-size: 14px;
+      font-weight: 500;
+      color: #fff;
+      margin-left: 12px;
+      max-width: 400px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .window-control-btn {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: #999;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .window-control-btn:hover {
+      background-color: #2a2a2a;
+      color: #fff;
+    }
+
+    .window-control-btn.close-btn:hover {
+      background-color: #e53935;
+      color: #fff;
+    }
+
+    .video-area {
+      flex: 1;
+      position: relative;
+      background-color: #000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .video-player {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      background-color: #000;
+    }
+
+    .video-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: linear-gradient(to top, rgba(0,0,0,0.8), transparent 30%);
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      padding: 20px;
+    }
+
+    .danmaku-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 120px;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .danmaku-item {
+      position: absolute;
+      white-space: nowrap;
+      font-size: 16px;
+      color: #fff;
+      text-shadow: 1px 1px 2px rgba(0,0,0,0.8);
+      animation: danmaku-scroll linear forwards;
+    }
+
+    @keyframes danmaku-scroll {
+      from {
+        transform: translateX(100vw);
+      }
+      to {
+        transform: translateX(-100%);
+      }
+    }
+
+    .player-controls {
+      display: flex;
+      align-items: center;
+      padding: 12px 16px;
+      background: linear-gradient(to top, rgba(0,0,0,0.75), rgba(0,0,0,0.75));
+      gap: 12px;
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      transform: translateY(100%);
+      opacity: 0;
+      transition: transform 0.3s ease, opacity 0.3s ease;
+      z-index: 100;
+    }
+
+    .control-btn {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: #ccc;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+    }
+
+    .control-btn:hover {
+      background-color: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+
+    .progress-bar {
+      flex: 1;
+      height: 4px;
+      background-color: #333;
+      border-radius: 2px;
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background-color: #00a1d6;
+      border-radius: 2px;
+      transition: width 0.1s;
+    }
+
+    .progress-buffered {
+      height: 100%;
+      background-color: rgba(255,255,255,0.2);
+      border-radius: 2px;
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+
+    .progress-thumb {
+      position: absolute;
+      width: 12px;
+      height: 12px;
+      background-color: #00a1d6;
+      border-radius: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .progress-bar:hover .progress-thumb {
+      opacity: 1;
+    }
+
+    .time-display {
+      font-size: 12px;
+      color: #999;
+      min-width: 80px;
+      text-align: center;
+    }
+
+    .volume-control {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      width: 100px;
+    }
+
+    .volume-bar {
+      flex: 1;
+      height: 4px;
+      background-color: #333;
+      border-radius: 2px;
+      cursor: pointer;
+      position: relative;
+    }
+
+    .volume-fill {
+      height: 100%;
+      background-color: #00a1d6;
+      border-radius: 2px;
+    }
+
+    .vertical-volume-bar {
+      position: absolute;
+      right: 20px;
+      bottom: 80px;
+      width: 30px;
+      height: 100px;
+      background-color: rgba(0, 0, 0, 0.7);
+      border-radius: 4px;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s, visibility 0.3s;
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 6px 0;
+    }
+
+    .vertical-volume-bar.visible {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .volume-percentage {
+      color: #fff;
+      font-size: 10px;
+      margin-bottom: 4px;
+    }
+
+    .vertical-volume-fill-container {
+      width: 6px;
+      height: 60px;
+      background-color: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .vertical-volume-fill {
+      width: 100%;
+      background-color: #00a1d6;
+      border-radius: 3px;
+      position: absolute;
+      bottom: 0;
+      transition: height 0.1s;
+    }
+
+    .volume-icon {
+      color: #00a1d6;
+      margin-top: 4px;
+    }
+
+    .video-info-panel {
+      position: absolute;
+      right: 20px;
+      bottom: 80px;
+      width: 300px;
+      background: rgba(0,0,0,0.85);
+      border-radius: 8px;
+      padding: 16px;
+      color: #fff;
+    }
+
+    .video-info-title {
+      font-size: 14px;
+      font-weight: 500;
+      margin-bottom: 12px;
+      line-height: 1.4;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .video-info-meta {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 12px;
+      color: #999;
+    }
+
+    .video-info-author {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+    }
+
+    .author-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background-color: #333;
+    }
+
+    .author-name {
+      font-size: 12px;
+      color: #fff;
+    }
+
+    .video-info-stats {
+      display: flex;
+      gap: 16px;
+      font-size: 12px;
+      color: #999;
+    }
+
+    .video-info-actions {
+      display: flex;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .action-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 8px;
+      background: rgba(255,255,255,0.1);
+      border: none;
+      border-radius: 4px;
+      color: #999;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .action-btn:hover {
+      background: rgba(255,255,255,0.2);
+      color: #fff;
+    }
+
+    .action-btn.like {
+      color: #fb7299;
+    }
+
+    .action-btn.collect {
+      color: #ff9f1c;
+    }
+
+    .action-btn.share {
+      color: #00a1d6;
+    }
+
+    .action-btn.coin {
+      color: #f2d600;
+    }
+
+    .playback-speed {
+      position: relative;
+    }
+
+    .speed-selector {
+      position: absolute;
+      bottom: 100%;
+      right: 0;
+      background: #1a1a1a;
+      border-radius: 4px;
+      padding: 4px;
+      margin-bottom: 8px;
+      display: none;
+      flex-direction: column;
+      min-width: 80px;
+    }
+
+    .playback-speed:hover .speed-selector,
+    .speed-selector:hover {
+      display: flex;
+    }
+
+    .speed-option {
+      padding: 6px 12px;
+      background: transparent;
+      border: none;
+      color: #999;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: left;
+      border-radius: 2px;
+      transition: all 0.2s;
+    }
+
+    .speed-option:hover {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+
+    .speed-option.active {
+      color: #00a1d6;
+    }
+
+    .fullscreen-btn {
+      margin-left: auto;
+    }
+
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.8);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    .loading-spinner {
+      width: 48px;
+      height: 48px;
+      border: 3px solid #333;
+      border-top-color: #00a1d6;
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .loading-text {
+      margin-top: 16px;
+      color: #999;
+      font-size: 14px;
+    }
+
+    .error-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.9);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+
+    .error-icon {
+      width: 64px;
+      height: 64px;
+      margin-bottom: 16px;
+    }
+
+    .error-title {
+      color: #fff;
+      font-size: 18px;
+      font-weight: 500;
+      margin-bottom: 8px;
+    }
+
+    .error-message {
+      color: #999;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+
+    .retry-btn {
+      padding: 10px 24px;
+      background: #00a1d6;
+      border: none;
+      border-radius: 4px;
+      color: #fff;
+      font-size: 14px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .retry-btn:hover {
+      background: #00b5e5;
+    }
+  </style>
+</head>
+<body>
+  <div class="player-container">
+    <div class="player-header">
+      <div class="header-left">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+          <circle cx="12" cy="12" r="10" fill="#fb7299"/>
+          <path d="M8 9l5 3-5 3V9z" fill="white"/>
+        </svg>
+        <span class="player-title" id="videoTitle">哔哩哔哩视频</span>
+      </div>
+      <div class="header-middle">
+        <div id="loginStatus" style="display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 4px 12px; border-radius: 12px; background: #333; color: #999;">
+          <span id="loginText">未登录</span>
+        </div>
+      </div>
+      <div class="header-right">
+        <button class="window-control-btn" id="minBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 12h12"/>
+          </svg>
+        </button>
+        <button class="window-control-btn" id="maxBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <rect x="3" y="3" width="18" height="18" rx="2"/>
+          </svg>
+        </button>
+        <button class="window-control-btn close-btn" id="closeBtn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="video-area">
+      <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">正在加载视频...</div>
+      </div>
+      
+      <div class="error-overlay" id="errorOverlay" style="display: none;">
+        <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"/>
+          <line x1="15" y1="9" x2="9" y2="15"/>
+          <line x1="9" y1="9" x2="15" y2="15"/>
+        </svg>
+        <div class="error-title" id="errorTitle">播放失败</div>
+        <div class="error-message" id="errorMessage">无法加载视频，请稍后重试</div>
+        <button class="retry-btn" id="retryBtn">重新加载</button>
+      </div>
+
+      <video class="video-player" id="videoPlayer" playsinline webkit-playsinline></video>
+
+      <div class="danmaku-container" id="danmakuContainer"></div>
+      
+      <div class="video-overlay">
+        <div class="video-info-panel" id="videoInfoPanel">
+          <div class="video-info-title" id="infoTitle">视频标题</div>
+          <div class="video-info-author">
+            <img class="author-avatar" id="authorAvatar" src="" alt="Avatar">
+            <span class="author-name" id="authorName">UP主</span>
+          </div>
+          <div class="video-info-stats">
+            <span id="viewCount">0</span>
+            <span id="danmakuCount">0</span>
+          </div>
+          <div class="video-info-actions">
+            <button class="action-btn like" id="likeBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
+              </svg>
+              <span id="likeCount">0</span>
+            </button>
+            <button class="action-btn collect" id="collectBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
+                <polyline points="22 4 12 14.01 9 11.01"/>
+              </svg>
+              <span>收藏</span>
+            </button>
+            <button class="action-btn share" id="shareBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
+              </svg>
+              <span>分享</span>
+            </button>
+            <button class="action-btn coin" id="coinBtn">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="10"/>
+                <polyline points="12 6 12 12 16 14"/>
+              </svg>
+              <span>投币</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="vertical-volume-bar" id="verticalVolumeBar">
+      <div class="volume-percentage" id="volumePercentage">100%</div>
+      <div class="vertical-volume-fill-container">
+        <div class="vertical-volume-fill" id="verticalVolumeFill"></div>
+      </div>
+      <svg class="volume-icon" id="volumeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+      </svg>
+    </div>
+    
+    <div class="player-controls">
+      <button class="control-btn" id="playPauseBtn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="5 3 19 12 5 21 5 3"/>
+        </svg>
+      </button>
+      
+      <div class="progress-bar" id="progressBar">
+        <div class="progress-buffered" id="progressBuffered"></div>
+        <div class="progress-fill" id="progressFill"></div>
+        <div class="progress-thumb"></div>
+      </div>
+      
+      <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
+      
+      <div class="volume-control">
+        <button class="control-btn" id="muteBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+            <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+            <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+          </svg>
+        </button>
+        <div class="volume-bar" id="volumeBar">
+          <div class="volume-fill" id="volumeFill"></div>
+        </div>
+      </div>
+
+      <div class="playback-speed">
+        <button class="control-btn" id="speedBtn">
+          <span style="font-size: 12px; font-weight: 500;">1.0x</span>
+        </button>
+        <div class="speed-selector">
+          <button class="speed-option" data-speed="0.5">0.5x</button>
+          <button class="speed-option" data-speed="0.75">0.75x</button>
+          <button class="speed-option active" data-speed="1">1.0x</button>
+          <button class="speed-option" data-speed="1.25">1.25x</button>
+          <button class="speed-option" data-speed="1.5">1.5x</button>
+          <button class="speed-option" data-speed="2">2.0x</button>
+        </div>
+      </div>
+
+      <button class="control-btn" id="danmakuToggleBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+        </svg>
+      </button>
+
+      <button class="control-btn fullscreen-btn" id="fullscreenBtn">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 3 21 3 21 9"/>
+          <polyline points="9 21 3 21 3 15"/>
+          <polyline points="21 15 21 21 15 21"/>
+          <polyline points="3 9 3 3 9 3"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const { ipcRenderer } = require('electron')
+    
+    const videoPlayer = document.getElementById('videoPlayer')
+    const videoTitle = document.getElementById('videoTitle')
+    const infoTitle = document.getElementById('infoTitle')
+    const authorAvatar = document.getElementById('authorAvatar')
+    const authorName = document.getElementById('authorName')
+    const viewCount = document.getElementById('viewCount')
+    const danmakuCount = document.getElementById('danmakuCount')
+    const likeCount = document.getElementById('likeCount')
+    const playPauseBtn = document.getElementById('playPauseBtn')
+    const progressBar = document.getElementById('progressBar')
+    const progressFill = document.getElementById('progressFill')
+    const progressBuffered = document.getElementById('progressBuffered')
+    const timeDisplay = document.getElementById('timeDisplay')
+    const volumeBar = document.getElementById('volumeBar')
+    const volumeFill = document.getElementById('volumeFill')
+    const verticalVolumeBar = document.getElementById('verticalVolumeBar')
+    const verticalVolumeFill = document.getElementById('verticalVolumeFill')
+    const volumePercentage = document.getElementById('volumePercentage')
+    const volumeIcon = document.getElementById('volumeIcon')
+    const muteBtn = document.getElementById('muteBtn')
+    const speedBtn = document.getElementById('speedBtn')
+    const danmakuToggleBtn = document.getElementById('danmakuToggleBtn')
+    const fullscreenBtn = document.getElementById('fullscreenBtn')
+    const loadingOverlay = document.getElementById('loadingOverlay')
+    const errorOverlay = document.getElementById('errorOverlay')
+    const errorTitle = document.getElementById('errorTitle')
+    const errorMessage = document.getElementById('errorMessage')
+    const retryBtn = document.getElementById('retryBtn')
+    const danmakuContainer = document.getElementById('danmakuContainer')
+    
+    const minBtn = document.getElementById('minBtn')
+    const maxBtn = document.getElementById('maxBtn')
+    const closeBtn = document.getElementById('closeBtn')
+
+    let currentVideoData = null
+    let danmakuEnabled = true
+    let danmakuList = []
+    let danmakuIndex = 0
+    let danmakuTimer = null
+
+    minBtn.addEventListener('click', () => ipcRenderer.invoke('minimize-player-window'))
+    maxBtn.addEventListener('click', () => ipcRenderer.invoke('maximize-player-window'))
+    closeBtn.addEventListener('click', () => window.close())
+
+    // 窗口拖动逻辑
+    const videoArea = document.querySelector('.video-area')
+    let isDragging = false
+    let dragStartX = 0
+    let dragStartY = 0
+    let windowStartX = 0
+    let windowStartY = 0
+    let lastMoveTime = 0
+    const moveThrottle = 16
+
+    videoArea.addEventListener('mousedown', async (e) => {
+      if (e.button !== 0) return
+
+      const windowHeight = window.innerHeight
+      const topThreshold = windowHeight * 0.2
+      const bottomThreshold = windowHeight * 0.8
+
+      if (e.clientY < topThreshold || e.clientY > bottomThreshold) {
+        return
+      }
+
+      isDragging = true
+      dragStartX = e.clientX
+      dragStartY = e.clientY
+
+      const pos = await ipcRenderer.invoke('get-window-position')
+      windowStartX = pos.x
+      windowStartY = pos.y
+
+      e.preventDefault()
+    })
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return
+
+      const now = Date.now()
+      if (now - lastMoveTime < moveThrottle) return
+      lastMoveTime = now
+
+      const deltaX = e.clientX - dragStartX
+      const deltaY = e.clientY - dragStartY
+
+      ipcRenderer.invoke('set-window-position', windowStartX + deltaX, windowStartY + deltaY)
+    })
+
+    document.addEventListener('mouseup', () => {
+      isDragging = false
+    })
+
+    document.addEventListener('mouseleave', () => {
+      isDragging = false
+    })
+
+    // 自动隐藏/显示控制栏
+    const playerControls = document.querySelector('.player-controls')
+    let hideTimer = null
+    let isMouseInControlArea = false
+    let hideVolumeTimer = null
+
+    const showControls = () => {
+      playerControls.classList.add('visible')
+      if (hideTimer) {
+        clearTimeout(hideTimer)
+        hideTimer = null
+      }
+    }
+
+    const hideControls = () => {
+      if (!videoPlayer.paused && !isMouseInControlArea) {
+        playerControls.classList.remove('visible')
+      }
+    }
+
+    const scheduleHideControls = () => {
+      if (hideTimer) {
+        clearTimeout(hideTimer)
+      }
+      if (!videoPlayer.paused && !isMouseInControlArea) {
+        hideTimer = setTimeout(hideControls, 2000)
+      }
+    }
+
+    playerControls.addEventListener('mouseenter', () => {
+      isMouseInControlArea = true
+      if (hideTimer) {
+        clearTimeout(hideTimer)
+        hideTimer = null
+      }
+    })
+
+    playerControls.addEventListener('mouseleave', () => {
+      isMouseInControlArea = false
+      scheduleHideControls()
+    })
+
+    document.addEventListener('mousemove', (e) => {
+      const windowHeight = window.innerHeight
+      const bottomThreshold = windowHeight * 0.8
+      
+      if (e.clientY > bottomThreshold) {
+        showControls()
+      } else if (!isMouseInControlArea) {
+        hideControls()
+      }
+    })
+
+    videoPlayer.addEventListener('pause', () => {
+      showControls()
+      if (hideTimer) {
+        clearTimeout(hideTimer)
+        hideTimer = null
+      }
+    })
+
+    videoPlayer.addEventListener('play', () => {
+      scheduleHideControls()
+    })
+
+    document.addEventListener('mouseleave', () => {
+      if (!videoPlayer.paused) {
+        playerControls.classList.remove('visible')
+        playerHeader.classList.remove('visible')
+      }
+    })
+
+    // 顶部标题栏显示/隐藏 - 和底部控制栏一样的逻辑
+    const playerHeader = document.querySelector('.player-header')
+    let isMouseInHeaderArea = false
+
+    const showHeader = () => {
+      playerHeader.classList.add('visible')
+    }
+
+    const hideHeader = () => {
+      if (!isMouseInHeaderArea) {
+        playerHeader.classList.remove('visible')
+      }
+    }
+
+    playerHeader.addEventListener('mouseenter', () => {
+      isMouseInHeaderArea = true
+    })
+
+    playerHeader.addEventListener('mouseleave', () => {
+      isMouseInHeaderArea = false
+      hideHeader()
+    })
+
+    document.addEventListener('mousemove', (e) => {
+      const windowHeight = window.innerHeight
+      const bottomThreshold = windowHeight * 0.8
+      const topThreshold = windowHeight * 0.2
+      
+      if (e.clientY > bottomThreshold) {
+        showControls()
+      } else if (!isMouseInControlArea) {
+        hideControls()
+      }
+      
+      if (e.clientY < topThreshold) {
+        showHeader()
+      } else if (!isMouseInHeaderArea) {
+        hideHeader()
+      }
+    })
+
+    videoPlayer.addEventListener('pause', () => {
+      showControls()
+      if (hideTimer) {
+        clearTimeout(hideTimer)
+        hideTimer = null
+      }
+    })
+
+    // 按Q键关闭播放器，按F或回车键全屏，按-缩放窗口按=放大窗口
+    let lastZoomTime = 0
+    const zoomThrottle = 200
+    let zoomPending = false
+
+    const processZoom = (delta) => {
+      if (zoomPending) return
+
+      const now = Date.now()
+      if (now - lastZoomTime < zoomThrottle) {
+        if (!zoomPending) {
+          zoomPending = true
+          setTimeout(() => {
+            zoomPending = false
+            lastZoomTime = Date.now()
+            ipcRenderer.invoke('zoom-player-window', delta)
+          }, zoomThrottle - (now - lastZoomTime))
+        }
+        return
+      }
+      lastZoomTime = now
+      ipcRenderer.invoke('zoom-player-window', delta)
+    }
+
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'q' || e.key === 'Q') {
+        window.close()
+      }
+      if (e.key === 'f' || e.key === 'F' || e.key === 'Enter') {
+        if (!document.fullscreenElement) {
+          document.documentElement.requestFullscreen()
+        } else {
+          document.exitFullscreen()
+        }
+      }
+      if (e.key === '-' || e.key === '=') {
+        processZoom(e.key === '=' ? 1 : -1)
+      }
+      if (e.key === ' ') {
+        e.preventDefault()
+        if (videoPlayer.paused) {
+          videoPlayer.play()
+        } else {
+          videoPlayer.pause()
+        }
+      }
+      if (e.key === 'ArrowLeft') {
+        e.preventDefault()
+        showControls()
+        videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5)
+      }
+      if (e.key === 'ArrowRight') {
+        e.preventDefault()
+        showControls()
+        videoPlayer.currentTime = Math.min(videoPlayer.duration, videoPlayer.currentTime + 5)
+      }
+      if (e.key === 'ArrowUp') {
+        e.preventDefault()
+        videoPlayer.volume = Math.min(1, videoPlayer.volume + 0.1)
+        updateVerticalVolumeDisplay()
+        showVerticalVolumeBar()
+      }
+      if (e.key === 'ArrowDown') {
+        e.preventDefault()
+        videoPlayer.volume = Math.max(0, videoPlayer.volume - 0.1)
+        updateVerticalVolumeDisplay()
+        showVerticalVolumeBar()
+      }
+      if (e.key === 'm' || e.key === 'M') {
+        e.preventDefault()
+        videoPlayer.muted = !videoPlayer.muted
+        if (videoPlayer.muted) {
+          videoPlayer.volume = 0
+        } else {
+          videoPlayer.volume = 0.8
+        }
+        updateVerticalVolumeDisplay()
+        showVerticalVolumeBar()
+      }
+      if (e.key === 'Tab' && e.ctrlKey) {
+        e.preventDefault()
+        ipcRenderer.invoke('move-to-next-display')
+      }
+      if (e.key === 'w' || e.key === 'W') {
+        e.preventDefault()
+        ipcRenderer.invoke('move-player-window', 'up')
+      }
+      if (e.key === 's' || e.key === 'S') {
+        e.preventDefault()
+        ipcRenderer.invoke('move-player-window', 'down')
+      }
+      if (e.key === 'a' || e.key === 'A') {
+        e.preventDefault()
+        ipcRenderer.invoke('move-player-window', 'left')
+      }
+      if (e.key === 'd' || e.key === 'D') {
+        e.preventDefault()
+        ipcRenderer.invoke('move-player-window', 'right')
+      }
+    })
+
+    ipcRenderer.on('play-video-data', async (event, data) => {
+      console.log('Received play-video-data:', data)
+      currentVideoData = data
+      videoTitle.textContent = data.title
+      infoTitle.textContent = data.title
+      
+      // 更新登录状态显示
+      const loginStatusEl = document.getElementById('loginStatus')
+      const loginTextEl = document.getElementById('loginText')
+      const isLoggedIn = data.cookies && data.cookies.SESSDATA
+      console.log('Login status from cookies:', isLoggedIn)
+      
+      if (data.cookies) {
+        console.log('Cookies:', Object.keys(data.cookies))
+      }
+      
+      // 通过API验证登录状态并获取用户信息
+      try {
+        const loginInfo = await ipcRenderer.invoke('get-login-info')
+        console.log('Login info from API:', loginInfo)
+        
+        if (loginInfo.success && loginInfo.isLogin) {
+          loginTextEl.textContent = loginInfo.uname || '已登录'
+          loginStatusEl.style.background = '#1e8e3e'
+          loginStatusEl.style.color = '#fff'
+          
+          // 如果有头像，显示头像
+          if (loginInfo.face) {
+            const avatar = document.createElement('img')
+            avatar.src = loginInfo.face
+            avatar.style.width = '20px'
+            avatar.style.height = '20px'
+            avatar.style.borderRadius = '50%'
+            loginStatusEl.insertBefore(avatar, loginTextEl)
+          }
+        } else {
+          loginTextEl.textContent = '未登录'
+          loginStatusEl.style.background = '#333'
+          loginStatusEl.style.color = '#999'
+        }
+      } catch (error) {
+        console.error('Error getting login info:', error)
+        loginTextEl.textContent = isLoggedIn ? '已登录' : '未登录'
+        loginStatusEl.style.background = isLoggedIn ? '#1e8e3e' : '#333'
+        loginStatusEl.style.color = isLoggedIn ? '#fff' : '#999'
+      }
+      
+      try {
+        await loadVideo(data.bvid, data.cid)
+        await loadVideoInfo(data.bvid)
+        if (danmakuEnabled && data.cid) {
+          await loadDanmaku(data.cid)
+        }
+      } catch (error) {
+        console.error('Error loading video:', error)
+        showError('加载失败', error.message)
+      }
+    })
+
+    async function loadVideo(bvid, cid) {
+      console.log('Loading video, bvid:', bvid, 'cid:', cid)
+      loadingOverlay.style.display = 'flex'
+      errorOverlay.style.display = 'none'
+
+      try {
+        if (!cid) {
+          throw new Error('缺少视频cid')
+        }
+
+        const result = await ipcRenderer.invoke('get-video-url', bvid, cid)
+        console.log('get-video-url result:', result)
+
+        if (!result.success) {
+          throw new Error(result.error || '获取视频地址失败')
+        }
+
+        console.log('Video URL:', result.url)
+        console.log('Audio URL:', result.audioUrl)
+        console.log('Is combined format:', result.isCombined)
+
+        // 创建video元素并设置属性
+        videoPlayer.src = result.url
+        videoPlayer.crossOrigin = 'anonymous'
+
+        let audioElement = null
+        if (result.audioUrl && !result.isCombined) {
+          console.log('Creating separate audio element for DASH format')
+          audioElement = document.createElement('audio')
+          audioElement.src = result.audioUrl
+          audioElement.crossOrigin = 'anonymous'
+
+          videoPlayer.addEventListener('play', () => {
+            if (audioElement && audioElement.paused) {
+              audioElement.play().catch(e => console.log('Audio play error:', e))
+            }
+          })
+
+          videoPlayer.addEventListener('pause', () => {
+            if (audioElement && !audioElement.paused) {
+              audioElement.pause()
+            }
+          })
+
+          videoPlayer.addEventListener('volumechange', () => {
+            if (audioElement) {
+              audioElement.volume = videoPlayer.volume
+            }
+          })
+
+          videoPlayer.addEventListener('seeked', () => {
+            if (audioElement) {
+              audioElement.currentTime = videoPlayer.currentTime
+            }
+          })
+        }
+
+        videoPlayer.load()
+        
+        let hasLoaded = false
+        let hasError = false
+        
+        videoPlayer.addEventListener('loadedmetadata', () => {
+          console.log('Video metadata loaded')
+          if (!hasLoaded && !hasError) {
+            hasLoaded = true
+            loadingOverlay.style.display = 'none'
+            videoPlayer.play()
+          }
+        })
+
+        videoPlayer.addEventListener('canplay', () => {
+          console.log('Video can play')
+          if (!hasLoaded && !hasError) {
+            hasLoaded = true
+            loadingOverlay.style.display = 'none'
+            videoPlayer.play()
+          }
+        })
+
+        videoPlayer.addEventListener('error', (e) => {
+          console.error('Video player error:', videoPlayer.error)
+          console.error('Error code:', videoPlayer.error?.code)
+          console.error('Error message:', videoPlayer.error?.message)
+          if (!hasError) {
+            hasError = true
+            showError('播放失败', '无法加载视频资源 (code: ' + (videoPlayer.error?.code || 'unknown') + ')')
+          }
+        })
+        
+        // 设置超时
+        setTimeout(() => {
+          if (!hasLoaded && !hasError) {
+            console.log('Video loading timeout')
+          }
+        }, 10000)
+      } catch (error) {
+        console.error('Error in loadVideo:', error)
+        showError('加载失败', error.message)
+      }
+    }
+
+    async function loadVideoInfo(bvid) {
+      try {
+        const result = await ipcRenderer.invoke('get-video-info', bvid)
+        if (result.success && result.data) {
+          const video = result.data
+          authorName.textContent = video.owner?.name || '未知UP主'
+          authorAvatar.src = video.owner?.face || ''
+          viewCount.textContent = formatNumber(video.stat?.view || 0) + '播放'
+          danmakuCount.textContent = formatNumber(video.stat?.danmaku || 0) + '弹幕'
+          likeCount.textContent = formatNumber(video.stat?.like || 0)
+        }
+      } catch (error) {
+        console.log('加载视频信息失败:', error)
+      }
+    }
+
+    async function loadDanmaku(cid) {
+      try {
+        const result = await ipcRenderer.invoke('get-danmaku', cid)
+        if (result.success) {
+          danmakuList = parseDanmaku(result.data)
+          startDanmaku()
+        }
+      } catch (error) {
+        console.log('加载弹幕失败:', error)
+      }
+    }
+
+    function parseDanmaku(xmlText) {
+      const parser = new DOMParser()
+      const doc = parser.parseFromString(xmlText, 'text/xml')
+      const items = doc.querySelectorAll('d')
+      const result = []
+      
+      items.forEach(item => {
+        const p = item.getAttribute('p').split(',')
+        result.push({
+          time: parseFloat(p[0]),
+          type: parseInt(p[1]),
+          color: p[3],
+          text: item.textContent
+        })
+      })
+      
+      return result.sort((a, b) => a.time - b.time)
+    }
+
+    function startDanmaku() {
+      if (danmakuTimer) clearInterval(danmakuTimer)
+      danmakuIndex = 0
+
+      danmakuTimer = setInterval(() => {
+        if (!danmakuEnabled || !videoPlayer.currentTime) return
+
+        while (danmakuIndex < danmakuList.length && 
+               danmakuList[danmakuIndex].time <= videoPlayer.currentTime + 1) {
+          showDanmaku(danmakuList[danmakuIndex])
+          danmakuIndex++
+        }
+      }, 100)
+    }
+
+    function showDanmaku(danmaku) {
+      const item = document.createElement('div')
+      item.className = 'danmaku-item'
+      item.textContent = danmaku.text
+      
+      if (danmaku.color !== '16777215') {
+        item.style.color = `#${parseInt(danmaku.color).toString(16).padStart(6, '0')}`
+      }
+      
+      const top = Math.random() * 60 + 5
+      item.style.top = `${top}%`
+      item.style.animationDuration = `${10 + Math.random() * 5}s`
+      
+      danmakuContainer.appendChild(item)
+      
+      setTimeout(() => {
+        item.remove()
+      }, 15000)
+    }
+
+    function formatNumber(num) {
+      if (num >= 10000) {
+        return (num / 10000).toFixed(1) + '万'
+      }
+      return num.toString()
+    }
+
+    function showError(title, message) {
+      loadingOverlay.style.display = 'none'
+      errorTitle.textContent = title
+      errorMessage.textContent = message
+      errorOverlay.style.display = 'flex'
+    }
+
+    retryBtn.addEventListener('click', () => {
+      if (currentVideoData) {
+        loadVideo(currentVideoData.bvid, currentVideoData.cid)
+      }
+    })
+
+    playPauseBtn.addEventListener('click', () => {
+      if (videoPlayer.paused) {
+        videoPlayer.play()
+        playPauseBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`
+      } else {
+        videoPlayer.pause()
+        playPauseBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>`
+      }
+    })
+
+    videoPlayer.addEventListener('play', () => {
+      playPauseBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`
+    })
+
+    videoPlayer.addEventListener('pause', () => {
+      playPauseBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>`
+    })
+
+    // 阻止点击视频区域切换播放暂停
+    videoPlayer.addEventListener('click', (e) => {
+      e.preventDefault()
+    })
+
+    progressBar.addEventListener('click', (e) => {
+      const rect = progressBar.getBoundingClientRect()
+      const percent = (e.clientX - rect.left) / rect.width
+      videoPlayer.currentTime = percent * videoPlayer.duration
+    })
+
+    videoPlayer.addEventListener('timeupdate', () => {
+      const percent = videoPlayer.currentTime / videoPlayer.duration
+      progressFill.style.width = `${percent * 100}%`
+      
+      const buffered = videoPlayer.buffered
+      if (buffered.length > 0) {
+        const bufferedEnd = buffered.end(buffered.length - 1)
+        progressBuffered.style.width = `${(bufferedEnd / videoPlayer.duration) * 100}%`
+      }
+      
+      timeDisplay.textContent = formatTime(videoPlayer.currentTime) + ' / ' + formatTime(videoPlayer.duration)
+    })
+
+    function formatTime(seconds) {
+      const mins = Math.floor(seconds / 60)
+      const secs = Math.floor(seconds % 60)
+      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+    }
+
+    volumeBar.addEventListener('click', (e) => {
+      const rect = volumeBar.getBoundingClientRect()
+      const percent = (e.clientX - rect.left) / rect.width
+      videoPlayer.volume = percent
+      volumeFill.style.width = `${percent * 100}%`
+    })
+
+    muteBtn.addEventListener('click', () => {
+      videoPlayer.muted = !videoPlayer.muted
+      if (videoPlayer.muted) {
+        muteBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`
+      } else {
+        muteBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>`
+      }
+    })
+
+    document.querySelectorAll('.speed-option').forEach(option => {
+      option.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const speed = parseFloat(option.dataset.speed)
+        videoPlayer.playbackRate = speed
+        speedBtn.textContent = speed + 'x'
+        document.querySelectorAll('.speed-option').forEach(opt => opt.classList.remove('active'))
+        option.classList.add('active')
+      })
+    })
+
+    danmakuToggleBtn.addEventListener('click', () => {
+      danmakuEnabled = !danmakuEnabled
+      if (danmakuEnabled) {
+        danmakuToggleBtn.style.color = '#00a1d6'
+        if (currentVideoData?.cid) {
+          loadDanmaku(currentVideoData.cid)
+        }
+      } else {
+        danmakuToggleBtn.style.color = '#999'
+        if (danmakuTimer) clearInterval(danmakuTimer)
+        danmakuContainer.innerHTML = ''
+      }
+    })
+
+    fullscreenBtn.addEventListener('click', () => {
+      if (!document.fullscreenElement) {
+        document.documentElement.requestFullscreen()
+        fullscreenBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><polyline points="21 15 21 21 15 21"/><polyline points="3 9 3 3 9 3"/></svg>`
+      } else {
+        document.exitFullscreen()
+        fullscreenBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><polyline points="21 16 21 21 16 21"/><polyline points="8 21 3 21 3 16"/><polyline points="3 8 3 3 8 3"/></svg>`
+      }
+    })
+
+    document.addEventListener('fullscreenchange', () => {
+      if (!document.fullscreenElement) {
+        fullscreenBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 3 21 3 21 9"/><polyline points="9 21 3 21 3 15"/><polyline points="21 15 21 21 15 21"/><polyline points="3 9 3 3 9 3"/></svg>`
+      }
+    })
+  </script>
+</body>
+</html>
