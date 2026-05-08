@@ -8,7 +8,9 @@ let defaultShortcuts = {
   focusSearch: { keys: [['ctrl', 'f'], ['ctrl', 'l']], label: '聚焦搜索框' },
   clearSearch: { keys: [['escape']], label: '取消搜索聚焦' },
   goBack: { keys: [['alt', 'arrowleft'], ['alt', 'arrowright']], label: '返回上一页' },
-  openSettings: { keys: [['ctrl', 'shift', 's']], label: '打开设置' }
+  openSettings: { keys: [['ctrl', 'shift', 's']], label: '打开设置' },
+  openShortcutSettings: { keys: [['ctrl', 'shift', ',']], label: '打开快捷键设置' },
+  closeWindow: { keys: [['ctrl', 'shift', 'q']], label: '关闭窗口/弹出框' }
 }
 
 let userShortcuts = JSON.parse(JSON.stringify(defaultShortcuts))
@@ -205,6 +207,13 @@ function initEventListeners() {
   const searchDropdown = document.getElementById('searchDropdown')
   if (searchDropdown) {
     searchDropdown.addEventListener('click', e => {
+      const target = e.target
+      const isHistoryTag = target.closest('.history-tag')
+      const isHotItem = target.closest('.hot-item')
+      const isClearBtn = target.closest('.clear-history-btn')
+      if (isHistoryTag || isHotItem || isClearBtn) {
+        return
+      }
       e.stopPropagation()
       const searchInput = document.getElementById('searchInput')
       if (searchInput) {
@@ -2480,22 +2489,27 @@ function openShortcutSettings() {
     const item = document.createElement('div')
     item.className = 'shortcut-item'
     
-    const keyButtons = []
     const keys = shortcut.keys || []
+    let keyButtonsHtml = ''
     
     for (let i = 0; i < 3; i++) {
       if (i < keys.length) {
-        keyButtons.push(`<button class="shortcut-key" data-id="${id}" data-index="${i}">${keys[i].map(k => `<kbd>${k}</kbd>`).join(' + ')}</button>`)
+        keyButtonsHtml += `<div class="shortcut-key-wrapper" data-id="${id}" data-index="${i}">
+          <button class="shortcut-key" data-id="${id}" data-index="${i}">${keys[i].map(k => `<kbd>${k}</kbd>`).join(' + ')}</button>
+          <button class="shortcut-key-remove" data-id="${id}" data-index="${i}">×</button>
+        </div>`
       } else {
-        keyButtons.push(`<button class="shortcut-key shortcut-add-btn" data-id="${id}" data-index="${i}" ${keys.length >= 3 ? 'disabled' : ''}>${keys.length >= 3 ? '' : '+'}</button>`)
+        keyButtonsHtml += `<button class="shortcut-key shortcut-add-btn" data-id="${id}" data-index="${i}" ${keys.length >= 3 ? 'disabled' : ''}>${keys.length >= 3 ? '' : '+'}</button>`
       }
     }
     
     item.innerHTML = `
       <span class="shortcut-item-label">${shortcut.label}</span>
-      <div class="shortcut-key-container">
-        ${keyButtons.join('')}
-        <button class="shortcut-clear-btn" data-id="${id}">清除</button>
+      <div class="shortcut-actions">
+        <div class="shortcut-key-slots">
+          ${keyButtonsHtml}
+        </div>
+        <button class="shortcut-clear-btn" data-id="${id}" ${keys.length === 0 ? 'style="display: none"' : ''}>清除</button>
       </div>
     `
     list.appendChild(item)
@@ -2506,6 +2520,14 @@ function openShortcutSettings() {
       const id = btn.dataset.id
       const index = parseInt(btn.dataset.index)
       startRecording(id, index)
+    })
+  })
+
+  list.querySelectorAll('.shortcut-key-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const id = btn.dataset.id
+      const index = parseInt(btn.dataset.index)
+      removeShortcutKey(id, index)
     })
   })
 
@@ -2699,6 +2721,56 @@ function clearShortcut(id) {
   }
 }
 
+function removeShortcutKey(id, index) {
+  if (!userShortcuts[id] || !userShortcuts[id].keys) return
+  
+  const wrapper = document.querySelector(`.shortcut-key-wrapper[data-id="${id}"][data-index="${index}"]`)
+  if (!wrapper) return
+  
+  const actionsContainer = wrapper.closest('.shortcut-actions')
+  if (!actionsContainer) return
+  
+  userShortcuts[id].keys.splice(index, 1)
+  
+  const keys = userShortcuts[id].keys || []
+  const slotsContainer = actionsContainer.querySelector('.shortcut-key-slots')
+  
+  let newSlotsHtml = ''
+  for (let i = 0; i < 3; i++) {
+    if (i < keys.length) {
+      newSlotsHtml += `<div class="shortcut-key-wrapper" data-id="${id}" data-index="${i}">
+        <button class="shortcut-key" data-id="${id}" data-index="${i}">${keys[i].map(k => `<kbd>${k}</kbd>`).join(' + ')}</button>
+        <button class="shortcut-key-remove" data-id="${id}" data-index="${i}">×</button>
+      </div>`
+    } else {
+      newSlotsHtml += `<button class="shortcut-key shortcut-add-btn" data-id="${id}" data-index="${i}" ${keys.length >= 3 ? 'disabled' : ''}>${keys.length >= 3 ? '' : '+'}</button>`
+    }
+  }
+  
+  slotsContainer.innerHTML = newSlotsHtml
+  
+  slotsContainer.querySelectorAll('.shortcut-key:not(.disabled)').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const btnId = btn.dataset.id
+      const btnIndex = parseInt(btn.dataset.index)
+      startRecording(btnId, btnIndex)
+    })
+  })
+  
+  slotsContainer.querySelectorAll('.shortcut-key-remove').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const btnId = btn.dataset.id
+      const btnIndex = parseInt(btn.dataset.index)
+      removeShortcutKey(btnId, btnIndex)
+    })
+  })
+  
+  const clearBtn = actionsContainer.querySelector('.shortcut-clear-btn')
+  if (clearBtn) {
+    clearBtn.style.display = keys.length === 0 ? 'none' : 'inline-block'
+  }
+}
+
 async function resetShortcuts() {
   await loadDefaultShortcuts()
   userShortcuts = JSON.parse(JSON.stringify(defaultShortcuts))
@@ -2781,6 +2853,12 @@ function applyShortcuts(e) {
     e.preventDefault()
     navigateToPage('settings')
   }
+
+  const shortcutSettingsShortcut = userShortcuts.openShortcutSettings
+  if (shortcutSettingsShortcut && shortcutSettingsShortcut.keys && matchAnyShortcut(e, shortcutSettingsShortcut.keys)) {
+    e.preventDefault()
+    openShortcutSettings()
+  }
 }
 
 function normalizeKey(key) {
@@ -2821,5 +2899,20 @@ function matchAnyShortcut(e, keyCombinations) {
 }
 
 document.addEventListener('keydown', e => {
+  const closeWindowShortcut = userShortcuts.closeWindow
+  if (closeWindowShortcut && closeWindowShortcut.keys && matchAnyShortcut(e, closeWindowShortcut.keys)) {
+    e.preventDefault()
+    
+    const modal = document.getElementById('shortcutModal')
+    const isModalOpen = modal && modal.style.display === 'flex'
+    
+    if (isModalOpen) {
+      closeShortcutSettings()
+    } else {
+      ipcRenderer.invoke('close-window')
+    }
+    return
+  }
+  
   applyShortcuts(e)
 })

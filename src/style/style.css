@@ -3726,7 +3726,6 @@ body.dark-theme .sort-btn.active {
 
 .shortcut-item {
   display: flex;
-  justify-content: space-between;
   align-items: center;
   padding: 12px 0;
   border-bottom: 1px solid #f0f0f0;
@@ -3739,12 +3738,62 @@ body.dark-theme .sort-btn.active {
 .shortcut-item-label {
   font-size: 14px;
   color: #18191c;
+  flex-shrink: 0;
+  width: 150px;
 }
 
 .shortcut-key-container {
   display: flex;
   gap: 8px;
   align-items: center;
+}
+
+.shortcut-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-left: 20px;
+}
+
+.shortcut-key-slots {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-width: 360px;
+}
+
+.shortcut-key-wrapper {
+  position: relative;
+  display: inline-block;
+}
+
+.shortcut-key-remove {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: none;
+  background-color: #ff4d4f;
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.shortcut-key-wrapper:hover .shortcut-key-remove {
+  opacity: 1;
+}
+
+.shortcut-key-remove:hover {
+  background-color: #ff7875;
 }
 
 .shortcut-key {

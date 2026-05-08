@@ -23,6 +23,7 @@ let reportTimer = null
 let cachedMpvPath = null
 let cachedCookieString = null
 let playerWindow = null
+let playerVideoAspect = 16/9
 
 let logFile = ''
 let cookieFile = ''
@@ -150,7 +151,8 @@ async function getVideoInfo(bvid) {
         aid: result.data.aid,
         cid: result.data.cid,
         duration: result.data.duration,
-        title: result.data.title
+        title: result.data.title,
+        dimension: result.data.dimension || null
       }
     }
   } catch (error) {
@@ -910,12 +912,34 @@ ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmak
   log(`[启动计时] 开始播放视频, 时间: ${new Date().toLocaleTimeString()}`)
   log(`[启动计时] 弹幕显示设置: ${showDanmaku}`)
   log(`[启动计时] 使用内置播放器: ${useBuiltin}`)
-  
+
   log('play-video called with bvid:', bvid, 'cid:', cid, 'title:', title, 'mpvPath:', mpvPath, 'showDanmaku:', showDanmaku, 'useBuiltin:', useBuiltin)
   stopVideo()
 
   if (useBuiltin) {
-    return await openBuiltinPlayer(bvid, cid, title)
+    let videoDimension = null
+    if (!cid) {
+      try {
+        const videoInfo = await getVideoInfo(bvid)
+        if (videoInfo) {
+          videoDimension = videoInfo.dimension
+          log('Got dimension for builtin player:', videoDimension)
+        }
+      } catch (error) {
+        log('Failed to get video dimension:', error.message)
+      }
+    } else {
+      try {
+        const videoInfo = await getVideoInfo(bvid)
+        if (videoInfo) {
+          videoDimension = videoInfo.dimension
+          log('Got dimension for builtin player:', videoDimension)
+        }
+      } catch (error) {
+        log('Failed to get video dimension:', error.message)
+      }
+    }
+    return await openBuiltinPlayer(bvid, cid, title, videoDimension)
   }
 
   try {
@@ -1062,32 +1086,77 @@ ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmak
   }
 })
 
-async function openBuiltinPlayer(bvid, cid, title) {
-  log('Opening builtin player for:', bvid, title)
-  
+async function openBuiltinPlayer(bvid, cid, title, dimension) {
+  log('Opening builtin player for:', bvid, title, 'dimension:', dimension)
+
   if (playerWindow) {
     playerWindow.close()
     playerWindow = null
   }
 
   let finalCid = cid
-  if (!finalCid) {
+  let videoDimension = dimension
+
+  if (!finalCid || !videoDimension) {
     try {
       const videoInfo = await getVideoInfo(bvid)
-      if (videoInfo && videoInfo.cid) {
-        finalCid = videoInfo.cid
-        log('Got cid from video info:', finalCid)
+      if (videoInfo) {
+        if (!finalCid && videoInfo.cid) {
+          finalCid = videoInfo.cid
+          log('Got cid from video info:', finalCid)
+        }
+        if (!videoDimension && videoInfo.dimension) {
+          videoDimension = videoInfo.dimension
+          log('Got dimension from video info:', videoDimension)
+        }
       }
     } catch (error) {
-      log('Failed to get cid:', error.message)
+      log('Failed to get video info:', error.message)
     }
   }
 
+  let windowWidth = 1280
+  let windowHeight = 720
+
+  if (videoDimension && videoDimension.width && videoDimension.height) {
+    let videoW = videoDimension.width
+    let videoH = videoDimension.height
+
+    if (videoDimension.rotate === 90 || videoDimension.rotate === 270) {
+      const temp = videoW
+      videoW = videoH
+      videoH = temp
+    }
+
+    const screen = require('electron').screen
+    const primaryDisplay = screen.getPrimaryDisplay()
+    const workArea = primaryDisplay.workArea
+
+    const maxWindowWidth = Math.floor(workArea.width * 0.9)
+    const maxWindowHeight = Math.floor(workArea.height * 0.9)
+    const minWindowWidth = 480
+    const minWindowHeight = Math.max(270, Math.round(minWindowWidth * videoH / videoW))
+
+    const videoAspect = videoW / videoH
+
+    let calculatedWidth = Math.floor(maxWindowHeight * videoAspect)
+    let calculatedHeight = maxWindowHeight
+
+    if (calculatedWidth > maxWindowWidth) {
+      calculatedWidth = maxWindowWidth
+      calculatedHeight = Math.floor(maxWindowWidth / videoAspect)
+    }
+
+    windowWidth = Math.min(maxWindowWidth, Math.max(minWindowWidth, calculatedWidth))
+    windowHeight = Math.min(maxWindowHeight, Math.max(minWindowHeight, calculatedHeight))
+
+    log(`Calculated window size: ${windowWidth}x${windowHeight}, video: ${videoW}x${videoH}, aspect: ${videoAspect.toFixed(2)}`)
+    playerVideoAspect = videoAspect
+  }
+
   playerWindow = new BrowserWindow({
-    width: 1280,
-    height: 720,
-    minWidth: 800,
-    minHeight: 450,
+    width: windowWidth,
+    height: windowHeight,
     frame: false,
     menuBarVisible: false,
     webPreferences: {
@@ -1099,7 +1168,12 @@ async function openBuiltinPlayer(bvid, cid, title) {
     }
   })
 
-  // 添加请求拦截器
+  const screen = require('electron').screen
+  const primaryDisplay = screen.getPrimaryDisplay()
+  const workArea = primaryDisplay.workArea
+  const x = Math.floor((workArea.width - windowWidth) / 2)
+  const y = Math.floor((workArea.height - windowHeight) / 2)
+  playerWindow.setPosition(Math.max(0, x), Math.max(0, y))
   const session = playerWindow.webContents.session
   session.webRequest.onBeforeSendHeaders((details, callback) => {
     const url = details.url
@@ -1180,6 +1254,12 @@ ipcMain.handle('maximize-player-window', async () => {
   }
 })
 
+ipcMain.handle('open-player-dev-tools', async () => {
+  if (playerWindow) {
+    playerWindow.webContents.openDevTools()
+  }
+})
+
 ipcMain.handle('get-window-position', async () => {
   if (playerWindow) {
     const pos = playerWindow.getPosition()
@@ -1213,39 +1293,115 @@ ipcMain.handle('zoom-player-window', async (event, delta) => {
     }
 
     const currentBounds = playerWindow.getBounds()
-    const minWidth = 640
-    const minHeight = 360
-
-    if (delta < 0 && currentBounds.width <= minWidth && currentBounds.height <= minHeight) {
-      return
-    }
-
-    const scaleFactor = delta > 0 ? 1.2 : 0.8
-    const newWidth = Math.max(minWidth, Math.round(currentBounds.width * scaleFactor))
-    const newHeight = Math.max(minHeight, Math.round(currentBounds.height * scaleFactor))
-
     const { screen } = require('electron')
     const primaryDisplay = screen.getPrimaryDisplay()
-    const screenSize = primaryDisplay.workAreaSize
+    const workArea = primaryDisplay.workArea
 
-    const windowWillExceedScreen = 
-      newWidth > screenSize.width * 0.95 || 
-      newHeight > screenSize.height * 0.95
+    const baseMinWidth = 320
+    const baseMinHeight = Math.round(baseMinWidth / playerVideoAspect)
+    const minWidth = Math.max(baseMinWidth, Math.round(workArea.height * playerVideoAspect * 0.15))
+    const minHeight = Math.max(180, Math.round(minWidth / playerVideoAspect))
+    const maxWidth = Math.floor(workArea.width * 0.95)
+    const maxHeight = Math.floor(workArea.height * 0.95)
 
-    if (delta > 0 && windowWillExceedScreen) {
-      playerWindow.setFullScreen(true)
-      return
+    const scaleFactor = delta > 0 ? 1.2 : 0.8
+
+    let newWidth, newHeight
+    if (playerVideoAspect < 1) {
+      newHeight = Math.round(currentBounds.height * scaleFactor)
+      newWidth = Math.round(newHeight * playerVideoAspect)
+    } else {
+      newWidth = Math.round(currentBounds.width * scaleFactor)
+      newHeight = Math.round(newWidth / playerVideoAspect)
+    }
+
+    newWidth = Math.max(minWidth, Math.min(maxWidth, newWidth))
+    newHeight = Math.round(newWidth / playerVideoAspect)
+    newHeight = Math.max(minHeight, Math.min(maxHeight, newHeight))
+    newWidth = Math.round(newHeight * playerVideoAspect)
+
+    if (delta < 0) {
+      const currentDim = playerVideoAspect < 1 ? currentBounds.height : currentBounds.width
+      const minDim = playerVideoAspect < 1 ? minHeight : minWidth
+      if (currentDim <= minDim) {
+        return
+      }
+    }
+
+    if (delta > 0) {
+      const nextWidth = Math.round(newWidth * scaleFactor)
+      const nextHeight = Math.round(nextWidth / playerVideoAspect)
+      if (nextWidth >= maxWidth || nextHeight >= maxHeight) {
+        playerWindow.setFullScreen(true)
+        return
+      }
     }
 
     const widthDelta = newWidth - currentBounds.width
     const heightDelta = newHeight - currentBounds.height
     playerWindow.setBounds({
-      x: currentBounds.x - widthDelta / 2,
-      y: currentBounds.y - heightDelta / 2,
+      x: Math.max(0, Math.min(workArea.width - newWidth, currentBounds.x - widthDelta / 2)),
+      y: Math.max(0, Math.min(workArea.height - newHeight, currentBounds.y - heightDelta / 2)),
       width: newWidth,
       height: newHeight
     }, true)
   }
+})
+
+ipcMain.handle('toggle-fullscreen', async () => {
+  if (playerWindow) {
+    if (playerWindow.isFullScreen()) {
+      playerWindow.setFullScreen(false)
+    } else {
+      playerWindow.setFullScreen(true)
+    }
+  }
+})
+
+ipcMain.handle('resize-player-window', async (event, width, height) => {
+  if (playerWindow && width && height) {
+    const { screen } = require('electron')
+    const primaryDisplay = screen.getPrimaryDisplay()
+    const workArea = primaryDisplay.workArea
+
+    const maxWindowWidth = Math.floor(workArea.width * 0.9)
+    const maxWindowHeight = Math.floor(workArea.height * 0.9)
+    const minWindowWidth = 480
+    const minWindowHeight = Math.max(270, Math.round(minWindowWidth / playerVideoAspect))
+
+    const videoAspect = width / height
+
+    let newWidth = Math.round(width)
+    let newHeight = Math.round(height)
+
+    if (newWidth > maxWindowWidth) {
+      newWidth = maxWindowWidth
+      newHeight = Math.round(maxWindowWidth / videoAspect)
+    }
+
+    if (newHeight > maxWindowHeight) {
+      newHeight = maxWindowHeight
+      newWidth = Math.round(maxWindowHeight * videoAspect)
+    }
+
+    newWidth = Math.max(minWindowWidth, newWidth)
+    newHeight = Math.max(minWindowHeight, newHeight)
+
+    const currentBounds = playerWindow.getBounds()
+    const widthDelta = newWidth - currentBounds.width
+    const heightDelta = newHeight - currentBounds.height
+
+    playerWindow.setBounds({
+      x: Math.max(0, Math.min(workArea.width - newWidth, currentBounds.x - widthDelta / 2)),
+      y: Math.max(0, Math.min(workArea.height - newHeight, currentBounds.y - heightDelta / 2)),
+      width: newWidth,
+      height: newHeight
+    }, true)
+
+    log(`Resized player window to ${newWidth}x${newHeight}`)
+    return { success: true, width: newWidth, height: newHeight }
+  }
+  return { success: false }
 })
 
 ipcMain.handle('set-window-position-smooth', async (event, x, y) => {
@@ -1420,17 +1576,41 @@ ipcMain.handle('get-danmaku', async (event, cid) => {
   try {
     const url = `https://api.bilibili.com/x/v1/dm/list.so?oid=${cid}`
     log('Getting danmaku from:', url)
-    
-    const response = await fetch(url, {
+
+    const axios = require('axios')
+    const zlib = require('zlib')
+    const { promisify } = require('util')
+    const gunzip = promisify(zlib.gunzip)
+
+    const res = await axios.get(url, {
+      responseType: 'arraybuffer',
       headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-      }
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.bilibili.com/',
+        'Accept': '*/*',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'Connection': 'keep-alive'
+      },
+      timeout: 10000
     })
-    
-    const text = await response.text()
-    log('Danmaku loaded, length:', text.length)
-    
-    return { success: true, data: text }
+
+    let xmlData
+    try {
+      xmlData = (await gunzip(res.data)).toString('utf8')
+      log('Gunzip succeeded, length:', xmlData.length)
+    } catch (e) {
+      log('Gunzip failed, using raw, error:', e.message)
+      xmlData = Buffer.from(res.data).toString('utf8')
+    }
+
+    if (xmlData.includes('<html') || xmlData.includes('<!DOCTYPE')) {
+      log('WARNING: Received HTML instead of XML')
+    }
+
+    log('Danmaku loaded, length:', xmlData.length)
+
+    return { success: true, data: xmlData }
   } catch (error) {
     log('Error getting danmaku:', error.message)
     return { success: false, error: error.message }

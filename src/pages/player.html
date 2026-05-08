@@ -152,7 +152,6 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background: linear-gradient(to top, rgba(0,0,0,0.8), transparent 30%);
       pointer-events: none;
       display: flex;
       flex-direction: column;
@@ -1047,6 +1046,10 @@
       if (e.key === 'Tab' && e.ctrlKey) {
         e.preventDefault()
         ipcRenderer.invoke('move-to-next-display')
+      }
+      if (e.key === 'F12') {
+        e.preventDefault()
+        ipcRenderer.invoke('open-player-dev-tools')
       }
       if (e.key === 'w' || e.key === 'W') {
         e.preventDefault()
