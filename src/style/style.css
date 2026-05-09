@@ -252,9 +252,9 @@ body {
   top: 54px;
   width: 500px;
   max-width: calc(100vw - 280px);
-  background: #fff;
+  background: var(--dropdown-bg, #fff);
   border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--dropdown-shadow, 0 4px 20px rgba(0, 0, 0, 0.15));
   z-index: 9999;
   overflow: hidden;
 }
@@ -2446,11 +2446,25 @@ body.dark-theme .mpv-path-input::placeholder {
 body.dark-theme {
   background-color: #1a1a1a;
   color: #e0e0e0;
+  --dropdown-bg: #2a2a2a;
+  --dropdown-shadow: 0 4px 24px rgba(0, 0, 0, 0.4);
 }
 
 body.dark-theme .header {
   background: linear-gradient(180deg, #2a2a2a 0%, #1f1f1f 100%);
   border-bottom-color: #333;
+}
+
+body.dark-theme .nav-link {
+  color: #e0e0e0;
+}
+
+body.dark-theme .nav-link:hover {
+  color: #fb7299;
+}
+
+body.dark-theme .nav-link.active {
+  color: #fb7299;
 }
 
 body.dark-theme .sidebar {
@@ -2583,6 +2597,54 @@ body.dark-theme .search-box {
 }
 
 body.dark-theme .search-input {
+  color: #e0e0e0;
+}
+
+body.dark-theme .search-dropdown,
+body.dark-theme .header.search-focused .search-dropdown {
+  background: #2a2a2a !important;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.4) !important;
+}
+
+body.dark-theme .dropdown-header {
+  border-bottom-color: #3a3a3a;
+}
+
+body.dark-theme .dropdown-title {
+  color: #e0e0e0;
+}
+
+body.dark-theme .clear-history-btn {
+  color: #808080;
+}
+
+body.dark-theme .history-tag {
+  background: #333;
+  border-color: #444;
+  color: #a0a0a0;
+}
+
+body.dark-theme .history-tag:hover {
+  background: #3a3a3a;
+  border-color: #fb7299;
+  color: #fb7299;
+}
+
+body.dark-theme .history-tag-close {
+  background: #333;
+  border-color: #444;
+  color: #808080;
+}
+
+body.dark-theme .hot-search {
+  border-top-color: #3a3a3a;
+}
+
+body.dark-theme .hot-item:hover {
+  background: #333;
+}
+
+body.dark-theme .hot-title {
   color: #e0e0e0;
 }
 
@@ -3311,6 +3373,16 @@ body.dark-theme .ranking-tab.active {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 16px;
+}
+
+.anime-waterfall-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 16px;
+}
+
+.waterfall-item {
+  break-inside: avoid;
 }
 
 .anime-card {

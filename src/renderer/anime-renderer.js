@@ -1,5 +1,11 @@
 const { ipcRenderer } = require('electron')
 
+let bangumiTabData = null
+let guessLikeCursor = 0
+let guessLikeItems = []
+let isLoadingMoreGuessLike = false
+let hasMoreGuessLike = true
+
 const homeBtn = document.getElementById('homeBtn')
 
 homeBtn.addEventListener('click', () => {
@@ -15,7 +21,6 @@ document.querySelectorAll('.sidebar-item').forEach(item => {
       } else if (page === 'popular') {
         ipcRenderer.send('open-popular')
       } else if (page === 'anime') {
-        // Already on anime page
       } else if (page === 'media') {
         ipcRenderer.send('open-media')
       }
@@ -32,7 +37,6 @@ document.querySelectorAll('.nav-link').forEach(link => {
     } else if (text === '热门') {
       ipcRenderer.send('open-popular')
     } else if (text === '追番') {
-      // Already on anime page
     } else if (text === '影视') {
       ipcRenderer.send('open-media')
     }
@@ -50,52 +54,129 @@ function fixImageUrl(url) {
 
 async function loadAnimePage() {
   try {
-    const [followingResult, bangumiResult, guochuangResult, likeResult] = await Promise.all([
-      ipcRenderer.invoke('fetch-following-anime'),
-      ipcRenderer.invoke('fetch-anime-recommend', 1),
-      ipcRenderer.invoke('fetch-anime-recommend', 4),
-      ipcRenderer.invoke('fetch-guess-like')
-    ])
+    guessLikeCursor = 0
+    guessLikeItems = []
+    hasMoreGuessLike = true
 
-    renderFollowingCarousel(followingResult)
-    renderAnimeGrid(bangumiResult, 'bangumiGrid')
-    renderAnimeGrid(guochuangResult, 'guochuangGrid')
-    renderAnimeGrid(likeResult, 'likeGrid')
+    const result = await ipcRenderer.invoke('fetch-bangumi-tab', 0, 1)
+    if (!result.success) {
+      console.error('获取追番数据失败:', result.error)
+      return
+    }
+
+    bangumiTabData = result.data
+
+    const data = bangumiTabData.data || bangumiTabData
+    const modules = data.modules || []
+
+    const followingModule = modules.find(m => m.title && (m.title.includes('追') || m.title.includes('我的追番')))
+    const bangumiRecommendModule = modules.find(m => m.title && m.title.includes('番剧推荐'))
+    const guochuangRecommendModule = modules.find(m => m.title && m.title.includes('国创推荐'))
+    const guessLikeModule = modules.find(m => m.title && m.title.includes('猜你喜欢'))
+
+    if (followingModule) {
+      renderFollowingCarousel(followingModule.items || [])
+    } else {
+      renderFollowingCarousel([])
+    }
+
+    if (bangumiRecommendModule) {
+      renderAnimeGrid(bangumiRecommendModule.items || [], 'bangumiGrid')
+    } else {
+      renderAnimeGrid([], 'bangumiGrid')
+    }
+
+    if (guochuangRecommendModule) {
+      renderAnimeGrid(guochuangRecommendModule.items || [], 'guochuangGrid')
+    } else {
+      renderAnimeGrid([], 'guochuangGrid')
+    }
+
+    if (guessLikeModule) {
+      guessLikeItems = guessLikeModule.items || []
+      guessLikeCursor = data.cursor || 0
+      hasMoreGuessLike = data.has_more !== false
+      renderGuessLikeGrid(guessLikeItems)
+    } else {
+      guessLikeItems = []
+      renderGuessLikeGrid([])
+    }
 
     const refreshBtn = document.getElementById('refreshLike')
     if (refreshBtn) {
-      refreshBtn.onclick = () => {
+      refreshBtn.onclick = async () => {
         refreshBtn.classList.add('refreshing')
-        ipcRenderer.invoke('fetch-guess-like').then(result => {
-          renderAnimeGrid(result, 'likeGrid')
-          setTimeout(() => refreshBtn.classList.remove('refreshing'), 500)
-        })
+        guessLikeCursor = 0
+        guessLikeItems = []
+        const refreshResult = await ipcRenderer.invoke('fetch-bangumi-tab', 0, 1)
+        if (refreshResult.success) {
+          const refreshData = refreshResult.data.data || refreshResult.data
+          const refreshModules = refreshData.modules || []
+          const refreshGuessLikeModule = refreshModules.find(m => m.title && m.title.includes('猜你喜欢'))
+          if (refreshGuessLikeModule) {
+            guessLikeItems = refreshGuessLikeModule.items || []
+            guessLikeCursor = refreshData.cursor || 0
+            hasMoreGuessLike = refreshData.has_more !== false
+          } else {
+            guessLikeItems = []
+          }
+          renderGuessLikeGrid(guessLikeItems)
+        }
+        setTimeout(() => refreshBtn.classList.remove('refreshing'), 500)
       }
     }
+
+    setupGuessLikeScrollListener()
+
   } catch (error) {
     console.error('加载追番页面失败:', error)
   }
 }
 
-function renderFollowingCarousel(result) {
+function setupGuessLikeScrollListener() {
+  const guessYouLikeSection = document.getElementById('guessYouLikeSection')
+  if (!guessYouLikeSection) return
+
+  const observer = new IntersectionObserver(async (entries) => {
+    const entry = entries[0]
+    if (entry.isIntersecting && !isLoadingMoreGuessLike && hasMoreGuessLike) {
+      await loadMoreGuessLike()
+    }
+  }, { threshold: 0.1 })
+
+  observer.observe(guessYouLikeSection)
+}
+
+async function loadMoreGuessLike() {
+  if (isLoadingMoreGuessLike || !hasMoreGuessLike) return
+
+  isLoadingMoreGuessLike = true
+  console.log('Loading more guess like, cursor:', guessLikeCursor)
+
+  try {
+    const result = await ipcRenderer.invoke('fetch-bangumi-tab', guessLikeCursor, 0)
+    if (result.success) {
+      const data = result.data.data || result.data
+      const newItems = data.items || []
+      if (newItems.length > 0) {
+        guessLikeItems = [...guessLikeItems, ...newItems]
+        guessLikeCursor = data.cursor || guessLikeCursor + newItems.length
+        hasMoreGuessLike = data.has_more !== false
+        renderGuessLikeGrid(guessLikeItems)
+      } else {
+        hasMoreGuessLike = false
+      }
+    }
+  } catch (error) {
+    console.error('加载更多猜你喜欢失败:', error)
+  } finally {
+    isLoadingMoreGuessLike = false
+  }
+}
+
+function renderFollowingCarousel(list) {
   const container = document.getElementById('followingCarousel')
   if (!container) return
-
-  let list = []
-  if (result && result.success && result.data && result.data.code === 0) {
-    if (result.data.data && result.data.data.modules && Array.isArray(result.data.data.modules)) {
-      const followingModule = result.data.data.modules.find(mod => mod.title && mod.title.includes('追'))
-      if (followingModule && followingModule.items && Array.isArray(followingModule.items)) {
-        list = followingModule.items
-      }
-    } else if (result.data.data && result.data.data.list && Array.isArray(result.data.data.list)) {
-      list = result.data.data.list
-    } else if (result.data.list && Array.isArray(result.data.list)) {
-      list = result.data.list
-    } else if (result.data.result && Array.isArray(result.data.result)) {
-      list = result.data.result
-    }
-  }
 
   if (list.length === 0) {
     container.innerHTML = `
@@ -144,22 +225,9 @@ function renderFollowingCarousel(result) {
   container.appendChild(scrollContainer)
 }
 
-function renderAnimeGrid(result, containerId) {
+function renderAnimeGrid(list, containerId) {
   const container = document.getElementById(containerId)
   if (!container) return
-
-  let list = []
-  if (result && result.success && result.data && result.data.code === 0) {
-    if (result.data.data && result.data.data.list && Array.isArray(result.data.data.list)) {
-      list = result.data.data.list.slice(0, 7)
-    } else if (result.data.list && Array.isArray(result.data.list)) {
-      list = result.data.list.slice(0, 7)
-    } else if (result.data.result && Array.isArray(result.data.result)) {
-      list = result.data.result.slice(0, 7)
-    } else if (result.data.data && Array.isArray(result.data.data)) {
-      list = result.data.data.slice(0, 7)
-    }
-  }
 
   if (list.length === 0) {
     container.innerHTML = `<div class="empty-grid">暂无内容</div>`
@@ -195,6 +263,61 @@ function renderAnimeGrid(result, containerId) {
     })
     container.appendChild(card)
   })
+}
+
+function renderGuessLikeGrid(list) {
+  const container = document.getElementById('likeGrid')
+  if (!container) return
+
+  if (list.length === 0) {
+    container.innerHTML = `<div class="empty-grid">暂无内容</div>`
+    return
+  }
+
+  container.innerHTML = ''
+  container.className = 'anime-waterfall-grid'
+
+  list.forEach(anime => {
+    const card = document.createElement('div')
+    card.className = 'anime-card waterfall-item'
+    const title = anime.title || anime.season_title || ''
+    const cover = anime.cover || anime.horizontal_pic || ''
+    const score = anime.score || ''
+    const episode = anime.new_ep?.index_show || anime.pub_info || ''
+    const badge = anime.is_finish ? '完结' : '连载'
+
+    card.innerHTML = `
+      <div class="anime-cover">
+        <img src="${fixImageUrl(cover)}" alt="${title}" loading="lazy">
+        <span class="anime-badge">${badge}</span>
+        ${score ? `<span class="anime-score">${score}</span>` : ''}
+      </div>
+      <div class="anime-info">
+        <h4 class="anime-title">${title}</h4>
+        <p class="anime-episode">${episode}</p>
+      </div>
+    `
+    card.addEventListener('click', () => {
+      const seasonId = anime.season_id || anime.ss_id || anime.media_id
+      if (seasonId) {
+        ipcRenderer.invoke('open-anime-detail', seasonId)
+      }
+    })
+    container.appendChild(card)
+  })
+
+  if (isLoadingMoreGuessLike) {
+    const loadingMore = document.createElement('div')
+    loadingMore.className = 'loading-more'
+    loadingMore.id = 'guessLikeLoadingMore'
+    loadingMore.innerHTML = '<span>加载更多...</span>'
+    container.appendChild(loadingMore)
+  } else if (!hasMoreGuessLike && list.length > 0) {
+    const noMore = document.createElement('div')
+    noMore.className = 'no-more'
+    noMore.innerHTML = '<span>没有更多内容了</span>'
+    container.appendChild(noMore)
+  }
 }
 
 loadAnimePage()

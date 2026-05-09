@@ -772,6 +772,25 @@ ipcMain.handle('fetch-guess-like', async (event) => {
   }
 })
 
+ipcMain.handle('fetch-bangumi-tab', async (event, cursor = 0, isRefresh = 1) => {
+  log('fetch-bangumi-tab called, cursor:', cursor, 'isRefresh:', isRefresh)
+  try {
+    const endpoint = `https://api.bilibili.com/pgc/page/pc/bangumi/tab?cursor=${cursor}&is_refresh=${isRefresh}`
+    log('Using bangumi tab endpoint:', endpoint)
+    const result = await fetchApi(endpoint)
+    log('Bangumi tab API result code:', result.code)
+    if (result.code === 0) {
+      log('Bangumi tab API success')
+      return { success: true, data: result }
+    }
+    log('Bangumi tab API failed, code:', result.code, 'message:', result.message)
+    return { success: false, error: result.message || '获取追番数据失败' }
+  } catch (error) {
+    log('Bangumi tab API错误:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
 ipcMain.handle('fetch-hot-search', async (event) => {
   log('fetch-hot-search called')
   try {

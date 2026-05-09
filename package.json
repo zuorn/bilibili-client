@@ -17,11 +17,11 @@
   "description": "Bilibili client",
   "dependencies": {
     "axios": "^1.15.2",
+    "chalk": "^4.1.2",
     "node-mpv": "^1.5.0",
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
-    "chalk": "^4.1.2",
     "electron": "^41.4.0",
     "electron-builder": "^26.8.1",
     "rimraf": "^6.1.3"
