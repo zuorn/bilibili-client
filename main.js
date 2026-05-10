@@ -34,8 +34,44 @@ function loadCookies() {
     if (fs.existsSync(cookieFile)) {
       const data = fs.readFileSync(cookieFile, 'utf8')
       savedCookies = JSON.parse(data)
-      log('Loaded cookies:', Object.keys(savedCookies))
+      log('Loaded cookies from file:', Object.keys(savedCookies))
     }
+    // 补充完整的cookie字段
+    const fullCookie = {
+      buvid3: '7A6AE6446ADB123DDC57763023030222cPwK40YeEqIW9Sp92No6dA',
+      mobi_app: 'pc_electron',
+      platform: 'web',
+      device: 'win',
+      device_id: 'b23f4700-e06a-11ed-8296-6f8faeba1300',
+      innersign: '0',
+      b_nut: '1677767495',
+      b_lsid: '6C1678BC_186A2BC548D',
+      _uuid: '5686C2C7-510C10-581A-4ACC-1D8CBC35A10CA96851infoc',
+      fingerprint: 'a80d0691d209df9c0dd35fe67bd064f7',
+      buvid_fp_plain: 'undefined',
+      buvid_fp: 'a80d0691d209df9c0dd35fe67bd064f7',
+      buvid4: '381B2CE1-C224-99B4-2C8A-C6D5ADD0B99996598-023030222-cPwK40YeEqIW9Sp92No6dA%3D%3D',
+      LIVE_BUVID: 'AUTO3616777718771876',
+      PVID: '22',
+      sid: '75jtjto3',
+      CURRENT_FNVAL: '4048',
+      CURRENT_PID: 'dc546760-798e-11ee-b38d-5995d0f43ffa',
+      build: '1001017006',
+      rpdid: '|(u))JJu)ul|0J\'u~kmRuRuY',
+      timeMachine: '0',
+      sec_ck: 'Xt_7R0Kpa8hm2Zpai6uIiEUbTlJhJAA5Bse_vN4j5LTW8cC1OU6SRGXu_Xx7sluTVApM0JqqSUtDJllvpMSnLo0O9KxSDMI8fRc2ZG3VcAEnhvIlsfVT8EWgy6-yggCtzewK4PLp4DpMQCb840jf_T_aiQSzLpric-4k7QSKTM66qDiBhVl6qvCkx6pJZIW1dOVs9hjv1bruZU_rrj-EX4PmI0tw5ij7ZmZQyPWuBHa0AqW91DvuH98mCIoNnAesDBAETSg2ssjLJguGjhuF9erIqwcc6PaBRY2Sgonb8UnoVimYw4kvIChe!Mss',
+      'theme-tip-show': 'SHOWED',
+      CURRENT_QUALITY: '0',
+      bili_ticket: 'eyJhbGciOiJIUzI1NiIsImtpZCI6InMwMyIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Nzg1OTU1MTksImlhdCI6MTc3ODMzNjI1OSwicGx0IjotMX0.LSpa4bVXmCNzzKFrRPrcfqNYBu8ZNNOiuML_h1AOAEM',
+      bili_ticket_expires: '1778595459'
+    }
+    // 合并cookie，已有的保持不变
+    for (const [key, value] of Object.entries(fullCookie)) {
+      if (!savedCookies[key]) {
+        savedCookies[key] = value
+      }
+    }
+    log('Final savedCookies with full fields:', Object.keys(savedCookies))
   } catch (error) {
     log('Failed to load cookies:', error.message)
   }
@@ -48,6 +84,41 @@ function saveCookies() {
     log('Saved cookies to file')
   } catch (error) {
     log('Failed to save cookies:', error.message)
+  }
+}
+
+// 同步Cookie到Electron session
+async function syncCookiesToSession() {
+  if (!mainWindow || mainWindow.isDestroyed()) return
+
+  try {
+    const session = mainWindow.webContents.session
+    log('Starting to sync cookies, savedCookies keys:', Object.keys(savedCookies))
+    
+    for (const [name, value] of Object.entries(savedCookies)) {
+      try {
+        // 设置为 .bilibili.com 域名，这样所有子域名都能访问
+        await session.cookies.set({
+          url: 'https://www.bilibili.com',
+          name: name,
+          value: value,
+          domain: '.bilibili.com',
+          path: '/',
+          secure: true,
+          httpOnly: false
+        })
+        log(`Cookie synced: ${name}`)
+      } catch (e) {
+        log('Failed to sync cookie to session:', name, e.message)
+      }
+    }
+    
+    // 验证同步结果
+    const cookiesAfter = await session.cookies.get({ domain: '.bilibili.com' })
+    log('Session cookies after sync:', cookiesAfter.map(c => c.name))
+    log('Synced cookies to session done')
+  } catch (error) {
+    log('Failed to sync cookies to session:', error.message)
   }
 }
 
@@ -401,6 +472,11 @@ function createWindow() {
 
   mainWindow.loadFile('index.html')
 
+  // 页面加载完成后同步cookie到session
+  mainWindow.webContents.once('did-finish-load', async () => {
+    await syncCookiesToSession()
+  })
+
   mainWindow.on('closed', () => {
     stopVideo()
     mainWindow = null
@@ -422,7 +498,7 @@ function fetchApi(url) {
     
     const headers = {
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Referer': 'https://www.bilibili.com/',
+      'Referer': 'https://www.bilibili.com/client',
       'Accept': 'application/json, text/plain, */*',
       'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
       'Accept-Encoding': 'gzip, deflate, br',
@@ -670,104 +746,23 @@ ipcMain.handle('fetch-popular-videos', async (event, ...args) => {
   }
 })
 
-ipcMain.handle('fetch-anime', async (event, page = 1) => {
-  log('fetch-anime called, page:', page)
+
+
+ipcMain.handle('fetch-popular-videos-v2', async (event, page = 1) => {
+  log('fetch-popular-videos-v2 called, page:', page)
   try {
-    const endpoint = `https://api.bilibili.com/pgc/season/index/result?season_type=1&type=1&free=1&pagesize=30&page=${page}&order=2`
-    log('Using anime endpoint:', endpoint)
-    const result = await fetchWithRetry(endpoint)
-    if (result && result.success) {
-      log('Anime API成功, raw data:', JSON.stringify(result.data).substring(0, 500))
-      return { success: true, data: result.data }
-    }
-    log('Anime API失败, result:', result)
-    return { success: false, error: '获取番剧失败' }
-  } catch (error) {
-    log('Anime API错误:', error.message)
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('fetch-following-anime', async (event) => {
-  log('fetch-following-anime called')
-  try {
-    const navUrl = `https://api.bilibili.com/x/web-interface/nav?${Date.now()}`
-    const navResult = await fetchApi(navUrl)
-
-    if (navResult.code !== 0 || !navResult.data?.mid) {
-      log('获取用户信息失败')
-      return { success: false, error: '获取用户信息失败' }
-    }
-
-    const mid = navResult.data.mid
-    const timestamp = Math.floor(Date.now() / 1000)
-    const w_rid = generateWRid()
-    const endpoint = `https://api.bilibili.com/x/space/bangumi/follow/list?vmid=${mid}&type=1&pn=1&ps=10&playform=web&follow_status=0&web_location=333.1387&w_rid=${w_rid}&wts=${timestamp}`
-    log('Using following anime endpoint:', endpoint)
+    const endpoint = `https://api.bilibili.com/x/web-interface/ranking/v2?rid=0&type=all&ps=30&pn=${page}`
+    log('Using ranking/v2 endpoint:', endpoint)
     const result = await fetchApi(endpoint)
-    log('Following anime API result code:', result.code)
-    if (result.code === 0 && result.data && result.data.list) {
-      log('Following anime list length:', result.data.list.length)
+    log('Popular API result code:', result.code)
+    if (result.code === 0) {
+      log('Popular API success, items:', result.data?.list?.length || 0)
+      return { success: true, data: result }
     }
-    return { success: true, data: result }
+    log('Popular API failed:', result)
+    return { success: false, data: result, error: result.message || '获取热门视频失败' }
   } catch (error) {
-    log('Following anime API错误:', error.message)
-    return { success: false, error: error.message }
-  }
-})
-
-function generateWRid() {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let result = ''
-  for (let i = 0; i < 32; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return result
-}
-
-function generateWRid() {
-  const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
-  let result = ''
-  for (let i = 0; i < 32; i++) {
-    result += chars.charAt(Math.floor(Math.random() * chars.length))
-  }
-  return result
-}
-
-ipcMain.handle('fetch-anime-recommend', async (event, seasonType = 1) => {
-  log('fetch-anime-recommend called, seasonType:', seasonType)
-  try {
-    const endpoint = `https://api.bilibili.com/pgc/season/index/result?season_type=${seasonType}&type=1&page=1&pagesize=20&order=0&sort=0`
-    log('Using anime recommend endpoint:', endpoint)
-    const result = await fetchWithRetry(endpoint)
-    if (result && result.success) {
-      log('Anime recommend API成功, code:', result.data.code)
-      log('Anime recommend API data:', JSON.stringify(result.data).substring(0, 1000))
-      return { success: true, data: result.data }
-    }
-    log('Anime recommend API失败, result:', result)
-    return { success: false, error: '获取推荐失败' }
-  } catch (error) {
-    log('Anime recommend API错误:', error.message)
-    return { success: false, error: error.message }
-  }
-})
-
-ipcMain.handle('fetch-guess-like', async (event) => {
-  log('fetch-guess-like called')
-  try {
-    const endpoint = 'https://api.bilibili.com/pgc/page/web/v3?name=anime'
-    log('Using guess like endpoint:', endpoint)
-    const result = await fetchWithRetry(endpoint)
-    if (result && result.success) {
-      log('Guess like API成功, code:', result.data.code)
-      log('Guess like API data:', JSON.stringify(result.data).substring(0, 1500))
-      return { success: true, data: result.data }
-    }
-    log('Guess like API失败, result:', result)
-    return { success: false, error: '获取猜你喜欢失败' }
-  } catch (error) {
-    log('Guess like API错误:', error.message)
+    log('fetch-popular-videos-v2 error:', error.message)
     return { success: false, error: error.message }
   }
 })
@@ -781,6 +776,16 @@ ipcMain.handle('fetch-bangumi-tab', async (event, cursor = 0, isRefresh = 1) => 
     log('Bangumi tab API result code:', result.code)
     if (result.code === 0) {
       log('Bangumi tab API success')
+      if (result.data?.modules && result.data.modules.length > 0) {
+        result.data.modules.forEach((m, i) => {
+          log(`Module ${i}: title=${m.title || 'N/A'}, items.length=${m.items?.length || 0}`)
+          if (i === 0) {
+            log(`Module ${i} (我的追番) 完整数据:`, JSON.stringify(m, null, 2))
+          } else if (m.items && m.items.length > 0) {
+            log(`Module ${i} sample item:`, JSON.stringify(m.items[0], null, 2))
+          }
+        })
+      }
       return { success: true, data: result }
     }
     log('Bangumi tab API failed, code:', result.code, 'message:', result.message)
@@ -1293,6 +1298,12 @@ ipcMain.handle('set-window-position', async (event, x, y) => {
   }
 })
 
+ipcMain.on('set-window-position-direct', (event, x, y) => {
+  if (playerWindow) {
+    playerWindow.setPosition(Math.round(x), Math.round(y), false)
+  }
+})
+
 ipcMain.handle('is-window-maximized', async () => {
   if (playerWindow) {
     return playerWindow.isMaximized()
@@ -1740,7 +1751,7 @@ app.whenReady().then(() => {
   const userDataPath = app.getPath('userData')
   logFile = path.join(__dirname, 'debug.log')
   cookieFile = path.join(userDataPath, 'cookies.json')
-  loadCookies() // 启动时加载Cookie
+  loadCookies()
   createWindow()
 
   app.on('activate', () => {
@@ -1873,8 +1884,45 @@ ipcMain.handle('poll-login-status', async (event, qcode) => {
           savedCookies['DedeUserID__ckMd5'] = params.get('DedeUserID__ckMd5')
         }
         
-        log('Saved cookies:', Object.keys(savedCookies))
-        saveCookies() // 保存Cookie到文件
+        // 补充完整的cookie字段
+        const fullCookie = {
+          buvid3: '7A6AE6446ADB123DDC57763023030222cPwK40YeEqIW9Sp92No6dA',
+          mobi_app: 'pc_electron',
+          platform: 'web',
+          device: 'win',
+          device_id: 'b23f4700-e06a-11ed-8296-6f8faeba1300',
+          innersign: '0',
+          b_nut: '1677767495',
+          b_lsid: '6C1678BC_186A2BC548D',
+          _uuid: '5686C2C7-510C10-581A-4ACC-1D8CBC35A10CA96851infoc',
+          fingerprint: 'a80d0691d209df9c0dd35fe67bd064f7',
+          buvid_fp_plain: 'undefined',
+          buvid_fp: 'a80d0691d209df9c0dd35fe67bd064f7',
+          buvid4: '381B2CE1-C224-99B4-2C8A-C6D5ADD0B99996598-023030222-cPwK40YeEqIW9Sp92No6dA%3D%3D',
+          LIVE_BUVID: 'AUTO3616777718771876',
+          PVID: '22',
+          sid: '75jtjto3',
+          CURRENT_FNVAL: '4048',
+          CURRENT_PID: 'dc546760-798e-11ee-b38d-5995d0f43ffa',
+          build: '1001017006',
+          rpdid: '|(u))JJu)ul|0J\'u~kmRuRuY',
+          timeMachine: '0',
+          sec_ck: 'Xt_7R0Kpa8hm2Zpai6uIiEUbTlJhJAA5Bse_vN4j5LTW8cC1OU6SRGXu_Xx7sluTVApM0JqqSUtDJllvpMSnLo0O9KxSDMI8fRc2ZG3VcAEnhvIlsfVT8EWgy6-yggCtzewK4PLp4DpMQCb840jf_T_aiQSzLpric-4k7QSKTM66qDiBhVl6qvCkx6pJZIW1dOVs9hjv1bruZU_rrj-EX4PmI0tw5ij7ZmZQyPWuBHa0AqW91DvuH98mCIoNnAesDBAETSg2ssjLJguGjhuF9erIqwcc6PaBRY2Sgonb8UnoVimYw4kvIChe!Mss',
+          'theme-tip-show': 'SHOWED',
+          CURRENT_QUALITY: '0',
+          bili_ticket: 'eyJhbGciOiJIUzI1NiIsImtpZCI6InMwMyIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Nzg1OTU1MTksImlhdCI6MTc3ODMzNjI1OSwicGx0IjotMX0.LSpa4bVXmCNzzKFrRPrcfqNYBu8ZNNOiuML_h1AOAEM',
+          bili_ticket_expires: '1778595459'
+        }
+        // 合并cookie，已有的保持不变
+        for (const [key, value] of Object.entries(fullCookie)) {
+          if (!savedCookies[key]) {
+            savedCookies[key] = value
+          }
+        }
+        
+        log('Saved cookies with full fields:', Object.keys(savedCookies))
+        saveCookies()
+        syncCookiesToSession()
         
         return {
           success: true,
@@ -1912,6 +1960,13 @@ ipcMain.handle('stop-login-poll', async () => {
     log('Login poll stopped')
   }
   return { success: true }
+})
+
+ipcMain.handle('get-cookies', async () => {
+  return {
+    success: true,
+    cookies: savedCookies
+  }
 })
 
 ipcMain.handle('get-user-info', async () => {

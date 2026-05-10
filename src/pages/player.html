@@ -12,20 +12,25 @@
     }
 
     html, body {
-      width: 100%;
-      height: 100%;
+      width: 100vw !important;
+      height: 100vh !important;
       background-color: #000;
       overflow: hidden;
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      margin: 0 !important;
+      padding: 0 !important;
     }
 
     .player-container {
-      width: 100%;
-      height: 100%;
+      width: 100vw !important;
+      height: 100vh !important;
       display: flex;
       flex-direction: column;
       background-color: #000;
       position: relative;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden;
     }
 
     .player-header {
@@ -194,13 +199,32 @@
       display: flex;
       align-items: center;
       justify-content: center;
+      width: 100% !important;
+      height: 100% !important;
+      margin: 0 !important;
+      padding: 0 !important;
+      overflow: hidden;
+    }
+    
+    .drag-region {
+      position: absolute;
+      top: 20%;
+      left: 0;
+      right: 0;
+      bottom: 20%;
+      -webkit-app-region: drag;
+      background: transparent;
+      pointer-events: none;
     }
 
     .video-player {
-      width: 100%;
-      height: 100%;
-      object-fit: contain;
+      width: 100% !important;
+      height: 100% !important;
+      object-fit: cover;
       background-color: #000;
+      position: absolute;
+      top: 0;
+      left: 0;
     }
 
     :fullscreen,
@@ -455,56 +479,63 @@
       border-radius: 2px;
     }
 
-    .vertical-volume-bar {
-      position: absolute;
-      right: 20px;
-      bottom: 80px;
-      width: 30px;
-      height: 100px;
-      background-color: rgba(0, 0, 0, 0.7);
-      border-radius: 4px;
+    .volume-panel {
+      position: fixed;
+      right: 30px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 60px;
+      height: 140px;
+      background: rgba(20, 20, 20, 0.9);
+      border-radius: 12px;
       opacity: 0;
       visibility: hidden;
-      transition: opacity 0.3s, visibility 0.3s;
-      z-index: 100;
+      transition: opacity 0.2s, visibility 0.2s;
+      z-index: 1000;
       display: flex;
       flex-direction: column;
       align-items: center;
-      padding: 6px 0;
+      padding: 12px 8px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
     }
 
-    .vertical-volume-bar.visible {
+    .volume-panel.visible {
       opacity: 1;
       visibility: visible;
     }
 
-    .volume-percentage {
+    .volume-icon {
       color: #fff;
-      font-size: 10px;
-      margin-bottom: 4px;
+      font-size: 18px;
+      margin-top: 8px;
+      text-align: center;
     }
 
-    .vertical-volume-fill-container {
-      width: 6px;
-      height: 60px;
-      background-color: rgba(255, 255, 255, 0.2);
-      border-radius: 3px;
+    .volume-slider-container {
+      width: 24px;
+      height: 120px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 0;
       position: relative;
+      cursor: pointer;
       overflow: hidden;
     }
 
-    .vertical-volume-fill {
+    .volume-slider-fill {
       width: 100%;
-      background-color: #00a1d6;
-      border-radius: 3px;
+      background: linear-gradient(to top, #00a1d6, #00b5e5);
+      border-radius: 0;
       position: absolute;
       bottom: 0;
-      transition: height 0.1s;
+      transition: height 0.1s ease;
     }
 
-    .volume-icon {
+    .volume-value {
       color: #00a1d6;
-      margin-top: 4px;
+      font-size: 14px;
+      font-weight: 600;
+      margin-top: 8px;
     }
 
     .video-info-panel {
@@ -809,6 +840,8 @@
 
       <video class="video-player" id="videoPlayer" playsinline webkit-playsinline></video>
 
+      <div class="drag-region"></div>
+
       <div class="danmaku-container" id="danmakuContainer"></div>
       
       <div class="video-overlay">
@@ -854,16 +887,11 @@
       </div>
     </div>
 
-    <div class="vertical-volume-bar" id="verticalVolumeBar">
-      <div class="volume-percentage" id="volumePercentage">100%</div>
-      <div class="vertical-volume-fill-container">
-        <div class="vertical-volume-fill" id="verticalVolumeFill"></div>
+    <div class="volume-panel" id="volumePanel">
+      <div class="volume-slider-container" id="volumeSlider">
+        <div class="volume-slider-fill" id="volumeSliderFill"></div>
       </div>
-      <svg class="volume-icon" id="volumeIcon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
-        <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
-        <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
-      </svg>
+      <div class="volume-icon" id="volumeIcon">🔊</div>
     </div>
     
     <div class="player-controls">
@@ -945,9 +973,8 @@
     const timeDisplay = document.getElementById('timeDisplay')
     const volumeBar = document.getElementById('volumeBar')
     const volumeFill = document.getElementById('volumeFill')
-    const verticalVolumeBar = document.getElementById('verticalVolumeBar')
-    const verticalVolumeFill = document.getElementById('verticalVolumeFill')
-    const volumePercentage = document.getElementById('volumePercentage')
+    const volumePanel = document.getElementById('volumePanel')
+    const volumeSliderFill = document.getElementById('volumeSliderFill')
     const volumeIcon = document.getElementById('volumeIcon')
     const muteBtn = document.getElementById('muteBtn')
     const speedBtn = document.getElementById('speedBtn')
@@ -1077,16 +1104,59 @@
         backdrop-filter: blur(10px);
       `
 
+      // 标题栏容器
+      const headerContainer = document.createElement('div')
+      headerContainer.style.cssText = `
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 20px;
+      `
+
       const title = document.createElement('div')
       title.style.cssText = `
         font-size: 18px;
         font-weight: 600;
         color: #fff;
-        margin-bottom: 20px;
         text-align: center;
+        flex: 1;
       `
       title.textContent = '快捷键说明'
-      dialog.appendChild(title)
+
+      // 右上角关闭按钮
+      const closeBtn = document.createElement('button')
+      closeBtn.style.cssText = `
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: transparent;
+        border: none;
+        color: #999;
+        cursor: pointer;
+        border-radius: 4px;
+        transition: all 0.2s;
+        font-size: 20px;
+        line-height: 1;
+      `
+      closeBtn.textContent = '×'
+      closeBtn.onmouseenter = () => {
+        closeBtn.style.background = 'rgba(255, 255, 255, 0.1)'
+        closeBtn.style.color = '#fff'
+      }
+      closeBtn.onmouseleave = () => {
+        closeBtn.style.background = 'transparent'
+        closeBtn.style.color = '#999'
+      }
+      closeBtn.onclick = () => {
+        document.body.removeChild(dialog)
+        document.body.removeChild(overlay)
+      }
+
+      headerContainer.appendChild(title)
+      headerContainer.appendChild(closeBtn)
+      dialog.appendChild(headerContainer)
 
       const shortcuts = [
         { key: 'Space', desc: '播放/暂停' },
@@ -1098,7 +1168,7 @@
         { key: '-', desc: '缩小窗口' },
         { key: 'F / Enter', desc: '全屏/退出全屏' },
         { key: 'Q', desc: '关闭窗口' },
-        { key: 'D', desc: '弹幕开关' }
+        { key: 'V', desc: '弹幕开关' }
       ]
 
       shortcuts.forEach(item => {
@@ -1136,27 +1206,6 @@
         dialog.appendChild(row)
       })
 
-      const closeBtn = document.createElement('button')
-      closeBtn.style.cssText = `
-        width: 100%;
-        margin-top: 20px;
-        padding: 10px;
-        background: rgba(0, 161, 214, 0.2);
-        border: none;
-        border-radius: 8px;
-        color: #00a1d6;
-        font-size: 14px;
-        cursor: pointer;
-        transition: background 0.2s;
-      `
-      closeBtn.textContent = '关闭'
-      closeBtn.onmouseenter = () => closeBtn.style.background = 'rgba(0, 161, 214, 0.3)'
-      closeBtn.onclick = () => {
-        document.body.removeChild(dialog)
-        document.body.removeChild(overlay)
-      }
-      dialog.appendChild(closeBtn)
-
       const overlay = document.createElement('div')
       overlay.style.cssText = `
         position: fixed;
@@ -1175,59 +1224,6 @@
       document.body.appendChild(overlay)
       document.body.appendChild(dialog)
     }
-
-    // 窗口拖动逻辑
-    const videoArea = document.querySelector('.video-area')
-    let isDragging = false
-    let dragStartX = 0
-    let dragStartY = 0
-    let windowStartX = 0
-    let windowStartY = 0
-    let lastMoveTime = 0
-    const moveThrottle = 16
-
-    videoArea.addEventListener('mousedown', async (e) => {
-      if (e.button !== 0) return
-
-      const windowHeight = window.innerHeight
-      const topThreshold = windowHeight * 0.2
-      const bottomThreshold = windowHeight * 0.8
-
-      if (e.clientY < topThreshold || e.clientY > bottomThreshold) {
-        return
-      }
-
-      isDragging = true
-      dragStartX = e.clientX
-      dragStartY = e.clientY
-
-      const pos = await ipcRenderer.invoke('get-window-position')
-      windowStartX = pos.x
-      windowStartY = pos.y
-
-      e.preventDefault()
-    })
-
-    document.addEventListener('mousemove', (e) => {
-      if (!isDragging) return
-
-      const now = Date.now()
-      if (now - lastMoveTime < moveThrottle) return
-      lastMoveTime = now
-
-      const deltaX = e.clientX - dragStartX
-      const deltaY = e.clientY - dragStartY
-
-      ipcRenderer.invoke('set-window-position', windowStartX + deltaX, windowStartY + deltaY)
-    })
-
-    document.addEventListener('mouseup', () => {
-      isDragging = false
-    })
-
-    document.addEventListener('mouseleave', () => {
-      isDragging = false
-    })
 
     // 自动隐藏/显示控制栏
     const playerControls = document.querySelector('.player-controls')
@@ -1269,17 +1265,6 @@
     playerControls.addEventListener('mouseleave', () => {
       isMouseInControlArea = false
       scheduleHideControls()
-    })
-
-    document.addEventListener('mousemove', (e) => {
-      const windowHeight = window.innerHeight
-      const bottomThreshold = windowHeight * 0.8
-      
-      if (e.clientY > bottomThreshold) {
-        showControls()
-      } else if (!isMouseInControlArea) {
-        hideControls()
-      }
     })
 
     videoPlayer.addEventListener('pause', () => {
@@ -1381,7 +1366,7 @@
       if (e.key === 'f' || e.key === 'F' || e.key === 'Enter') {
         ipcRenderer.invoke('toggle-fullscreen')
       }
-      if (e.key === 'd' || e.key === 'D') {
+      if (e.key === 'v' || e.key === 'V') {
         danmakuToggleBtn.click()
       }
       if (e.key === '-' || e.key === '=') {
@@ -1783,9 +1768,48 @@
       videoPlayer.muted = !videoPlayer.muted
       if (videoPlayer.muted) {
         muteBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`
+        videoPlayer.volume = 0
+        updateVolumeDisplay()
       } else {
         muteBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>`
+        videoPlayer.volume = 0.8
+        updateVolumeDisplay()
       }
+    })
+
+    let hideVolumePanelTimer = null
+
+    const updateVolumeDisplay = () => {
+      const volume = videoPlayer.volume
+      const percentage = Math.round(volume * 100)
+      
+      volumeFill.style.width = `${percentage}%`
+      volumeSliderFill.style.height = `${percentage}%`
+      volumeIcon.textContent = percentage === 0 ? '🔇' : '🔊'
+    }
+
+    const showVolumePanel = () => {
+      volumePanel.classList.add('visible')
+      updateVolumeDisplay()
+      
+      if (hideVolumePanelTimer) {
+        clearTimeout(hideVolumePanelTimer)
+      }
+      
+      hideVolumePanelTimer = setTimeout(() => {
+        volumePanel.classList.remove('visible')
+      }, 2000)
+    }
+
+    const updateVerticalVolumeDisplay = updateVolumeDisplay
+    const showVerticalVolumeBar = showVolumePanel
+
+    const volumeSlider = document.getElementById('volumeSlider')
+    volumeSlider.addEventListener('click', (e) => {
+      const rect = volumeSlider.getBoundingClientRect()
+      const percent = 1 - (e.clientY - rect.top) / rect.height
+      videoPlayer.volume = Math.max(0, Math.min(1, percent))
+      updateVolumeDisplay()
     })
 
     document.querySelectorAll('.speed-option').forEach(option => {

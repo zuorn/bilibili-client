@@ -185,25 +185,25 @@ function formatProgress(current, total) {
 
 function createVideoCard(video) {
   const card = document.createElement('div')
-  card.className = 'video-card'
+  card.className = 'my-anime-card'
   card.dataset.bvid = video.bvid
   card.dataset.cid = video.cid || ''
 
   card.innerHTML = `
-    <div class="video-thumbnail">
+    <div class="my-anime-cover">
       <img src="${video.pic}" alt="${video.title}" loading="lazy">
-      <span class="video-duration">${video.duration}</span>
+      ${video.progress !== undefined && video.progress !== null && video.durationSeconds ? `
+        <div class="my-anime-progress">
+          <div class="my-anime-progress-bar" style="width: ${Math.min(100, (video.progress / video.durationSeconds) * 100)}%"></div>
+        </div>
+      ` : ''}
     </div>
-    <div class="video-info">
-      <h3 class="video-title">${video.title}</h3>
-      <div class="video-meta" style="display: flex; justify-content: space-between;">
-        <span class="video-play">${video.play}</span>
-        <span class="video-author" data-mid="${video.owner?.mid || ''}">${video.author}</span>
-      </div>
+    <div class="my-anime-info">
+      <h3 class="my-anime-title">${video.title}</h3>
       ${video.progress !== undefined && video.progress !== null ? `
-        <div class="video-history-info" style="display: flex; justify-content: space-between; margin-top: 4px; font-size: 12px; color: #999;">
-          <span>${video.historyTime || ''}</span>
-          <span>${formatProgress(video.progress, video.durationSeconds)}</span>
+        <div class="my-anime-history">
+          <span class="my-anime-history-time">${video.historyTime || ''}</span>
+          <span class="my-anime-history-progress">${formatProgress(video.progress, video.durationSeconds)}</span>
         </div>
       ` : ''}
     </div>
@@ -212,15 +212,6 @@ function createVideoCard(video) {
   card.addEventListener('click', () => {
     if (video.bvid) {
       playVideo(video.bvid, video.cid, video.title)
-    }
-  })
-
-  const authorSpan = card.querySelector('.video-author')
-  authorSpan.addEventListener('click', (e) => {
-    e.stopPropagation()
-    const mid = video.owner?.mid || video.mid
-    if (mid && mid !== '') {
-      navigateToUP(mid)
     }
   })
 

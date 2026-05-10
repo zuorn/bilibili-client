@@ -205,13 +205,37 @@ async function fetchPopularVideos(tab = 'comprehensive', page = 1, append = fals
   console.log('fetchPopularVideos called, tab:', tab, 'page:', page, 'append:', append, 'currentRid:', currentRid)
 
   try {
-    const result = await ipcRenderer.invoke('fetch-popular-videos', tab, page, currentRid)
+    let url = ''
+    
+    if (tab === 'comprehensive' || tab === 'ranking' || typeof tab === 'number') {
+      const currentRid = typeof tab === 'number' ? 0 : currentRid
+      url = `https://api.bilibili.com/x/web-interface/ranking/v2?rid=${currentRid}&type=all&ps=30&pn=${page}`
+    } else if (tab === 'weekly') {
+      url = `https://api.bilibili.com/x/web-interface/popular/series/list?ps=30&pn=${page}`
+    } else if (tab === 'precious') {
+      url = `https://api.bilibili.com/x/web-interface/popular/precious`
+    }
+
+    console.log('Fetching from URL:', url)
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.bilibili.com/',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
+      },
+      credentials: 'include'
+    })
+
+    const result = await response.json()
     console.log('fetchPopularVideos result:', result)
     
     let items = []
 
-    if (result.success && result.data) {
-      items = extractVideoList(result.data)
+    if (result && result.code === 0) {
+      items = extractVideoList(result)
     }
 
     console.log('Items to render:', items.length)
