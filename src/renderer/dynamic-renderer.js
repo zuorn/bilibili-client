@@ -328,3 +328,26 @@ renderFollowingList()
 selectAllDynamic()
 
 console.log('Dynamic page initialized')
+
+const refreshBtn = document.getElementById('refreshBtn')
+const backTopBtn = document.getElementById('backTopBtn')
+
+refreshBtn?.addEventListener('click', () => {
+  currentUpId = null
+  currentOffset = ''
+  nextOffset = ''
+  dynamicHasMore = true
+  selectAllDynamic()
+  // 刷新后滚动到顶部
+  const content = document.querySelector('.content') || document.documentElement
+  content.scrollTo({ top: 0, behavior: 'smooth' })
+})
+
+backTopBtn?.addEventListener('click', () => {
+  const content = document.querySelector('.content')
+  if (content) {
+    content.scrollTo({ top: 0, behavior: 'smooth' })
+  } else {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+})

@@ -16,7 +16,6 @@
         <div class="home-links">
           <a href="#" class="nav-link active" data-page="home">推荐</a>
           <a href="#" class="nav-link" data-page="popular">热门</a>
-          <a href="#" class="nav-link" data-page="anime">追番</a>
           <a href="#" class="nav-link" data-page="media">影视</a>
         </div>
         <!-- 现在工具没有实现 -->
@@ -140,7 +139,7 @@
       <div class="page-content active" id="page-home">
         <div class="video-grid" id="videoGrid"></div>
         <div class="loading-more" id="homeLoadingMore" style="display: none;">
-          <span>加载更多...</span>
+          <span>加载中...</span>
         </div>
         <div class="no-more" id="homeNoMore" style="display: none;">
           <span>没有更多内容了</span>
@@ -152,14 +151,7 @@
         <div class="video-grid" id="popularGrid"></div>
       </div>
 
-      <!-- 追番页 -->
-      <div class="page-content" id="page-anime">
-        <div class="anime-page-container" id="animePageContainer">
-          <div class="anime-loading" id="animeLoading">
-            <span>加载中...</span>
-          </div>
-        </div>
-      </div>
+
 
       <!-- 影视页 -->
       <div class="page-content" id="page-media">
@@ -188,7 +180,7 @@
             <div class="video-container" id="videoContainer">
             </div>
             <div class="loading-more" id="loadingMore" style="display: none;">
-              <span>加载更多...</span>
+              <span>加载中...</span>
             </div>
             <div class="no-more" id="noMore" style="display: none;">
               <span>没有更多内容了</span>
@@ -519,6 +511,22 @@
             </div>
           </div>
         </div>
+      </div>
+
+      <!-- 底部操作按钮 -->
+      <div class="bottom-actions">
+        <button class="bottom-action-btn refresh-btn" id="refreshBtn" title="刷新">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12a9 9 0 1 1-9-9c2.52 0 4.93 1 6.74 2.74L21 8"/>
+            <path d="M21 3v5h-5"/>
+          </svg>
+        </button>
+        <button class="bottom-action-btn backtop-btn" id="backTopBtn" title="回到顶部">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 19V5"/>
+            <path d="M5 12l7-7 7 7"/>
+          </svg>
+        </button>
       </div>
     </main>
   </div>

@@ -86,8 +86,8 @@ async function loadDefaultShortcuts() {
 
 let pageStates = {
   home: { pageNum: 1, videos: [], loading: false, hasMore: true },
-  popular: { pageNum: 1, loading: false, hasMore: true },
-  anime: { pageNum: 1, loading: false, hasMore: true, cursor: 0, isRefresh: 0, data: null, waterfallLoading: false, waterfallHasMore: true },
+  popular: { pageNum: 1, videos: [], loading: false, hasMore: true },
+
   media: { pageNum: 1, loading: false, hasMore: true },
   search: { keyword: '', pageNum: 1, loading: false, hasMore: true },
   up: { mid: null, name: '', offset: '', loading: false, hasMore: true },
@@ -430,6 +430,63 @@ function initEventListeners() {
   initMpvPath()
   initDanmakuToggle()
   initBuiltinPlayerToggle()
+
+  // 底部操作按钮事件
+  const refreshBtn = document.getElementById('refreshBtn')
+  const backTopBtn = document.getElementById('backTopBtn')
+
+  refreshBtn?.addEventListener('click', () => {
+    console.log('Refresh button clicked, current page:', currentPage)
+    
+    // 滚动到顶部
+    const content = document.querySelector('.content') || document.documentElement
+    content.scrollTo({ top: 0, behavior: 'smooth' })
+    
+    // 根据当前页面执行刷新
+    if (currentPage === 'home') {
+      // 推荐页面刷新
+      pageStates.home.pageNum = 1
+      pageStates.home.hasMore = true
+      pageStates.home.videos = []
+      const videoGrid = document.getElementById('videoGrid')
+      if (videoGrid) videoGrid.innerHTML = ''
+      fetchVideos(1, false)
+    } else if (currentPage === 'popular') {
+      // 热门页面刷新
+      pageStates.popular.pageNum = 1
+      pageStates.popular.hasMore = true
+      pageStates.popular.videos = []
+      const popularGrid = document.getElementById('popularGrid')
+      if (popularGrid) popularGrid.innerHTML = ''
+      fetchPopularVideos(1, false)
+    } else if (currentPage === 'dynamic') {
+      // 动态页面刷新
+      if (typeof selectAllDynamic === 'function') {
+        selectAllDynamic()
+      }
+    } else if (currentPage === 'my') {
+      // 我的页面刷新
+      if (currentUser && currentUser.isLogin) {
+        if (typeof currentHistoryCursor !== 'undefined') currentHistoryCursor = null
+        if (typeof hasMoreHistory !== 'undefined') hasMoreHistory = true
+        if (typeof loadTabContent === 'function') {
+          loadTabContent('history')
+        }
+      }
+    } else {
+      // 其他页面使用通用刷新
+      loadPageContent(currentPage)
+    }
+  })
+
+  backTopBtn?.addEventListener('click', () => {
+    const content = document.querySelector('.content')
+    if (content) {
+      content.scrollTo({ top: 0, behavior: 'smooth' })
+    } else {
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
+  })
 }
 
 function navigateToPage(page) {
@@ -606,36 +663,18 @@ async function fetchVideos(page = 1, append = false) {
   }
 
   try {
-    const wts = 1746216000
-    const w_rid = 'abcdef123456'
-    const ps = 30
-    const fresh_idx = page
-    const fresh_type = 4
-    const timezone_offset = -480
-    const url = `https://api.bilibili.com/x/web-interface/wbi/index/top/feed/rcmd?ps=${ps}&fresh_idx=${fresh_idx}&fresh_type=${fresh_type}&timezone_offset=${timezone_offset}&wts=${wts}&w_rid=${w_rid}`
+    console.log('Fetching recommend videos via IPC, page:', page)
+    const result = await ipcRenderer.invoke('fetch-videos', page)
+    console.log('Fetch videos result:', result.success, result.error || '')
     
-    console.log('Fetching recommend videos from:', url)
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) bilibili_pc/1.17.5 Chrome/108.0.5359.215 Electron/22.3.27 Safari/537.36 build/1001017006',
-        'Referer': 'https://www.bilibili.com/client',
-        'Accept': '*/*',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Accept-Language': 'zh-CN',
-        'Origin': 'https://www.bilibili.com',
-        'X-App-Version': '1.17.6'
-      },
-      credentials: 'include'
-    })
-
-    const result = await response.json()
     let items = []
-
-    if (result && result.code === 0) {
+    if (result.success && result.data) {
       const data = result.data
-      items = data?.item || data?.list || data?.result || (Array.isArray(data) ? data : []) || []
+      items = data?.data?.item || data?.data?.list || data?.data?.result || data?.item || data?.list || data?.result || (Array.isArray(data) ? data : []) || []
+      console.log('Number of items:', items.length)
+      if (items.length > 0) {
+        console.log('First item:', JSON.stringify(items[0], null, 2))
+      }
     }
 
     if (items.length > 0) {
@@ -661,6 +700,8 @@ async function fetchVideos(page = 1, append = false) {
       // 显示没有更多内容提示
       if (!state.hasMore && noMoreEl) {
         noMoreEl.style.display = 'block'
+      } else {
+        noMoreEl.style.display = 'none'
       }
     } else if (!append) {
       showEmptyMessage('videoGrid', '获取视频失败，请稍后重试')
@@ -697,8 +738,13 @@ async function fetchPopularVideos(page = 1, append = false) {
       state.hasMore = items.length >= 20
       const newVideos = items.map(item => mapVideoItem(item, { showPlaySuffix: true }))
 
-      if (append) appendVideos(newVideos, 'popularGrid', navigateToUP)
-      else renderVideos(newVideos, 'popularGrid', navigateToUP)
+      if (append) {
+        state.videos = [...state.videos, ...newVideos]
+        appendVideos(newVideos, 'popularGrid', navigateToUP)
+      } else {
+        state.videos = newVideos
+        renderVideos(newVideos, 'popularGrid', navigateToUP)
+      }
     } else if (!append) {
       showEmptyMessage('popularGrid', '暂无视频')
     }
@@ -1161,11 +1207,11 @@ function useBuiltinPlayer() {
   return localStorage.getItem('useBuiltinPlayer') === 'true'
 }
 
-function playVideo(bvid, cid, title) {
+function playVideo(bvid, cid, title, progress) {
   const mpvPath = getMpvPath()
   const showDanmaku = localStorage.getItem('showDanmaku') !== 'false'
   const useBuiltin = useBuiltinPlayer()
-  ipcRenderer.invoke('play-video', bvid, cid, title, mpvPath, showDanmaku, useBuiltin)
+  ipcRenderer.invoke('play-video', bvid, cid, title, mpvPath, showDanmaku, useBuiltin, progress)
 }
 
 async function checkLoginStatus() {
@@ -1366,6 +1412,72 @@ function stopLoginPoll() {
   ipcRenderer.invoke('stop-login-poll')
 }
 
+function formatHistoryTime(timestamp) {
+  if (!timestamp) return ''
+  const now = new Date()
+  const historyDate = new Date(timestamp * 1000)
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterdayStart = new Date(todayStart - 24 * 60 * 60 * 1000)
+  
+  const hours = historyDate.getHours().toString().padStart(2, '0')
+  const minutes = historyDate.getMinutes().toString().padStart(2, '0')
+  
+  if (historyDate >= todayStart) {
+    return `今天 ${hours}:${minutes}`
+  } else if (historyDate >= yesterdayStart) {
+    return `昨天 ${hours}:${minutes}`
+  } else {
+    const month = (historyDate.getMonth() + 1).toString()
+    const day = historyDate.getDate().toString()
+    return `${month}月${day}日`
+  }
+}
+
+function createHistoryCard(video) {
+  const card = document.createElement('div')
+  card.className = 'video-card'
+  card.dataset.bvid = video.bvid
+  card.dataset.cid = video.cid || ''
+
+  card.innerHTML = `
+    <div class="video-thumbnail">
+      <img src="${video.pic}" alt="${video.title}" loading="lazy">
+      ${video.progress !== undefined && video.progress !== null && video.durationSeconds ? `
+        <span class="video-progress">${formatDuration(video.progress)} / ${video.duration}</span>
+      ` : ''}
+      ${video.progress === undefined || video.progress === null ? `
+        <span class="video-duration">${video.duration}</span>
+      ` : ''}
+    </div>
+    <div class="video-info">
+      <h3 class="video-title">${video.title}</h3>
+      <div class="video-meta">
+        <span class="video-play">${video.historyTime || ''}</span>
+        <span class="video-author" data-mid="${video.owner?.mid || ''}">${video.author}</span>
+      </div>
+    </div>
+  `
+
+  card.addEventListener('click', () => {
+    if (video.bvid) playVideo(video.bvid, video.cid, video.title, video.progress)
+  })
+
+  return card
+}
+
+function renderHistoryVideos(videos, containerId) {
+  const container = document.getElementById(containerId)
+  if (!container) return
+  container.innerHTML = ''
+  videos.filter(v => v.bvid || v.title).forEach(video => container.appendChild(createHistoryCard(video)))
+}
+
+function appendHistoryVideos(videos, containerId) {
+  const container = document.getElementById(containerId)
+  if (!container) return
+  videos.filter(v => v.bvid || v.title).forEach(video => container.appendChild(createHistoryCard(video)))
+}
+
 async function loadHistory(append = false) {
   const state = pageStates.my
   
@@ -1387,18 +1499,20 @@ async function loadHistory(append = false) {
         bvid: item.bvid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
         pic: fixImageUrl(item.pic || ''),
-        play: '观看过',
         duration: formatDuration(item.duration || 0),
+        durationSeconds: item.duration || 0,
+        progress: item.progress || null,
         author: item.author || '未知UP主',
         mid: item.authorMid || '',
-        owner: item.authorMid ? { mid: item.authorMid, name: item.author || '未知UP主' } : null
+        owner: item.authorMid ? { mid: item.authorMid, name: item.author || '未知UP主' } : null,
+        historyTime: formatHistoryTime(item.viewAt)
       }))
 
       if (videos.length > 0) {
         if (append) {
-          appendVideos(videos, 'historyGrid', navigateToUP)
+          appendHistoryVideos(videos, 'historyGrid')
         } else {
-          renderVideos(videos, 'historyGrid', navigateToUP)
+          renderHistoryVideos(videos, 'historyGrid')
         }
         state.hasMoreHistory = result.hasMore
         state.historyCursor = result.nextCursor
@@ -1726,13 +1840,7 @@ function handleScroll() {
         loadToview(true)
       }
     }
-  } else if (currentPage === 'anime') {
-    if (scrollTop + clientHeight >= scrollHeight - 300) {
-      if (pageStates.anime.waterfallHasMore && !pageStates.anime.waterfallLoading) {
-        console.log('触发加载更多猜你喜欢')
-        loadBangumiWaterfall()
-      }
-    }
+
   } else if (currentPage === 'up') {
     const nearBottom = scrollTop + clientHeight >= scrollHeight - 2
     if (nearBottom && !pageStates.up.loading && !pageStates.up.scrollLocked && pageStates.up.hasMore) {
@@ -2228,14 +2336,7 @@ function loadPageContent(page) {
   const actions = {
     home: () => { pageStates.home.pageNum = 1; pageStates.home.hasMore = true; fetchVideos(1, false) },
     popular: () => { pageStates.popular.pageNum = 1; pageStates.popular.hasMore = true; fetchPopularVideos(1, false) },
-    anime: () => {
-      pageStates.anime.cursor = 0
-      pageStates.anime.isRefresh = 0
-      pageStates.anime.data = null
-      pageStates.anime.hasMore = true
-      pageStates.anime.waterfallHasMore = true
-      loadBangumiPage()
-    },
+
     media: () => { console.log('Media page - to be implemented') },
     my: () => { if (currentUser?.isLogin) loadHistory() },
     dynamic: () => initDynamicPage()
@@ -2693,321 +2794,7 @@ function matchAnyShortcut(e, keyCombinations) {
   return keyCombinations.some(keys => isKeyMatch(e, keys))
 }
 
-async function fetchBangumiTab(cursor = 0, isRefresh = 0) {
-  try {
-    const url = `https://api.bilibili.com/pgc/page/pc/bangumi/tab?cursor=${cursor}&is_refresh=${isRefresh}`
-    console.log('Fetching bangumi tab:', url)
 
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) bilibili_pc/1.17.5 Chrome/108.0.5359.215 Electron/22.3.27 Safari/537.36 build/1001017006',
-        'Referer': 'https://www.bilibili.com/client',
-        'Accept': '*/*',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'Accept-Language': 'zh-CN',
-        'Origin': 'https://www.bilibili.com',
-        'X-App-Version': '1.17.6'
-      },
-      credentials: 'include'
-    })
-
-    const result = await response.json()
-    console.log('Bangumi tab response code:', result.code)
-
-    if (result.code === 0 && result.data) {
-      return {
-        success: true,
-        data: result.data,
-        cursor: result.data.cursor || 0
-      }
-    }
-    return { success: false, error: result.message || '获取追番数据失败' }
-  } catch (error) {
-    console.error('fetchBangumiTab error:', error)
-    return { success: false, error: error.message }
-  }
-}
-
-function createBangumiSection(title, items, type = 'grid') {
-  const section = document.createElement('div')
-  section.className = 'anime-section'
-
-  section.innerHTML = `
-    <div class="section-header">
-      <h3>${title}</h3>
-    </div>
-  `
-
-  if (type === 'carousel') {
-    const carousel = document.createElement('div')
-    carousel.className = 'anime-carousel'
-    const scroll = document.createElement('div')
-    scroll.className = 'carousel-scroll'
-
-    if (items.length === 0) {
-      scroll.innerHTML = `
-        <div class="empty-carousel" style="width: 100%;">
-          <p>暂无内容</p>
-        </div>
-      `
-    } else {
-      items.forEach(item => {
-        const card = createBangumiCard(item)
-        scroll.appendChild(card)
-      })
-    }
-
-    carousel.appendChild(scroll)
-    section.appendChild(carousel)
-  } else if (type === 'waterfall') {
-    const grid = document.createElement('div')
-    grid.className = 'anime-waterfall-grid'
-    grid.id = 'bangumiWaterfallGrid'
-
-    if (items.length === 0) {
-      grid.innerHTML = '<div class="empty-grid">暂无内容</div>'
-    } else {
-      items.forEach(item => {
-        const waterfallItem = document.createElement('div')
-        waterfallItem.className = 'waterfall-item'
-        const card = createBangumiWaterfallCard(item)
-        waterfallItem.appendChild(card)
-        grid.appendChild(waterfallItem)
-      })
-    }
-
-    section.appendChild(grid)
-  } else {
-    const grid = document.createElement('div')
-    grid.className = 'anime-grid'
-
-    if (items.length === 0) {
-      grid.innerHTML = '<div class="empty-grid">暂无内容</div>'
-    } else {
-      items.forEach(item => {
-        const card = createBangumiCard(item, true)
-        grid.appendChild(card)
-      })
-    }
-
-    section.appendChild(grid)
-  }
-
-  return section
-}
-
-function createBangumiCard(item, showScore = false) {
-  const card = document.createElement('div')
-  card.className = 'following-card'
-
-  const coverUrl = item.cover?.startsWith('//') ? 'https:' + item.cover : (item.cover || '')
-  const title = item.title || '未知标题'
-  const badge = item.badge || ''
-  const badgeClass = badge.includes('新') ? 'badge-new' : 'badge-update'
-
-  let progressText = ''
-  if (item.new_ep?.index) {
-    progressText = `更新至第${item.new_ep.index}话`
-  } else if (item.progress) {
-    progressText = item.progress
-  }
-
-  card.innerHTML = `
-    <div class="following-cover">
-      <img src="${coverUrl}" alt="${title}" loading="lazy">
-      ${badge ? `<span class="badge ${badgeClass}">${badge}</span>` : ''}
-      <div class="cover-mask"></div>
-    </div>
-    <div class="following-info">
-      <h4 class="following-title">${title}</h4>
-      ${progressText ? `<p class="following-progress">${progressText}</p>` : ''}
-      ${item.stat?.follow ? `<p class="following-total">${item.stat.follow.toLocaleString()}人追番</p>` : ''}
-    </div>
-  `
-
-  card.addEventListener('click', () => {
-    if (item.url) {
-      window.open(item.url, '_blank')
-    }
-  })
-
-  return card
-}
-
-function createBangumiWaterfallCard(item) {
-  const card = document.createElement('div')
-  card.className = 'anime-card'
-
-  const coverUrl = item.cover?.startsWith('//') ? 'https:' + item.cover : (item.cover || '')
-  const title = item.title || '未知标题'
-  const score = item.score || item.rating?.score || ''
-  const badge = item.badge || item.new_ep?.index ? `更新至${item.new_ep.index}` : ''
-
-  card.innerHTML = `
-    <div class="anime-cover">
-      <img src="${coverUrl}" alt="${title}" loading="lazy">
-      ${badge ? `<span class="anime-badge">${badge}</span>` : ''}
-      ${score ? `<span class="anime-score">${score}</span>` : ''}
-    </div>
-    <div class="anime-info">
-      <h4 class="anime-title">${title}</h4>
-    </div>
-  `
-
-  card.addEventListener('click', () => {
-    if (item.url) {
-      window.open(item.url, '_blank')
-    }
-  })
-
-  return card
-}
-
-async function loadBangumiPage() {
-  const state = pageStates.anime
-  if (state.loading) return
-
-  const container = document.getElementById('animePageContainer')
-  const loadingEl = document.getElementById('animeLoading')
-
-  if (!container) return
-
-  state.loading = true
-
-  if (loadingEl) {
-    loadingEl.style.display = 'flex'
-  }
-
-  try {
-    const result = await fetchBangumiTab(0, 0)
-
-    if (result.success && result.data) {
-      state.data = result.data
-      state.cursor = result.cursor || 0
-      state.isRefresh = 0
-
-      if (loadingEl) {
-        loadingEl.style.display = 'none'
-      }
-
-      container.innerHTML = ''
-
-      const modules = result.data.modules || []
-
-      modules.forEach((module, index) => {
-        const title = module.title || ''
-        const items = module.items || []
-
-        if (items.length === 0) return
-
-        let type = 'grid'
-        if (title.includes('追番') || title.includes('我的')) {
-          type = 'carousel'
-        } else if (title.includes('猜你喜欢')) {
-          type = 'waterfall'
-          state.waterfallHasMore = module.has_more || false
-        }
-
-        const section = createBangumiSection(title, items, type)
-        container.appendChild(section)
-      })
-
-      state.hasMore = state.waterfallHasMore
-    } else {
-      throw new Error(result.error || '获取追番数据失败')
-    }
-  } catch (error) {
-    console.error('loadBangumiPage error:', error)
-    if (loadingEl) {
-      loadingEl.style.display = 'none'
-      container.innerHTML = `
-        <div class="anime-page-error">
-          <svg class="error-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="10"/>
-            <path d="M12 8v4m0 4h.01"/>
-          </svg>
-          <p class="error-text">加载失败，请重试</p>
-          <button class="retry-btn" onclick="loadBangumiPage()">重新加载</button>
-        </div>
-      `
-    }
-  }
-
-  state.loading = false
-}
-
-async function loadBangumiWaterfall() {
-  const state = pageStates.anime
-  if (state.waterfallLoading || !state.waterfallHasMore) return
-
-  const container = document.getElementById('animePageContainer')
-  const waterfallGrid = document.getElementById('bangumiWaterfallGrid')
-
-  if (!container || !waterfallGrid) return
-
-  state.waterfallLoading = true
-
-  let loadingMore = document.getElementById('bangumiWaterfallLoading')
-  if (!loadingMore) {
-    loadingMore = document.createElement('div')
-    loadingMore.id = 'bangumiWaterfallLoading'
-    loadingMore.className = 'loading-more'
-    loadingMore.innerHTML = '<span>加载更多...</span>'
-    loadingMore.style.display = 'none'
-    container.appendChild(loadingMore)
-  }
-
-  loadingMore.style.display = 'block'
-
-  try {
-    const result = await fetchBangumiTab(state.cursor, 1)
-
-    if (result.success && result.data) {
-      state.cursor = result.cursor || 0
-
-      const modules = result.data.modules || []
-
-      let newItems = []
-      modules.forEach(module => {
-        if (module.title?.includes('猜你喜欢')) {
-          newItems = module.items || []
-          state.waterfallHasMore = module.has_more || false
-        }
-      })
-
-      if (newItems.length > 0) {
-        newItems.forEach(item => {
-          const waterfallItem = document.createElement('div')
-          waterfallItem.className = 'waterfall-item'
-          const card = createBangumiWaterfallCard(item)
-          waterfallItem.appendChild(card)
-          waterfallGrid.appendChild(waterfallItem)
-        })
-      }
-
-      state.hasMore = state.waterfallHasMore
-
-      if (!state.waterfallHasMore) {
-        let noMore = document.getElementById('bangumiWaterfallNoMore')
-        if (!noMore) {
-          noMore = document.createElement('div')
-          noMore.id = 'bangumiWaterfallNoMore'
-          noMore.className = 'no-more'
-          noMore.innerHTML = '<span>— 到底了 —</span>'
-          noMore.style.display = 'none'
-          container.appendChild(noMore)
-        }
-        noMore.style.display = 'block'
-      }
-    }
-  } catch (error) {
-    console.error('loadBangumiWaterfall error:', error)
-  }
-
-  loadingMore.style.display = 'none'
-  state.waterfallLoading = false
-}
 
 document.addEventListener('keydown', e => {
   const closeWindowShortcut = userShortcuts.closeWindow

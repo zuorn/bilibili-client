@@ -1,13 +1,12 @@
-.vscode
+# .vscode
 
 
 # 项目依赖
 /node_modules
 /dist
-/debug.log
 /docs/api.md
 
-
+/test
 
 /UI
 
@@ -31,4 +30,11 @@
 
 
 /mpv/portable_config/script-opts/uosc-all.conf
+
+# 敏感配置和日志文件
+*.log
+cookies.json
+config.json
+*.key
+*.secret
 

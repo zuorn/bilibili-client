@@ -200,12 +200,12 @@ function createVideoCard(video) {
     </div>
     <div class="my-anime-info">
       <h3 class="my-anime-title">${video.title}</h3>
-      ${video.progress !== undefined && video.progress !== null ? `
-        <div class="my-anime-history">
-          <span class="my-anime-history-time">${video.historyTime || ''}</span>
+      <div class="my-anime-history">
+        <span class="my-anime-history-time">${video.historyTime || ''}</span>
+        ${video.progress !== undefined && video.progress !== null ? `
           <span class="my-anime-history-progress">${formatProgress(video.progress, video.durationSeconds)}</span>
-        </div>
-      ` : ''}
+        ` : ''}
+      </div>
     </div>
   `
 
@@ -697,5 +697,28 @@ devToolsBtn?.addEventListener('click', async () => {
     await ipcRenderer.invoke('open-dev-tools')
   } catch (error) {
     console.error('打开开发者工具失败:', error)
+  }
+})
+
+const refreshBtn = document.getElementById('refreshBtn')
+const backTopBtn = document.getElementById('backTopBtn')
+
+refreshBtn?.addEventListener('click', () => {
+  if (currentUser && currentUser.isLogin) {
+    currentHistoryCursor = null
+    hasMoreHistory = true
+    loadTabContent(currentTab)
+    // 刷新后滚动到顶部
+    const content = document.querySelector('.content') || document.documentElement
+    content.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+})
+
+backTopBtn?.addEventListener('click', () => {
+  const content = document.querySelector('.content')
+  if (content) {
+    content.scrollTo({ top: 0, behavior: 'smooth' })
+  } else {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 })

@@ -202,43 +202,23 @@ async function fetchPopularVideos(tab = 'comprehensive', page = 1, append = fals
   if (isLoading) return
   isLoading = true
 
-  console.log('fetchPopularVideos called, tab:', tab, 'page:', page, 'append:', append, 'currentRid:', currentRid)
+  console.log('fetchPopularVideos called via IPC, tab:', tab, 'page:', page, 'append:', append, 'currentRid:', currentRid)
 
   try {
-    let url = ''
-    
-    if (tab === 'comprehensive' || tab === 'ranking' || typeof tab === 'number') {
-      const currentRid = typeof tab === 'number' ? 0 : currentRid
-      url = `https://api.bilibili.com/x/web-interface/ranking/v2?rid=${currentRid}&type=all&ps=30&pn=${page}`
-    } else if (tab === 'weekly') {
-      url = `https://api.bilibili.com/x/web-interface/popular/series/list?ps=30&pn=${page}`
-    } else if (tab === 'precious') {
-      url = `https://api.bilibili.com/x/web-interface/popular/precious`
-    }
-
-    console.log('Fetching from URL:', url)
-
-    const response = await fetch(url, {
-      method: 'GET',
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Referer': 'https://www.bilibili.com/',
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8'
-      },
-      credentials: 'include'
-    })
-
-    const result = await response.json()
-    console.log('fetchPopularVideos result:', result)
+    const result = await ipcRenderer.invoke('fetch-popular-videos', tab, page, currentRid)
+    console.log('fetchPopularVideos result:', result.success, result.error || '')
     
     let items = []
-
-    if (result && result.code === 0) {
-      items = extractVideoList(result)
+    if (result.success && result.data) {
+      const data = result.data
+      if (data && data.code === 0) {
+        items = extractVideoList(data)
+      }
+      console.log('Number of items:', items.length)
+      if (items.length > 0) {
+        console.log('First item:', JSON.stringify(items[0], null, 2))
+      }
     }
-
-    console.log('Items to render:', items.length)
 
     if (items.length > 0) {
       hasMoreData = items.length >= 30
@@ -294,6 +274,8 @@ content?.addEventListener('scroll', () => {
 const minBtn = document.getElementById('minBtn')
 const maxBtn = document.getElementById('maxBtn')
 const closeBtn = document.getElementById('closeBtn')
+const refreshBtn = document.getElementById('refreshBtn')
+const backTopBtn = document.getElementById('backTopBtn')
 
 minBtn?.addEventListener('click', () => {
   ipcRenderer.invoke('minimize-window')
@@ -305,4 +287,22 @@ maxBtn?.addEventListener('click', () => {
 
 closeBtn?.addEventListener('click', () => {
   ipcRenderer.invoke('close-window')
+})
+
+refreshBtn?.addEventListener('click', () => {
+  currentPage = 1
+  hasMoreData = true
+  fetchPopularVideos(currentTab, currentPage, false)
+  // 刷新后滚动到顶部
+  const content = document.querySelector('.content') || document.documentElement
+  content.scrollTo({ top: 0, behavior: 'smooth' })
+})
+
+backTopBtn?.addEventListener('click', () => {
+  const content = document.querySelector('.content')
+  if (content) {
+    content.scrollTo({ top: 0, behavior: 'smooth' })
+  } else {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
 })

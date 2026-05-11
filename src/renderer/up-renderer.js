@@ -352,3 +352,26 @@ maxBtn?.addEventListener('click', () => {
 closeBtn?.addEventListener('click', () => {
   ipcRenderer.invoke('close-window')
 })
+
+const refreshBtn = document.getElementById('refreshBtn')
+const backTopBtn = document.getElementById('backTopBtn')
+
+refreshBtn?.addEventListener('click', () => {
+  currentUpPage = ''
+  hasMoreUpVideos = true
+  currentUpVideos = []
+  fetchUpInfo(currentMid)
+  fetchUpVideos(currentMid, '', false)
+  // 刷新后滚动到顶部
+  const content = document.querySelector('.up-profile-container') || document.documentElement
+  content.scrollTo({ top: 0, behavior: 'smooth' })
+})
+
+backTopBtn?.addEventListener('click', () => {
+  const scrollContainer = document.querySelector('.up-profile-container') || document.body
+  if (scrollContainer) {
+    scrollContainer.scrollTo({ top: 0, behavior: 'smooth' })
+  } else {
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+})

@@ -1,0 +1,22 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Electron 主进程调试",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "powershell",
+      "args": [
+        "-Command",
+        "[Console]::OutputEncoding = [System.Text.Encoding]::UTF8; [Console]::InputEncoding = [System.Text.Encoding]::UTF8; $env:LANG='zh_CN.UTF-8'; .\\node_modules\\.bin\\electron.cmd ."
+      ],
+      "outputCapture": "std",
+      "console": "integratedTerminal",
+      "env": {
+        "NODE_ENV": "development",
+        "LANG": "zh_CN.UTF-8"
+      }
+    }
+  ]
+}

@@ -1,3 +1,7 @@
+// 强制设置 UTF-8 编码
+process.env.LANG = 'zh_CN.UTF-8'
+process.stdout.write('\u001b[3J\u001b[H\u001b[2J')
+
 const { app, BrowserWindow, ipcMain, Menu, session, dialog } = require('electron')
 const path = require('path')
 const fs = require('fs')
@@ -36,42 +40,7 @@ function loadCookies() {
       savedCookies = JSON.parse(data)
       log('Loaded cookies from file:', Object.keys(savedCookies))
     }
-    // 补充完整的cookie字段
-    const fullCookie = {
-      buvid3: '7A6AE6446ADB123DDC57763023030222cPwK40YeEqIW9Sp92No6dA',
-      mobi_app: 'pc_electron',
-      platform: 'web',
-      device: 'win',
-      device_id: 'b23f4700-e06a-11ed-8296-6f8faeba1300',
-      innersign: '0',
-      b_nut: '1677767495',
-      b_lsid: '6C1678BC_186A2BC548D',
-      _uuid: '5686C2C7-510C10-581A-4ACC-1D8CBC35A10CA96851infoc',
-      fingerprint: 'a80d0691d209df9c0dd35fe67bd064f7',
-      buvid_fp_plain: 'undefined',
-      buvid_fp: 'a80d0691d209df9c0dd35fe67bd064f7',
-      buvid4: '381B2CE1-C224-99B4-2C8A-C6D5ADD0B99996598-023030222-cPwK40YeEqIW9Sp92No6dA%3D%3D',
-      LIVE_BUVID: 'AUTO3616777718771876',
-      PVID: '22',
-      sid: '75jtjto3',
-      CURRENT_FNVAL: '4048',
-      CURRENT_PID: 'dc546760-798e-11ee-b38d-5995d0f43ffa',
-      build: '1001017006',
-      rpdid: '|(u))JJu)ul|0J\'u~kmRuRuY',
-      timeMachine: '0',
-      sec_ck: 'Xt_7R0Kpa8hm2Zpai6uIiEUbTlJhJAA5Bse_vN4j5LTW8cC1OU6SRGXu_Xx7sluTVApM0JqqSUtDJllvpMSnLo0O9KxSDMI8fRc2ZG3VcAEnhvIlsfVT8EWgy6-yggCtzewK4PLp4DpMQCb840jf_T_aiQSzLpric-4k7QSKTM66qDiBhVl6qvCkx6pJZIW1dOVs9hjv1bruZU_rrj-EX4PmI0tw5ij7ZmZQyPWuBHa0AqW91DvuH98mCIoNnAesDBAETSg2ssjLJguGjhuF9erIqwcc6PaBRY2Sgonb8UnoVimYw4kvIChe!Mss',
-      'theme-tip-show': 'SHOWED',
-      CURRENT_QUALITY: '0',
-      bili_ticket: 'eyJhbGciOiJIUzI1NiIsImtpZCI6InMwMyIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Nzg1OTU1MTksImlhdCI6MTc3ODMzNjI1OSwicGx0IjotMX0.LSpa4bVXmCNzzKFrRPrcfqNYBu8ZNNOiuML_h1AOAEM',
-      bili_ticket_expires: '1778595459'
-    }
-    // 合并cookie，已有的保持不变
-    for (const [key, value] of Object.entries(fullCookie)) {
-      if (!savedCookies[key]) {
-        savedCookies[key] = value
-      }
-    }
-    log('Final savedCookies with full fields:', Object.keys(savedCookies))
+    log('Cookies loaded:', Object.keys(savedCookies))
   } catch (error) {
     log('Failed to load cookies:', error.message)
   }
@@ -161,7 +130,8 @@ function log(...args) {
     }
   }
   
-  console.log(timestamp + message)
+  // 使用 process.stdout.write 确保 UTF-8 输出
+  process.stdout.write((timestamp + message + '\n').replace(/\u001b\[0m/g, ''))
   
   if (!app.isPackaged && logFile) {
     const plainMsg = new Date().toISOString() + ' ' + args.map(a => typeof a === 'object' ? JSON.stringify(a) : a).join(' ')
@@ -232,12 +202,27 @@ async function getVideoInfo(bvid) {
   return null
 }
 
+// 格式化时间为 MM:SS 或 HH:MM:SS
+function formatProgressTime(seconds) {
+  const secs = Math.floor(seconds)
+  const hours = Math.floor(secs / 3600)
+  const mins = Math.floor((secs % 3600) / 60)
+  const s = secs % 60
+  if (hours > 0) {
+    return `${hours}:${mins.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`
+  }
+  return `${mins}:${s.toString().padStart(2, '0')}`
+}
+
 // 上报播放历史
 async function reportPlayHistory(aid, cid, progress) {
   if (!savedCookies.SESSDATA || !savedCookies.bili_jct) {
     log('缺少 SESSDATA 或 bili_jct，无法上报播放历史')
     return false
   }
+
+  const formattedProgress = formatProgressTime(progress)
+  log(`[历史上报] aid=${aid}, cid=${cid}, 进度=${formattedProgress} (${Math.floor(progress)}秒)`)
 
   return new Promise((resolve) => {
     const data = `aid=${aid}&cid=${cid}&progress=${Math.floor(progress)}&platform=pc&csrf=${savedCookies.bili_jct}`
@@ -262,7 +247,7 @@ async function reportPlayHistory(aid, cid, progress) {
       res.on('end', () => {
         try {
           const result = JSON.parse(responseData)
-          log('播放历史上报结果:', result)
+          log(`[历史上报] 结果: code=${result.code}, 进度=${formattedProgress}`)
           resolve(result.code === 0)
         } catch (e) {
           log('解析上报响应失败:', e)
@@ -346,14 +331,9 @@ function getCurrentProgress() {
   sendMpvCommand('get_property', 'playback-time')
 }
 
-// 启动定时上报
+// 启动定时上报（空实现，关闭时统一上报）
 function startReportTimer() {
-  stopReportTimer()
-  reportTimer = setInterval(() => {
-    if (currentVideoInfo && currentVideoInfo.aid && currentVideoInfo.cid) {
-      reportEstimatedProgress()
-    }
-  }, 30000)
+  // 移除频繁上报，只在关闭时上报
 }
 
 // 停止定时上报
@@ -361,27 +341,6 @@ function stopReportTimer() {
   if (reportTimer) {
     clearInterval(reportTimer)
     reportTimer = null
-  }
-}
-
-// 上报估算的进度
-async function reportEstimatedProgress() {
-  if (!currentVideoInfo || !currentVideoInfo.aid || !currentVideoInfo.cid) return
-
-  try {
-    // 估算播放时间
-    const elapsedSeconds = Math.floor((Date.now() - currentVideoInfo.startTime) / 1000)
-    let estimatedProgress = Math.min(elapsedSeconds, currentVideoInfo.duration || 300)
-    
-    // 确保进度递增（至少比上次上报的多）
-    if (estimatedProgress <= currentVideoInfo.lastReportProgress) {
-      estimatedProgress = currentVideoInfo.lastReportProgress + 1
-    }
-    currentVideoInfo.lastReportProgress = estimatedProgress
-    
-    await reportPlayHistory(currentVideoInfo.aid, currentVideoInfo.cid, estimatedProgress)
-  } catch (error) {
-    log('上报估算进度失败:', error)
   }
 }
 
@@ -461,7 +420,7 @@ function createWindow() {
       contextIsolation: false,
       webviewTag: true,
       sandbox: false,
-      partition: 'persist:main' // 与播放器窗口共享相同的partition
+      partition: 'persist:main'
     }
   }
   if (fs.existsSync(iconPath)) {
@@ -472,7 +431,6 @@ function createWindow() {
 
   mainWindow.loadFile('index.html')
 
-  // 页面加载完成后同步cookie到session
   mainWindow.webContents.once('did-finish-load', async () => {
     await syncCookiesToSession()
   })
@@ -515,6 +473,11 @@ function fetchApi(url) {
         .join('; ')
       headers['Cookie'] = cookieString
       log('Adding cookies:', Object.keys(savedCookies))
+      if (savedCookies['SESSDATA']) {
+        const sessdataParts = savedCookies['SESSDATA'].split(',')
+        log('SESSDATA expire timestamp:', sessdataParts[1] || 'N/A')
+        log('SESSDATA first 20 chars:', savedCookies['SESSDATA'].substring(0, 20))
+      }
     }
     
     const options = {
@@ -767,34 +730,7 @@ ipcMain.handle('fetch-popular-videos-v2', async (event, page = 1) => {
   }
 })
 
-ipcMain.handle('fetch-bangumi-tab', async (event, cursor = 0, isRefresh = 1) => {
-  log('fetch-bangumi-tab called, cursor:', cursor, 'isRefresh:', isRefresh)
-  try {
-    const endpoint = `https://api.bilibili.com/pgc/page/pc/bangumi/tab?cursor=${cursor}&is_refresh=${isRefresh}`
-    log('Using bangumi tab endpoint:', endpoint)
-    const result = await fetchApi(endpoint)
-    log('Bangumi tab API result code:', result.code)
-    if (result.code === 0) {
-      log('Bangumi tab API success')
-      if (result.data?.modules && result.data.modules.length > 0) {
-        result.data.modules.forEach((m, i) => {
-          log(`Module ${i}: title=${m.title || 'N/A'}, items.length=${m.items?.length || 0}`)
-          if (i === 0) {
-            log(`Module ${i} (我的追番) 完整数据:`, JSON.stringify(m, null, 2))
-          } else if (m.items && m.items.length > 0) {
-            log(`Module ${i} sample item:`, JSON.stringify(m.items[0], null, 2))
-          }
-        })
-      }
-      return { success: true, data: result }
-    }
-    log('Bangumi tab API failed, code:', result.code, 'message:', result.message)
-    return { success: false, error: result.message || '获取追番数据失败' }
-  } catch (error) {
-    log('Bangumi tab API错误:', error.message)
-    return { success: false, error: error.message }
-  }
-})
+
 
 ipcMain.handle('fetch-hot-search', async (event) => {
   log('fetch-hot-search called')
@@ -931,13 +867,14 @@ ipcMain.on('open-media', () => {
   mainWindow.loadFile('src/pages/media.html')
 })
 
-ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmaku = true, useBuiltin = false) => {
+ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmaku = true, useBuiltin = false, progress = null) => {
   const startTime = Date.now()
   log(`[启动计时] 开始播放视频, 时间: ${new Date().toLocaleTimeString()}`)
   log(`[启动计时] 弹幕显示设置: ${showDanmaku}`)
   log(`[启动计时] 使用内置播放器: ${useBuiltin}`)
+  log(`[启动计时] 播放进度: ${progress}`)
 
-  log('play-video called with bvid:', bvid, 'cid:', cid, 'title:', title, 'mpvPath:', mpvPath, 'showDanmaku:', showDanmaku, 'useBuiltin:', useBuiltin)
+  log('play-video called with bvid:', bvid, 'cid:', cid, 'title:', title, 'mpvPath:', mpvPath, 'showDanmaku:', showDanmaku, 'useBuiltin:', useBuiltin, 'progress:', progress)
   stopVideo()
 
   if (useBuiltin) {
@@ -963,7 +900,7 @@ ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmak
         log('Failed to get video dimension:', error.message)
       }
     }
-    return await openBuiltinPlayer(bvid, cid, title, videoDimension)
+    return await openBuiltinPlayer(bvid, cid, title, videoDimension, progress)
   }
 
   try {
@@ -1073,10 +1010,12 @@ ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmak
           currentVideoInfo.aid = videoInfo.aid
           currentVideoInfo.cid = videoInfo.cid
           currentVideoInfo.duration = videoInfo.duration
+          log(`[初始上报] MPV开始播放, aid=${videoInfo.aid}, cid=${videoInfo.cid}, 初始进度=0:10`)
           reportPlayHistory(videoInfo.aid, videoInfo.cid, 10)
         }
       })
     } else if (currentVideoInfo && currentVideoInfo.cid) {
+      log(`[初始上报] MPV开始播放, aid=${currentVideoInfo.aid}, cid=${currentVideoInfo.cid}, 初始进度=0:10`)
       reportPlayHistory(currentVideoInfo.aid, currentVideoInfo.cid, 10)
     }
 
@@ -1089,10 +1028,12 @@ ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmak
       }
     })
     mpvProcess.on('close', (code) => {
-      log('MPV closed with code:', code)
+      log(`[MPV关闭] 代码: ${code}`)
       if (currentVideoInfo && currentVideoInfo.aid && currentVideoInfo.cid) {
         const elapsedSeconds = Math.floor((Date.now() - currentVideoInfo.startTime) / 1000)
         const estimatedProgress = Math.min(elapsedSeconds, currentVideoInfo.duration || 300)
+        const formattedProgress = formatProgressTime(estimatedProgress)
+        log(`[MPV关闭] 上报最终进度: ${formattedProgress} (${Math.floor(estimatedProgress)}秒)`)
         reportPlayHistory(currentVideoInfo.aid, currentVideoInfo.cid, estimatedProgress)
       }
       cleanupMpvSocket()
@@ -1110,8 +1051,8 @@ ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmak
   }
 })
 
-async function openBuiltinPlayer(bvid, cid, title, dimension) {
-  log('Opening builtin player for:', bvid, title, 'dimension:', dimension)
+async function openBuiltinPlayer(bvid, cid, title, dimension, progress = null) {
+  log('Opening builtin player for:', bvid, title, 'dimension:', dimension, 'progress:', progress)
 
   if (playerWindow) {
     playerWindow.close()
@@ -1120,6 +1061,8 @@ async function openBuiltinPlayer(bvid, cid, title, dimension) {
 
   let finalCid = cid
   let videoDimension = dimension
+  let videoAid = null
+  let videoDuration = null
 
   if (!finalCid || !videoDimension) {
     try {
@@ -1133,6 +1076,8 @@ async function openBuiltinPlayer(bvid, cid, title, dimension) {
           videoDimension = videoInfo.dimension
           log('Got dimension from video info:', videoDimension)
         }
+        videoAid = videoInfo.aid
+        videoDuration = videoInfo.duration
       }
     } catch (error) {
       log('Failed to get video info:', error.message)
@@ -1250,12 +1195,42 @@ async function openBuiltinPlayer(bvid, cid, title, dimension) {
       bvid: bvid,
       cid: finalCid,
       title: title || '哔哩哔哩视频',
-      cookies: savedCookies
+      cookies: savedCookies,
+      progress: progress
     })
   })
 
+  // 设置当前播放视频信息用于历史上报
+  currentVideoInfo = {
+    bvid: bvid,
+    aid: videoAid,
+    cid: finalCid,
+    duration: videoDuration,
+    title: title,
+    startTime: Date.now(),
+    lastReportProgress: 0
+  }
+
+  // 立即上报一次播放历史（进度为10秒，作为初始记录）
+  if (videoAid && finalCid) {
+    log(`[初始上报] 开始播放视频, aid=${videoAid}, cid=${finalCid}, 初始进度=0:10`)
+    reportPlayHistory(videoAid, finalCid, 10)
+  }
+
+  // 启动定时上报
+  startReportTimer()
+
   playerWindow.on('closed', () => {
-    log('Player window closed')
+    log('[播放器窗口关闭]')
+    // 上报最终播放进度
+    if (currentVideoInfo && currentVideoInfo.aid && currentVideoInfo.cid) {
+      const elapsedSeconds = Math.floor((Date.now() - currentVideoInfo.startTime) / 1000)
+      const estimatedProgress = Math.min(elapsedSeconds, currentVideoInfo.duration || 300)
+      const formattedProgress = formatProgressTime(estimatedProgress)
+      log(`[播放器窗口关闭] 上报最终进度: ${formattedProgress} (${Math.floor(estimatedProgress)}秒)`)
+      reportPlayHistory(currentVideoInfo.aid, currentVideoInfo.cid, estimatedProgress)
+    }
+    cleanupMpvSocket()
     playerWindow = null
   })
 
@@ -1290,6 +1265,22 @@ ipcMain.handle('get-window-position', async () => {
     return { x: pos[0], y: pos[1] }
   }
   return { x: 0, y: 0 }
+})
+
+ipcMain.handle('report-play-progress', async (event, progress) => {
+  // 简化处理，只更新最后上报进度，不实际上报（保留兼容性）
+  if (currentVideoInfo) {
+    currentVideoInfo.lastReportProgress = progress
+  }
+})
+
+ipcMain.handle('report-final-progress', async (event, progress) => {
+  const formattedProgress = formatProgressTime(progress)
+  log(`[播放器关闭] 收到最终播放进度: ${formattedProgress} (${Math.floor(progress)}秒)`)
+  if (currentVideoInfo && currentVideoInfo.aid && currentVideoInfo.cid) {
+    currentVideoInfo.lastReportProgress = progress
+    await reportPlayHistory(currentVideoInfo.aid, currentVideoInfo.cid, progress)
+  }
 })
 
 ipcMain.handle('set-window-position', async (event, x, y) => {
