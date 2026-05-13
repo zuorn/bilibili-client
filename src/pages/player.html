@@ -19,6 +19,13 @@
       font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
       margin: 0 !important;
       padding: 0 !important;
+      cursor: default;
+      transition: cursor 0.3s ease;
+    }
+
+    html.hide-cursor,
+    html.hide-cursor body {
+      cursor: none;
     }
 
     .player-container {
@@ -1297,22 +1304,11 @@
       scheduleHideControls()
     })
 
-    videoPlayer.addEventListener('pause', () => {
-      showControls()
-      if (hideTimer) {
-        clearTimeout(hideTimer)
-        hideTimer = null
-      }
-    })
-
-    videoPlayer.addEventListener('play', () => {
-      scheduleHideControls()
-    })
-
     document.addEventListener('mouseleave', () => {
       if (!videoPlayer.paused) {
         playerControls.classList.remove('visible')
         playerHeader.classList.remove('visible')
+        hideCursor()
       }
     })
 
@@ -1339,10 +1335,48 @@
       hideHeader()
     })
 
+    let cursorHideTimer = null
+    const cursorHideDelay = 2000
+
+    const getVideoPlayer = () => {
+      return videoPlayer || document.querySelector('.video-player')
+    }
+
+    const isVideoPlaying = () => {
+      const vp = getVideoPlayer()
+      return vp && !vp.paused && vp.currentTime > 0 && !vp.ended
+    }
+
+    const showCursor = () => {
+      document.documentElement.classList.remove('hide-cursor')
+      if (cursorHideTimer) {
+        clearTimeout(cursorHideTimer)
+        cursorHideTimer = null
+      }
+    }
+
+    const hideCursor = () => {
+      if (isVideoPlaying()) {
+        document.documentElement.classList.add('hide-cursor')
+      }
+    }
+
+    const scheduleHideCursor = () => {
+      if (cursorHideTimer) {
+        clearTimeout(cursorHideTimer)
+      }
+      if (isVideoPlaying()) {
+        cursorHideTimer = setTimeout(hideCursor, cursorHideDelay)
+      }
+    }
+
     document.addEventListener('mousemove', (e) => {
+      showCursor()
+
       const windowHeight = window.innerHeight
       const bottomThreshold = windowHeight * 0.8
       const topThreshold = windowHeight * 0.2
+      const isInVideoArea = e.clientY >= topThreshold && e.clientY <= bottomThreshold
       
       if (e.clientY > bottomThreshold) {
         showControls()
@@ -1355,13 +1389,27 @@
       } else if (!isMouseInHeaderArea) {
         hideHeader()
       }
+
+      if (isInVideoArea && !videoPlayer.paused) {
+        scheduleHideCursor()
+      }
     })
 
     videoPlayer.addEventListener('pause', () => {
       showControls()
+      showCursor()
       if (hideTimer) {
         clearTimeout(hideTimer)
         hideTimer = null
+      }
+    })
+
+    videoPlayer.addEventListener('play', () => {
+      scheduleHideControls()
+      const videoArea = document.querySelector('.video-area')
+      if (videoArea) {
+        const rect = videoArea.getBoundingClientRect()
+        scheduleHideCursor()
       }
     })
 

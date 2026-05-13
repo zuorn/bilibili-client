@@ -15,11 +15,11 @@ const chalk = require('chalk').default || require('chalk')
 chalk.level = 3
 const { getDanmakuXml, getCidByBvid } = require('./src/utils/getDanmaku')
 const xml2ass = require('./src/utils/xml2ass')
+const cookieManager = require('./cookieManager')
 
 let mainWindow
 let mpvProcess = null
 let loginPollInterval = null
-let savedCookies = {}
 let mpvSocket = null
 let mpvSocketPath = null
 let currentVideoInfo = null
@@ -30,79 +30,7 @@ let playerWindow = null
 let playerVideoAspect = 16/9
 
 let logFile = ''
-let cookieFile = ''
 
-// 加载保存的Cookie
-function loadCookies() {
-  try {
-    if (fs.existsSync(cookieFile)) {
-      const data = fs.readFileSync(cookieFile, 'utf8')
-      savedCookies = JSON.parse(data)
-      log('Loaded cookies from file:', Object.keys(savedCookies))
-    }
-    log('Cookies loaded:', Object.keys(savedCookies))
-  } catch (error) {
-    log('Failed to load cookies:', error.message)
-  }
-}
-
-// 保存Cookie到文件
-function saveCookies() {
-  try {
-    fs.writeFileSync(cookieFile, JSON.stringify(savedCookies), 'utf8')
-    log('Saved cookies to file')
-  } catch (error) {
-    log('Failed to save cookies:', error.message)
-  }
-}
-
-// 同步Cookie到Electron session
-async function syncCookiesToSession() {
-  if (!mainWindow || mainWindow.isDestroyed()) return
-
-  try {
-    const session = mainWindow.webContents.session
-    log('Starting to sync cookies, savedCookies keys:', Object.keys(savedCookies))
-    
-    for (const [name, value] of Object.entries(savedCookies)) {
-      try {
-        // 设置为 .bilibili.com 域名，这样所有子域名都能访问
-        await session.cookies.set({
-          url: 'https://www.bilibili.com',
-          name: name,
-          value: value,
-          domain: '.bilibili.com',
-          path: '/',
-          secure: true,
-          httpOnly: false
-        })
-        log(`Cookie synced: ${name}`)
-      } catch (e) {
-        log('Failed to sync cookie to session:', name, e.message)
-      }
-    }
-    
-    // 验证同步结果
-    const cookiesAfter = await session.cookies.get({ domain: '.bilibili.com' })
-    log('Session cookies after sync:', cookiesAfter.map(c => c.name))
-    log('Synced cookies to session done')
-  } catch (error) {
-    log('Failed to sync cookies to session:', error.message)
-  }
-}
-
-// 清除Cookie
-function clearCookies() {
-  savedCookies = {}
-  try {
-    if (fs.existsSync(cookieFile)) {
-      fs.unlinkSync(cookieFile)
-    }
-    log('Cleared cookies')
-  } catch (error) {
-    log('Failed to clear cookies:', error.message)
-  }
-}
 function log(...args) {
   const timestamp = chalk.gray(new Date().toISOString())
   let message = ''
@@ -216,6 +144,7 @@ function formatProgressTime(seconds) {
 
 // 上报播放历史
 async function reportPlayHistory(aid, cid, progress) {
+  const savedCookies = cookieManager.getSavedCookies()
   if (!savedCookies.SESSDATA || !savedCookies.bili_jct) {
     log('缺少 SESSDATA 或 bili_jct，无法上报播放历史')
     return false
@@ -233,7 +162,7 @@ async function reportPlayHistory(aid, cid, progress) {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
-        'Cookie': Object.entries(savedCookies).map(([k, v]) => `${k}=${v}`).join('; '),
+        'Cookie': cookieManager.getCookieString(),
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
       },
       rejectUnauthorized: false
@@ -432,7 +361,7 @@ function createWindow() {
   mainWindow.loadFile('index.html')
 
   mainWindow.webContents.once('did-finish-load', async () => {
-    await syncCookiesToSession()
+    await cookieManager.syncCookiesToSession(mainWindow.webContents.session)
   })
 
   mainWindow.on('closed', () => {
@@ -467,11 +396,9 @@ function fetchApi(url) {
       'TE': 'Trailers'
     }
     
+    const savedCookies = cookieManager.getSavedCookies()
     if (Object.keys(savedCookies).length > 0) {
-      const cookieString = Object.entries(savedCookies)
-        .map(([key, value]) => `${key}=${value}`)
-        .join('; ')
-      headers['Cookie'] = cookieString
+      headers['Cookie'] = cookieManager.getCookieString()
       log('Adding cookies:', Object.keys(savedCookies))
       if (savedCookies['SESSDATA']) {
         const sessdataParts = savedCookies['SESSDATA'].split(',')
@@ -597,6 +524,107 @@ async function fetchWithRetry(url, retries = 3, delay = 1000) {
     }
   }
   throw new Error('重试次数用尽')
+}
+
+// 追番接口测试
+
+function fetchApiWithHeaders(url, customHeaders = {}) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url)
+    log('Fetching URL with custom headers:', url)
+    
+    const headers = {
+      'Accept': '*/*',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      ...customHeaders
+    }
+    
+    const savedCookies = cookieManager.getSavedCookies()
+    if (Object.keys(savedCookies).length > 0) {
+      const cookieString = cookieManager.getCookieString()
+      headers['Cookie'] = cookieString
+      log('实际发送的Cookie:', cookieString.substring(0, 100) + '...')
+    }
+    
+    log('实际发送的完整请求头:', JSON.stringify(headers))
+    
+    const options = {
+      hostname: urlObj.hostname,
+      port: 443,
+      path: urlObj.pathname + urlObj.search,
+      method: 'GET',
+      headers: headers,
+      rejectUnauthorized: false
+    }
+
+    const req = https.request(options, (res) => {
+      log('Response Status:', res.statusCode)
+      
+      // 解析 Set-Cookie 响应头
+      if (res.headers['set-cookie']) {
+        cookieManager.parseSetCookieHeaders(res.headers['set-cookie'])
+      }
+      
+      let data = ''
+      const encoding = res.headers['content-encoding']
+      
+      if (encoding === 'gzip' || encoding === 'br') {
+        const zlib = require('zlib')
+        let decompressor
+        
+        if (encoding === 'br') {
+          decompressor = zlib.createBrotliDecompress()
+        } else {
+          decompressor = zlib.createGunzip()
+        }
+        
+        const chunks = []
+        res.pipe(decompressor)
+        decompressor.on('data', (chunk) => { chunks.push(chunk) })
+        decompressor.on('end', () => {
+          let dataStr = ''
+          try {
+            const buffer = Buffer.concat(chunks)
+            dataStr = buffer.toString('utf8')
+            const parsed = JSON.parse(dataStr)
+            log('Response code:', parsed.code)
+            resolve(parsed)
+          } catch (e) {
+            log('Parse error, raw response:', dataStr.substring(0, 200))
+            reject(e)
+          }
+        })
+        decompressor.on('error', (err) => {
+          log('Decompression error:', err.message)
+          reject(err)
+        })
+      } else {
+        res.on('data', (chunk) => { data += chunk })
+        res.on('end', () => {
+          try {
+            const parsed = JSON.parse(data)
+            log('Response code:', parsed.code)
+            resolve(parsed)
+          } catch (e) {
+            log('Parse error, raw response:', data.substring(0, 200))
+            reject(e)
+          }
+        })
+      }
+    })
+
+    req.on('error', (err) => {
+      log('Request error:', err.message)
+      reject(err)
+    })
+    req.setTimeout(15000, () => {
+      log('Request timeout')
+      req.destroy()
+      reject(new Error('请求超时'))
+    })
+    req.end()
+  })
 }
 
 const API_ENDPOINTS = [
@@ -811,6 +839,72 @@ ipcMain.handle('fetch-media', async (event, seasonType = 2, page = 1) => {
   }
 })
 
+ipcMain.handle('fetch-bangumi-data', async (event, params) => {
+  const { is_refresh = 0, cursor = '' } = params || {}
+  log('fetch-bangumi-data called, is_refresh:', is_refresh, 'cursor:', cursor)
+  try {
+    let url = `https://api.bilibili.com/pgc/page/pc/bangumi/tab?is_refresh=${is_refresh}`
+    if (cursor) {
+      url += `&cursor=${cursor}`
+    }
+    log('Using bangumi endpoint:', url)
+    log('请求前的savedCookies状态:', JSON.stringify(savedCookies))
+    log('savedCookies包含的key:', Object.keys(savedCookies))
+    if (savedCookies.SESSDATA) {
+      log('SESSDATA存在, 前20字符:', savedCookies.SESSDATA.substring(0, 20))
+    } else {
+      log('SESSDATA不存在!')
+    }
+
+    const bangumiHeaders = {
+      'accept': '*/*',
+      'accept-encoding': 'gzip, deflate, br',
+      'accept-language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      'referer': 'https://www.bilibili.com/client',
+      'sec-fetch-dest': 'empty',
+      'sec-fetch-mode': 'cors',
+      'sec-fetch-site': 'same-site',
+      'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) bilibili_pc/1.17.5 Chrome/108.0.5359.215 Electron/22.3.27 Safari/537.36 build/1001017006',
+      'origin': 'https://www.bilibili.com',
+      'sec-ch-ua': '"Not?A_Brand";v="8", "Chromium";v="108"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"Windows"',
+      'x-app-version': '1.17.6'
+    }
+
+    const result = await fetchApiWithHeaders(url, bangumiHeaders)
+    if (result && result.code === 0) {
+      log('Bangumi API成功, raw data:', JSON.stringify(result).substring(0, 500))
+      
+      // 保存数据到test文件夹
+      const testDir = path.join(__dirname, 'test')
+      if (!fs.existsSync(testDir)) {
+        fs.mkdirSync(testDir, { recursive: true })
+      }
+      
+      const timestamp = Date.now()
+      const filename = `bangumi_data_${is_refresh}_${cursor || 'initial'}_${timestamp}.json`
+      const filePath = path.join(testDir, filename)
+      
+      try {
+        fs.writeFileSync(filePath, JSON.stringify(result, null, 2), 'utf8')
+        log('Bangumi data saved to:', filePath)
+      } catch (saveError) {
+        log('Failed to save bangumi data:', saveError.message)
+      }
+      
+      return { success: true, data: result }
+    }
+    log('Bangumi API失败, result:', result)
+    log('savedCookies状态:', JSON.stringify(savedCookies))
+    return { success: false, error: '获取追番数据失败' }
+  } catch (error) {
+    log('Bangumi API错误:', error.message)
+    log('错误时的savedCookies状态:', JSON.stringify(savedCookies))
+    return { success: false, error: error.message }
+  }
+})
+
 ipcMain.handle('fetch-up-info', async (event, mid) => {
   console.log('Fetching UP info for mid:', mid)
   try {
@@ -942,7 +1036,7 @@ ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmak
       '--sub-auto=fuzzy',
       '--sub-ass-override=yes'
     ]
-
+    const savedCookies = cookieManager.getSavedCookies()
     if (savedCookies.SESSDATA) {
       const minimalCookie = `SESSDATA=${savedCookies.SESSDATA}; DedeUserID=${savedCookies.DedeUserID}; bili_jct=${savedCookies.bili_jct}`
       mpvArgs.push(`--http-header-fields="Cookie: ${minimalCookie}"`)
@@ -1195,7 +1289,7 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress = null) {
       bvid: bvid,
       cid: finalCid,
       title: title || '哔哩哔哩视频',
-      cookies: savedCookies,
+      cookies: cookieManager.getSavedCookies(),
       progress: progress
     })
   })
@@ -1492,7 +1586,7 @@ ipcMain.handle('move-player-window', async (event, direction) => {
 })
 
 ipcMain.handle('get-video-url', async (event, bvid, cid) => {
-  const cookieString = Object.entries(savedCookies).map(([k, v]) => `${k}=${v}`).join('; ')
+  const cookieString = cookieManager.getCookieString()
 
   const qualityLevels = [
     { qn: 125, name: 'HDR1080P60', fnval: 16 },
@@ -1647,7 +1741,7 @@ ipcMain.handle('get-login-info', async () => {
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
         'Referer': 'https://www.bilibili.com/',
-        'Cookie': Object.entries(savedCookies).map(([k, v]) => `${k}=${v}`).join('; ')
+        'Cookie': cookieManager.getCookieString()
       }
     })
     
@@ -1741,8 +1835,7 @@ ipcMain.on('stop-video', () => {
 app.whenReady().then(() => {
   const userDataPath = app.getPath('userData')
   logFile = path.join(__dirname, 'debug.log')
-  cookieFile = path.join(userDataPath, 'cookies.json')
-  loadCookies()
+  cookieManager.loadCookies(path.join(userDataPath, 'cookies.json'))
   createWindow()
 
   app.on('activate', () => {
@@ -1862,6 +1955,8 @@ ipcMain.handle('poll-login-status', async (event, qcode) => {
         const url = new URL(data.url)
         const params = url.searchParams
         
+        const savedCookies = cookieManager.getSavedCookies()
+        
         if (params.has('DedeUserID')) {
           savedCookies.DedeUserID = params.get('DedeUserID')
         }
@@ -1875,52 +1970,31 @@ ipcMain.handle('poll-login-status', async (event, qcode) => {
           savedCookies['DedeUserID__ckMd5'] = params.get('DedeUserID__ckMd5')
         }
         
-        // 补充完整的cookie字段
-        const fullCookie = {
-          buvid3: '7A6AE6446ADB123DDC57763023030222cPwK40YeEqIW9Sp92No6dA',
-          mobi_app: 'pc_electron',
-          platform: 'web',
-          device: 'win',
-          device_id: 'b23f4700-e06a-11ed-8296-6f8faeba1300',
-          innersign: '0',
-          b_nut: '1677767495',
-          b_lsid: '6C1678BC_186A2BC548D',
-          _uuid: '5686C2C7-510C10-581A-4ACC-1D8CBC35A10CA96851infoc',
-          fingerprint: 'a80d0691d209df9c0dd35fe67bd064f7',
-          buvid_fp_plain: 'undefined',
-          buvid_fp: 'a80d0691d209df9c0dd35fe67bd064f7',
-          buvid4: '381B2CE1-C224-99B4-2C8A-C6D5ADD0B99996598-023030222-cPwK40YeEqIW9Sp92No6dA%3D%3D',
-          LIVE_BUVID: 'AUTO3616777718771876',
-          PVID: '22',
-          sid: '75jtjto3',
-          CURRENT_FNVAL: '4048',
-          CURRENT_PID: 'dc546760-798e-11ee-b38d-5995d0f43ffa',
-          build: '1001017006',
-          rpdid: '|(u))JJu)ul|0J\'u~kmRuRuY',
-          timeMachine: '0',
-          sec_ck: 'Xt_7R0Kpa8hm2Zpai6uIiEUbTlJhJAA5Bse_vN4j5LTW8cC1OU6SRGXu_Xx7sluTVApM0JqqSUtDJllvpMSnLo0O9KxSDMI8fRc2ZG3VcAEnhvIlsfVT8EWgy6-yggCtzewK4PLp4DpMQCb840jf_T_aiQSzLpric-4k7QSKTM66qDiBhVl6qvCkx6pJZIW1dOVs9hjv1bruZU_rrj-EX4PmI0tw5ij7ZmZQyPWuBHa0AqW91DvuH98mCIoNnAesDBAETSg2ssjLJguGjhuF9erIqwcc6PaBRY2Sgonb8UnoVimYw4kvIChe!Mss',
-          'theme-tip-show': 'SHOWED',
-          CURRENT_QUALITY: '0',
-          bili_ticket: 'eyJhbGciOiJIUzI1NiIsImtpZCI6InMwMyIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3Nzg1OTU1MTksImlhdCI6MTc3ODMzNjI1OSwicGx0IjotMX0.LSpa4bVXmCNzzKFrRPrcfqNYBu8ZNNOiuML_h1AOAEM',
-          bili_ticket_expires: '1778595459'
-        }
-        // 合并cookie，已有的保持不变
-        for (const [key, value] of Object.entries(fullCookie)) {
-          if (!savedCookies[key]) {
-            savedCookies[key] = value
+        // 从 session 中获取所有 .bilibili.com 的 cookies
+        try {
+          const sessionCookies = await mainWindow.webContents.session.cookies.get({ domain: '.bilibili.com' })
+          log('从 session 获取到的 cookies:', sessionCookies.map(c => c.name))
+          
+          for (const cookie of sessionCookies) {
+            savedCookies[cookie.name] = cookie.value
+            log(`更新 ${cookie.name}: ${cookie.value.substring(0, 20)}...`)
           }
+        } catch (e) {
+          log('从 session 获取 cookies 失败:', e.message)
         }
         
-        log('Saved cookies with full fields:', Object.keys(savedCookies))
-        saveCookies()
-        syncCookiesToSession()
+        cookieManager.setSavedCookies(savedCookies)
+        cookieManager.saveCookies()
+        cookieManager.syncCookiesToSession(mainWindow.webContents.session)
+        
+        log('最终保存的 cookies:', Object.keys(savedCookies))
         
         return {
           success: true,
           data: {
             status: 'success',
             url: data.url,
-            cookies: savedCookies,
+            cookies: cookieManager.getSavedCookies(),
             refresh_token: data.refresh_token,
             message: '登录成功'
           }
@@ -1956,7 +2030,7 @@ ipcMain.handle('stop-login-poll', async () => {
 ipcMain.handle('get-cookies', async () => {
   return {
     success: true,
-    cookies: savedCookies
+    cookies: cookieManager.getSavedCookies()
   }
 })
 
@@ -2252,7 +2326,7 @@ ipcMain.handle('get-toview', async (event, pageNum = 1, pageSize = 20) => {
 ipcMain.handle('get-bangumi-follow', async (event, type = 1, pageNum = 1) => {
   log('get-bangumi-follow called, type:', type, 'page:', pageNum)
   try {
-    const vmid = savedCookies.DedeUserID || 320634848
+    const vmid = cookieManager.getSavedCookies().DedeUserID || 320634848
     const url = `https://api.bilibili.com/x/space/bangumi/follow/list?vmid=${vmid}&type=${type}&pn=${pageNum}&ps=24&platform=web&follow_status=0`
     const result = await fetchApi(url)
     log('Bangumi follow result code:', result.code)
@@ -2341,7 +2415,7 @@ ipcMain.handle('get-dynamic-portal', async () => {
 
 ipcMain.handle('logout', async () => {
   log('logout called')
-  clearCookies()
+  cookieManager.clearCookies()
   return { success: true, message: '退出登录成功' }
 })
 

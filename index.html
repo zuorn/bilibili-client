@@ -16,6 +16,7 @@
         <div class="home-links">
           <a href="#" class="nav-link active" data-page="home">推荐</a>
           <a href="#" class="nav-link" data-page="popular">热门</a>
+          <a href="#" class="nav-link" data-page="bangumi">追番</a>
           <a href="#" class="nav-link" data-page="media">影视</a>
         </div>
         <!-- 现在工具没有实现 -->
@@ -156,6 +157,51 @@
       <!-- 影视页 -->
       <div class="page-content" id="page-media">
         <!-- 影视页面内容将在这里实现 -->
+      </div>
+
+      <!-- 追番页 -->
+      <div class="page-content" id="page-bangumi">
+        <div class="bangumi-container">
+          <!-- 我的追番 -->
+          <div class="bangumi-section" id="bangumi-following">
+            <div class="section-header">
+              <h2 class="section-title"></h2>
+            </div>
+            <div class="bangumi-scroll-container">
+              <div class="bangumi-horizontal-list" id="following-list"></div>
+            </div>
+          </div>
+
+          <!-- 番剧推荐 -->
+          <div class="bangumi-section" id="bangumi-recommend">
+            <div class="section-header">
+              <h2 class="section-title"></h2>
+            </div>
+            <div class="bangumi-grid" id="recommend-grid"></div>
+          </div>
+
+          <!-- 国创推荐 -->
+          <div class="bangumi-section" id="bangumi-chinese">
+            <div class="section-header">
+              <h2 class="section-title"></h2>
+            </div>
+            <div class="bangumi-grid" id="chinese-grid"></div>
+          </div>
+
+          <!-- 猜你喜欢 - 瀑布流 -->
+          <div class="bangumi-section" id="bangumi-guess">
+            <div class="section-header">
+              <h2 class="section-title"></h2>
+            </div>
+            <div class="waterfall-container" id="guess-waterfall"></div>
+            <div class="loading-more" id="bangumi-loading-more" style="display: none;">
+              <span>加载中...</span>
+            </div>
+            <div class="no-more" id="bangumi-no-more" style="display: none;">
+              <span>没有更多内容了</span>
+            </div>
+          </div>
+        </div>
       </div>
 
       <!-- 动态页 -->
@@ -324,10 +370,10 @@
                   <span class="stat-value" id="fanCount">0</span>
                   <span class="stat-label">粉丝数</span>
                 </div>
-                <!-- <div class="stat-item">
+                <div class="stat-item">
                   <span class="stat-value" id="viewCount">0</span>
                   <span class="stat-label">获赞数</span>
-                </div> -->
+                </div>
               </div>
               <div class="up-actions">
                 <button class="follow-btn">+ 关注</button>
@@ -400,6 +446,7 @@
             </div>
           </div>
           <div class="settings-section">
+            <h3 class="settings-section-title">常规设置</h3>
             <div class="settings-item">
               <div class="settings-item-label">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">

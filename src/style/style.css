@@ -357,6 +357,10 @@ body {
 
 .hot-list {
   padding: 8px 16px;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  grid-template-rows: repeat(5, auto);
+  gap: 4px 16px;
 }
 
 .hot-item {
@@ -4325,4 +4329,84 @@ body.dark-theme .my-anime-card {
 
 body.dark-theme .my-anime-title {
   color: #e0e0e0;
+}
+
+/* 快速访问键样式 */
+.accesskey-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.3);
+  z-index: 99999;
+  display: none;
+}
+
+.accesskey-overlay.active {
+  display: block;
+}
+
+.accesskey-label {
+  position: fixed;
+  background: linear-gradient(135deg, #fb7299 0%, #ff85ad 100%);
+  color: #000000;
+  font-size: 12px;
+  font-weight: 700;
+  padding: 1px 3px;
+  border-radius: 2px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  z-index: 999999;
+  pointer-events: none;
+  text-transform: uppercase;
+  animation: accesskeyFadeIn 0.15s ease-out;
+  letter-spacing: 0.5px;
+}
+
+.accesskey-label.hidden {
+  display: none;
+}
+
+.accesskey-label .matched-char {
+  position: relative;
+  display: inline-block;
+}
+
+.accesskey-label .matched-char::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(251, 114, 153, 0.5);
+  pointer-events: none;
+}
+
+@keyframes accesskeyFadeIn {
+  from {
+    opacity: 0;
+    transform: scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.accesskey-label.highlight {
+  background: linear-gradient(135deg, #ffd700 0%, #ffb700 100%);
+  color: #333;
+}
+
+body.dark-theme .accesskey-overlay {
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+body.dark-theme .accesskey-label {
+  background: linear-gradient(135deg, #fb7299 0%, #ff85ad 100%);
+}
+
+body.dark-theme .accesskey-label.highlight {
+  background: linear-gradient(135deg, #ffd700 0%, #ffb700 100%);
 }

@@ -10,12 +10,17 @@ let defaultShortcuts = {
   goBack: { keys: [['alt', 'arrowleft'], ['alt', 'arrowright']], label: '返回上一页' },
   openSettings: { keys: [['ctrl', 'shift', 's']], label: '打开设置' },
   openShortcutSettings: { keys: [['ctrl', 'shift', ',']], label: '打开快捷键设置' },
-  closeWindow: { keys: [['ctrl', 'shift', 'q']], label: '关闭窗口/弹出框' }
+  closeWindow: { keys: [['ctrl', 'shift', 'q']], label: '关闭窗口/弹出框' },
+  refresh: { keys: [['r']], label: '刷新当前页' },
+  goTop: { keys: [['g', 'g']], label: '回到顶部' },
+  scrollDown: { keys: [['d']], label: '向下翻半页' },
+  scrollUp: { keys: [['e']], label: '向上翻半页' }
 }
 
 let userShortcuts = JSON.parse(JSON.stringify(defaultShortcuts))
 let currentRecording = { id: null, index: null }
 let shortcutsEnabled = true
+let pendingGoTop = false
 
 function parseConf(content) {
   const config = {}
@@ -91,7 +96,8 @@ let pageStates = {
   media: { pageNum: 1, loading: false, hasMore: true },
   search: { keyword: '', pageNum: 1, loading: false, hasMore: true },
   up: { mid: null, name: '', offset: '', loading: false, hasMore: true },
-  my: { historyCursor: null, hasMoreHistory: true, isHistoryLoading: false, tabsOriginalOffset: null, favoritesPageNum: 1, hasMoreFavorites: true, isFavoritesLoading: false, toviewPageNum: 1, hasMoreToview: true, isToviewLoading: false }
+  my: { historyCursor: null, hasMoreHistory: true, isHistoryLoading: false, tabsOriginalOffset: null, favoritesPageNum: 1, hasMoreFavorites: true, isFavoritesLoading: false, toviewPageNum: 1, hasMoreToview: true, isToviewLoading: false },
+  bangumi: { cursor: '', loading: false, hasMore: true, data: null }
 }
 
 let currentQCode = null
@@ -268,6 +274,7 @@ function initEventListeners() {
         console.log('bangumi tab clicked')
         document.getElementById('history-content').style.display = 'none'
         document.getElementById('favorites-content').style.display = 'none'
+        document.getElementById('toview-content')?.style.setProperty('display', 'none')
         const bangumiContent = document.getElementById('bangumi-content')
         console.log('bangumi-content element:', bangumiContent)
         if (bangumiContent) {
@@ -279,6 +286,7 @@ function initEventListeners() {
         console.log('drama tab clicked')
         document.getElementById('history-content').style.display = 'none'
         document.getElementById('favorites-content').style.display = 'none'
+        document.getElementById('toview-content')?.style.setProperty('display', 'none')
         const bangumiContent = document.getElementById('bangumi-content')
         console.log('bangumi-content element:', bangumiContent)
         if (bangumiContent) {
@@ -487,6 +495,61 @@ function initEventListeners() {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   })
+}
+
+function refreshCurrentPage() {
+  console.log('Refreshing current page:', currentPage)
+
+  const content = document.querySelector('.content') || document.documentElement
+  content.scrollTo({ top: 0, behavior: 'smooth' })
+
+  if (currentPage === 'home') {
+    pageStates.home.pageNum = 1
+    pageStates.home.hasMore = true
+    pageStates.home.videos = []
+    const videoGrid = document.getElementById('videoGrid')
+    if (videoGrid) videoGrid.innerHTML = ''
+    fetchVideos(1, false)
+  } else if (currentPage === 'popular') {
+    pageStates.popular.pageNum = 1
+    pageStates.popular.hasMore = true
+    pageStates.popular.videos = []
+    const popularGrid = document.getElementById('popularGrid')
+    if (popularGrid) popularGrid.innerHTML = ''
+    fetchPopularVideos(1, false)
+  } else if (currentPage === 'dynamic') {
+    if (typeof selectAllDynamic === 'function') {
+      selectAllDynamic()
+    }
+  } else if (currentPage === 'my') {
+    if (currentUser && currentUser.isLogin) {
+      if (typeof currentHistoryCursor !== 'undefined') currentHistoryCursor = null
+      if (typeof hasMoreHistory !== 'undefined') hasMoreHistory = true
+      if (typeof loadTabContent === 'function') {
+        loadTabContent('history')
+      }
+    }
+  } else {
+    loadPageContent(currentPage)
+  }
+}
+
+function scrollToTop() {
+  const content = document.querySelector('.content') || document.documentElement
+  content.scrollTo({ top: 0, behavior: 'smooth' })
+}
+
+function scrollHalfPage(direction) {
+  const content = document.querySelector('.content') || document.documentElement
+  const currentTop = content.scrollTop
+  const viewHeight = content.clientHeight || window.innerHeight
+  const halfPage = Math.floor(viewHeight / 2)
+
+  if (direction === 'up') {
+    content.scrollTo({ top: Math.max(0, currentTop - halfPage), behavior: 'smooth' })
+  } else {
+    content.scrollTo({ top: currentTop + halfPage, behavior: 'smooth' })
+  }
 }
 
 function navigateToPage(page) {
@@ -1433,7 +1496,7 @@ function formatHistoryTime(timestamp) {
   }
 }
 
-function createHistoryCard(video) {
+function createHistoryCard(video, onAuthorClick) {
   const card = document.createElement('div')
   card.className = 'video-card'
   card.dataset.bvid = video.bvid
@@ -1462,6 +1525,13 @@ function createHistoryCard(video) {
     if (video.bvid) playVideo(video.bvid, video.cid, video.title, video.progress)
   })
 
+  const authorSpan = card.querySelector('.video-author')
+  authorSpan.addEventListener('click', e => {
+    e.stopPropagation()
+    const mid = video.owner?.mid || video.mid
+    if (mid && onAuthorClick) onAuthorClick(mid)
+  })
+
   return card
 }
 
@@ -1469,13 +1539,13 @@ function renderHistoryVideos(videos, containerId) {
   const container = document.getElementById(containerId)
   if (!container) return
   container.innerHTML = ''
-  videos.filter(v => v.bvid || v.title).forEach(video => container.appendChild(createHistoryCard(video)))
+  videos.filter(v => v.bvid || v.title).forEach(video => container.appendChild(createHistoryCard(video, navigateToUP)))
 }
 
 function appendHistoryVideos(videos, containerId) {
   const container = document.getElementById(containerId)
   if (!container) return
-  videos.filter(v => v.bvid || v.title).forEach(video => container.appendChild(createHistoryCard(video)))
+  videos.filter(v => v.bvid || v.title).forEach(video => container.appendChild(createHistoryCard(video, navigateToUP)))
 }
 
 async function loadHistory(append = false) {
@@ -2336,12 +2406,251 @@ function loadPageContent(page) {
   const actions = {
     home: () => { pageStates.home.pageNum = 1; pageStates.home.hasMore = true; fetchVideos(1, false) },
     popular: () => { pageStates.popular.pageNum = 1; pageStates.popular.hasMore = true; fetchPopularVideos(1, false) },
-
+    bangumi: () => loadBangumiPage(),
     media: () => { console.log('Media page - to be implemented') },
     my: () => { if (currentUser?.isLogin) loadHistory() },
     dynamic: () => initDynamicPage()
   }
   actions[page]?.()
+}
+
+// 追番页面相关函数
+async function loadBangumiPage() {
+  console.log('Loading bangumi page')
+  const state = pageStates.bangumi
+  state.loading = true
+  state.hasMore = true
+  state.cursor = ''
+  
+  const loadingEl = document.getElementById('bangumi-loading-more')
+  const noMoreEl = document.getElementById('bangumi-no-more')
+  if (loadingEl) loadingEl.style.display = 'none'
+  if (noMoreEl) noMoreEl.style.display = 'none'
+
+  try {
+    const result = await ipcRenderer.invoke('fetch-bangumi-data', { is_refresh: 0 })
+    console.log('Bangumi API result:', result)
+    
+    if (result.success && result.data) {
+      state.data = result.data
+      state.cursor = result.data.cursor || ''
+      state.hasMore = true
+      renderBangumiSections(result.data)
+    } else {
+      showEmptyMessage('bangumi-following', '获取追番数据失败')
+    }
+  } catch (error) {
+    console.error('加载追番页面失败:', error)
+    showEmptyMessage('bangumi-following', '加载失败，请稍后重试')
+  }
+  
+  state.loading = false
+}
+
+function renderBangumiSections(data) {
+  console.log('Rendering bangumi sections')
+  
+  // 渲染我的追番
+  const followingSection = data.sections?.find(s => s.id === 'follow') || 
+                          data.sections?.find(s => s.title?.includes('追番')) ||
+                          data.sections?.[0]
+  if (followingSection) {
+    renderFollowingSection(followingSection)
+  }
+  
+  // 渲染番剧推荐
+  const animeRecommend = data.sections?.find(s => s.id === 'anime_rcmd') ||
+                         data.sections?.find(s => s.title?.includes('番剧')) ||
+                         data.sections?.[1]
+  if (animeRecommend) {
+    renderAnimeRecommend(animeRecommend)
+  }
+  
+  // 渲染国创推荐
+  const chineseRecommend = data.sections?.find(s => s.id === 'guochan_rcmd') ||
+                           data.sections?.find(s => s.title?.includes('国创')) ||
+                           data.sections?.[2]
+  if (chineseRecommend) {
+    renderChineseRecommend(chineseRecommend)
+  }
+  
+  // 渲染猜你喜欢（瀑布流）
+  const guessSection = data.sections?.find(s => s.id === 'guess') ||
+                       data.sections?.find(s => s.title?.includes('猜你')) ||
+                       data.sections?.[3]
+  if (guessSection) {
+    renderGuessSection(guessSection)
+  }
+}
+
+function renderFollowingSection(section) {
+  const titleEl = document.querySelector('#bangumi-following .section-title')
+  const listEl = document.getElementById('following-list')
+  
+  if (titleEl) titleEl.textContent = section.title || '我的追番'
+  if (!listEl) return
+  
+  const items = section.items || []
+  listEl.innerHTML = ''
+  
+  items.forEach(item => {
+    const card = createBangumiCard(item)
+    listEl.appendChild(card)
+  })
+}
+
+function renderAnimeRecommend(section) {
+  const titleEl = document.querySelector('#bangumi-recommend .section-title')
+  const gridEl = document.getElementById('recommend-grid')
+  
+  if (titleEl) titleEl.textContent = section.title || '番剧推荐'
+  if (!gridEl) return
+  
+  const items = section.items || []
+  gridEl.innerHTML = ''
+  
+  items.forEach(item => {
+    const card = createBangumiCard(item)
+    gridEl.appendChild(card)
+  })
+}
+
+function renderChineseRecommend(section) {
+  const titleEl = document.querySelector('#bangumi-chinese .section-title')
+  const gridEl = document.getElementById('chinese-grid')
+  
+  if (titleEl) titleEl.textContent = section.title || '国创推荐'
+  if (!gridEl) return
+  
+  const items = section.items || []
+  gridEl.innerHTML = ''
+  
+  items.forEach(item => {
+    const card = createBangumiCard(item)
+    gridEl.appendChild(card)
+  })
+}
+
+function renderGuessSection(section) {
+  const titleEl = document.querySelector('#bangumi-guess .section-title')
+  const waterfallEl = document.getElementById('guess-waterfall')
+  
+  if (titleEl) titleEl.textContent = section.title || '猜你喜欢'
+  if (!waterfallEl) return
+  
+  const items = section.items || []
+  
+  items.forEach(item => {
+    const card = createWaterfallCard(item)
+    waterfallEl.appendChild(card)
+  })
+}
+
+function createBangumiCard(item) {
+  const card = document.createElement('div')
+  card.className = 'bangumi-card'
+  
+  const coverUrl = fixImageUrl(item.cover || item.pic || '')
+  const title = item.title || item.name || ''
+  const badge = item.badge || ''
+  const newEp = item.new_ep?.index ? `第${item.new_ep.index}话` : ''
+  const status = item.is_finish ? '已完结' : '连载中'
+  
+  card.innerHTML = `
+    <div class="bangumi-cover">
+      <img src="${coverUrl}" alt="${title}" loading="lazy">
+      ${badge ? `<span class="bangumi-badge">${badge}</span>` : ''}
+      ${newEp ? `<span class="bangumi-new-ep">${newEp}</span>` : ''}
+    </div>
+    <div class="bangumi-info">
+      <h3 class="bangumi-title">${title}</h3>
+      <div class="bangumi-status">${status}</div>
+    </div>
+  `
+  
+  card.addEventListener('click', () => {
+    if (item.url || item.link) {
+      const url = item.url || item.link
+      if (url.includes('bilibili.com')) {
+        window.open(url, '_blank')
+      }
+    }
+  })
+  
+  return card
+}
+
+function createWaterfallCard(item) {
+  const card = document.createElement('div')
+  card.className = 'waterfall-item'
+  
+  const coverUrl = fixImageUrl(item.cover || item.pic || '')
+  const title = item.title || item.name || ''
+  const season = item.season || ''
+  const score = item.score || ''
+  
+  card.innerHTML = `
+    <div class="waterfall-cover">
+      <img src="${coverUrl}" alt="${title}" loading="lazy">
+      ${score ? `<span class="waterfall-score">${score}</span>` : ''}
+    </div>
+    <div class="waterfall-info">
+      <h3 class="waterfall-title">${title}</h3>
+      ${season ? `<div class="waterfall-season">${season}</div>` : ''}
+    </div>
+  `
+  
+  card.addEventListener('click', () => {
+    if (item.url || item.link) {
+      window.open(item.url || item.link, '_blank')
+    }
+  })
+  
+  return card
+}
+
+async function loadMoreGuessItems() {
+  const state = pageStates.bangumi
+  if (state.loading || !state.hasMore || !state.cursor) return
+  
+  state.loading = true
+  const loadingEl = document.getElementById('bangumi-loading-more')
+  const noMoreEl = document.getElementById('bangumi-no-more')
+  
+  if (loadingEl) loadingEl.style.display = 'block'
+  if (noMoreEl) noMoreEl.style.display = 'none'
+  
+  try {
+    const result = await ipcRenderer.invoke('fetch-bangumi-data', { is_refresh: 1, cursor: state.cursor })
+    
+    if (result.success && result.data) {
+      const guessSection = result.data.sections?.find(s => s.id === 'guess') ||
+                           result.data.sections?.find(s => s.title?.includes('猜你')) ||
+                           result.data.sections?.[3]
+      
+      if (guessSection && guessSection.items && guessSection.items.length > 0) {
+        const waterfallEl = document.getElementById('guess-waterfall')
+        guessSection.items.forEach(item => {
+          const card = createWaterfallCard(item)
+          waterfallEl.appendChild(card)
+        })
+        
+        state.cursor = result.data.cursor || ''
+        state.hasMore = !result.data.no_more
+      } else {
+        state.hasMore = false
+      }
+    } else {
+      state.hasMore = false
+    }
+  } catch (error) {
+    console.error('加载更多猜你喜欢失败:', error)
+    state.hasMore = false
+  }
+  
+  state.loading = false
+  if (loadingEl) loadingEl.style.display = 'none'
+  if (noMoreEl && !state.hasMore) noMoreEl.style.display = 'block'
 }
 
 function loadShortcuts() {
@@ -2755,6 +3064,36 @@ function applyShortcuts(e) {
     e.preventDefault()
     openShortcutSettings()
   }
+
+  const refreshShortcut = userShortcuts.refresh
+  if (refreshShortcut && refreshShortcut.keys && matchAnyShortcut(e, refreshShortcut.keys)) {
+    e.preventDefault()
+    refreshCurrentPage()
+  }
+
+  if (e.key.toLowerCase() === 'g' && !pendingGoTop) {
+    pendingGoTop = true
+    setTimeout(() => { pendingGoTop = false }, 500)
+  } else if (e.key.toLowerCase() === 'g' && pendingGoTop) {
+    pendingGoTop = false
+    const goTopShortcut = userShortcuts.goTop
+    if (goTopShortcut && goTopShortcut.keys) {
+      e.preventDefault()
+      scrollToTop()
+    }
+  }
+
+  const scrollDownShortcut = userShortcuts.scrollDown
+  if (scrollDownShortcut && scrollDownShortcut.keys && matchAnyShortcut(e, scrollDownShortcut.keys)) {
+    e.preventDefault()
+    scrollHalfPage('down')
+  }
+
+  const scrollUpShortcut = userShortcuts.scrollUp
+  if (scrollUpShortcut && scrollUpShortcut.keys && matchAnyShortcut(e, scrollUpShortcut.keys)) {
+    e.preventDefault()
+    scrollHalfPage('up')
+  }
 }
 
 function normalizeKey(key) {
@@ -2797,6 +3136,11 @@ function matchAnyShortcut(e, keyCombinations) {
 
 
 document.addEventListener('keydown', e => {
+  // 如果快速访问键模式已开启，不处理其他快捷键
+  if (accesskeyEnabled) {
+    return
+  }
+
   const closeWindowShortcut = userShortcuts.closeWindow
   if (closeWindowShortcut && closeWindowShortcut.keys && matchAnyShortcut(e, closeWindowShortcut.keys)) {
     e.preventDefault()
@@ -2813,4 +3157,300 @@ document.addEventListener('keydown', e => {
   }
 
   applyShortcuts(e)
+})
+
+// 快速访问键功能 (类似 Surfingkeys 的 f 键)
+let accesskeyEnabled = false
+let accesskeyElements = []
+let accesskeyLabels = []
+let accesskeyInput = ''
+
+// 生成字母组合
+function generateAccesskeyLabels(count) {
+  const letters = 'abcdefghijklmnopqrstuvwxyz'
+  const labels = []
+  
+  if (count <= letters.length) {
+    for (let i = 0; i < count; i++) {
+      labels.push(letters[i])
+    }
+  } else {
+    // 生成双字母组合
+    for (let i = 0; i < letters.length; i++) {
+      for (let j = 0; j < letters.length && labels.length < count; j++) {
+        labels.push(letters[i] + letters[j])
+      }
+    }
+  }
+  
+  return labels
+}
+
+// 检查元素是否可见
+function isElementVisible(el) {
+  const rect = el.getBoundingClientRect()
+  if (rect.width === 0 || rect.height === 0) return false
+  if (rect.top < 0 && rect.bottom < 0) return false
+  if (rect.left < 0 && rect.right < 0) return false
+  
+  // 检查元素及其祖先是否被隐藏
+  let current = el
+  while (current) {
+    const style = window.getComputedStyle(current)
+    if (style.display === 'none' || style.visibility === 'hidden') {
+      return false
+    }
+    current = current.parentElement
+  }
+  
+  return true
+}
+
+// 获取可点击元素
+function getClickableElements() {
+  const selectors = [
+    'button:not([disabled])',
+    'a[href]:not([disabled])',
+    '[role="button"]:not([disabled])',
+    '#sidebarUserAvatar',
+    '.sidebar-item',
+    '.video-card',
+    '.video-card a',
+    '.hot-item',
+    '.history-tag',
+    '.my-tab',
+    '.bottom-action-btn',
+    '.nav-link'
+  ]
+  
+  const elements = []
+  const seen = new Set()
+  
+  // 处理所有元素，使用元素本身作为唯一标识
+  for (const selector of selectors) {
+    document.querySelectorAll(selector).forEach(el => {
+      // 使用元素对象本身作为 key，确保每个元素只出现一次
+      if (seen.has(el)) return
+      
+      // 对于可见元素，检查位置
+      const isNavLink = el.classList.contains('nav-link')
+      if (!isNavLink) {
+        if (!isElementVisible(el)) return
+        
+        const rect = el.getBoundingClientRect()
+        if (rect.top < -50) return // 完全在视口上方的不显示
+      }
+      
+      seen.add(el)
+      elements.push(el)
+    })
+  }
+  
+  // 按位置排序（从上到下，从左到右）
+  return elements.sort((a, b) => {
+    const rectA = a.getBoundingClientRect()
+    const rectB = b.getBoundingClientRect()
+    const rowDiff = rectA.top - rectB.top
+    if (Math.abs(rowDiff) > 50) return rowDiff
+    return rectA.left - rectB.left
+  })
+}
+
+// 显示访问键标签
+function showAccesskeyLabels() {
+  // 如果已经开启，先关闭
+  if (accesskeyEnabled) {
+    hideAccesskeyLabels()
+    return
+  }
+
+  accesskeyEnabled = true
+  accesskeyInput = ''
+  
+  const elements = getClickableElements()
+  accesskeyElements = elements
+  
+  const labels = generateAccesskeyLabels(elements.length)
+  
+  // 创建遮罩层
+  let overlay = document.getElementById('accesskeyOverlay')
+  if (!overlay) {
+    overlay = document.createElement('div')
+    overlay.id = 'accesskeyOverlay'
+    overlay.className = 'accesskey-overlay'
+    document.body.appendChild(overlay)
+  }
+  overlay.classList.add('active')
+  
+  // 创建标签
+  let navLinkRow = 0
+  let navLinkCol = 0
+  const navLinkStartX = 80
+  const navLinkStartY = 45
+  const navLinkSpacingX = 100
+  const navLinkSpacingY = 40
+  
+  // 获取顶部栏高度（假设顶部栏有.header类）
+  const header = document.querySelector('.header')
+  const headerHeight = header ? header.offsetHeight : 50
+  
+  elements.forEach((el, index) => {
+    const rect = el.getBoundingClientRect()
+    
+    // 检查元素是否在顶部栏内部（子元素）
+    const isInHeader = header && header.contains(el)
+    
+    // 跳过被顶部栏遮挡的元素（元素底部在顶部栏下方且不在顶部栏内部）
+    if (!isInHeader && rect.bottom <= headerHeight) {
+      return
+    }
+    
+    const label = document.createElement('span')
+    label.className = 'accesskey-label'
+    const key = labels[index].toUpperCase()
+    // 初始时直接显示字母，不加遮罩
+    label.textContent = key
+    label.dataset.accesskey = labels[index]
+    label.dataset.index = index
+    
+    // 检查是否是导航链接且位置无效（被隐藏）
+    const isNavLink = el.classList.contains('nav-link')
+    const isHidden = rect.width === 0 || rect.height === 0 || rect.top < -50
+    
+    let labelX, labelY
+    
+    if (isNavLink && isHidden) {
+      // 如果是被隐藏的导航链接，计算一个合适的位置显示标签
+      labelX = navLinkStartX + navLinkCol * navLinkSpacingX
+      labelY = navLinkStartY + navLinkRow * navLinkSpacingY
+      
+      navLinkCol++
+      if (navLinkCol > 5) {
+        navLinkCol = 0
+        navLinkRow++
+      }
+    } else {
+      // 正常定位在元素左上角
+      labelX = rect.left + 8
+      // 如果是顶部栏内部的元素，直接显示在元素位置；否则确保不被顶部栏遮挡
+      labelY = isInHeader ? rect.top + 8 : Math.max(rect.top + 8, headerHeight + 8)
+    }
+    
+    label.style.left = labelX + 'px'
+    label.style.top = labelY + 'px'
+    
+    document.body.appendChild(label)
+    accesskeyLabels.push(label)
+  })
+}
+
+// 隐藏访问键标签
+function hideAccesskeyLabels() {
+  accesskeyEnabled = false
+  accesskeyInput = ''
+  
+  // 移除遮罩层
+  const overlay = document.getElementById('accesskeyOverlay')
+  if (overlay) {
+    overlay.classList.remove('active')
+  }
+  
+  // 移除所有标签
+  accesskeyLabels.forEach(label => {
+    document.body.removeChild(label)
+  })
+  accesskeyLabels = []
+  accesskeyElements = []
+}
+
+// 更新高亮状态
+function updateAccesskeyHighlight() {
+  accesskeyLabels.forEach(label => {
+    const key = label.dataset.accesskey.toLowerCase()
+    const input = accesskeyInput.toLowerCase()
+    
+    if (key.startsWith(input)) {
+      label.classList.remove('hidden')
+      // 更新标签显示：已输入的字母变淡
+      const fullKey = key.toUpperCase()
+      if (input.length > 0 && input.length < key.length) {
+        const matchedPart = fullKey.substring(0, input.length)
+        const remainingPart = fullKey.substring(input.length)
+        label.innerHTML = `<span class="matched-char">${matchedPart}</span>${remainingPart}`
+      } else {
+        label.innerHTML = `<span class="matched-char" style="opacity:1">${fullKey}</span>`
+      }
+    } else {
+      label.classList.add('hidden')
+    }
+  })
+}
+
+// 处理访问键输入
+function handleAccesskeyInput(key) {
+  if (!accesskeyEnabled) return
+  
+  accesskeyInput += key.toLowerCase()
+  
+  // 更新高亮
+  updateAccesskeyHighlight()
+  
+  // 检查是否匹配
+  const matchedLabels = accesskeyLabels.filter(label => 
+    label.dataset.accesskey === accesskeyInput.toLowerCase()
+  )
+  
+  if (matchedLabels.length === 1) {
+    const index = parseInt(matchedLabels[0].dataset.index)
+    const element = accesskeyElements[index]
+    
+    // 模拟点击
+    element.click()
+    
+    // 隐藏标签
+    hideAccesskeyLabels()
+  } else if (accesskeyLabels.every(label => !label.dataset.accesskey.startsWith(accesskeyInput.toLowerCase()))) {
+    // 没有匹配，重置输入
+    accesskeyInput = key.toLowerCase()
+    updateAccesskeyHighlight()
+  }
+}
+
+// 监听键盘事件
+document.addEventListener('keydown', e => {
+  // 如果在输入框中，不处理
+  const activeElement = document.activeElement
+  if (activeElement && (activeElement.tagName === 'INPUT' || activeElement.tagName === 'TEXTAREA' || activeElement.isContentEditable)) {
+    return
+  }
+  
+  // 按下 f 键开启访问键
+  if (e.key === 'f' && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+    e.preventDefault()
+    showAccesskeyLabels()
+    return
+  }
+  
+  // 如果访问键已开启
+  if (accesskeyEnabled) {
+    e.preventDefault()
+    
+    // 按 Escape 关闭
+    if (e.key === 'Escape') {
+      hideAccesskeyLabels()
+      return
+    }
+    
+    // 按退格键删除最后一个字符
+    if (e.key === 'Backspace') {
+      accesskeyInput = accesskeyInput.slice(0, -1)
+      updateAccesskeyHighlight()
+      return
+    }
+    
+    // 只处理字母键
+    if (/^[a-zA-Z]$/.test(e.key)) {
+      handleAccesskeyInput(e.key)
+    }
+  }
 })
