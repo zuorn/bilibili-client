@@ -2431,11 +2431,11 @@ async function loadBangumiPage() {
     const result = await ipcRenderer.invoke('fetch-bangumi-data', { is_refresh: 0 })
     console.log('Bangumi API result:', result)
     
-    if (result.success && result.data) {
-      state.data = result.data
-      state.cursor = result.data.cursor || ''
+    if (result.success && result.data && result.data.data) {
+      state.data = result.data.data
+      state.cursor = result.data.data.next_cursor || ''
       state.hasMore = true
-      renderBangumiSections(result.data)
+      renderBangumiSections(result.data.data)
     } else {
       showEmptyMessage('bangumi-following', '获取追番数据失败')
     }
@@ -2450,34 +2450,33 @@ async function loadBangumiPage() {
 function renderBangumiSections(data) {
   console.log('Rendering bangumi sections')
   
+  const modules = data.modules || []
+  
   // 渲染我的追番
-  const followingSection = data.sections?.find(s => s.id === 'follow') || 
-                          data.sections?.find(s => s.title?.includes('追番')) ||
-                          data.sections?.[0]
+  const followingSection = modules.find(m => m.headers?.[0]?.title?.includes('追番')) ||
+                          modules.find(m => m.attr?.follow === 1) ||
+                          modules[0]
   if (followingSection) {
     renderFollowingSection(followingSection)
   }
   
   // 渲染番剧推荐
-  const animeRecommend = data.sections?.find(s => s.id === 'anime_rcmd') ||
-                         data.sections?.find(s => s.title?.includes('番剧')) ||
-                         data.sections?.[1]
+  const animeRecommend = modules.find(m => m.headers?.[0]?.title?.includes('番剧推荐')) ||
+                         modules[1]
   if (animeRecommend) {
     renderAnimeRecommend(animeRecommend)
   }
   
   // 渲染国创推荐
-  const chineseRecommend = data.sections?.find(s => s.id === 'guochan_rcmd') ||
-                           data.sections?.find(s => s.title?.includes('国创')) ||
-                           data.sections?.[2]
+  const chineseRecommend = modules.find(m => m.headers?.[0]?.title?.includes('国创')) ||
+                           modules[2]
   if (chineseRecommend) {
     renderChineseRecommend(chineseRecommend)
   }
   
   // 渲染猜你喜欢（瀑布流）
-  const guessSection = data.sections?.find(s => s.id === 'guess') ||
-                       data.sections?.find(s => s.title?.includes('猜你')) ||
-                       data.sections?.[3]
+  const guessSection = modules.find(m => m.headers?.[0]?.title?.includes('猜你')) ||
+                       modules[3]
   if (guessSection) {
     renderGuessSection(guessSection)
   }
@@ -2487,14 +2486,14 @@ function renderFollowingSection(section) {
   const titleEl = document.querySelector('#bangumi-following .section-title')
   const listEl = document.getElementById('following-list')
   
-  if (titleEl) titleEl.textContent = section.title || '我的追番'
+  if (titleEl) titleEl.textContent = section.headers?.[0]?.title || '我的追番'
   if (!listEl) return
   
   const items = section.items || []
   listEl.innerHTML = ''
   
   items.forEach(item => {
-    const card = createBangumiCard(item)
+    const card = createFollowingCard(item)
     listEl.appendChild(card)
   })
 }
@@ -2503,7 +2502,7 @@ function renderAnimeRecommend(section) {
   const titleEl = document.querySelector('#bangumi-recommend .section-title')
   const gridEl = document.getElementById('recommend-grid')
   
-  if (titleEl) titleEl.textContent = section.title || '番剧推荐'
+  if (titleEl) titleEl.textContent = section.headers?.[0]?.title || '番剧推荐'
   if (!gridEl) return
   
   const items = section.items || []
@@ -2519,7 +2518,7 @@ function renderChineseRecommend(section) {
   const titleEl = document.querySelector('#bangumi-chinese .section-title')
   const gridEl = document.getElementById('chinese-grid')
   
-  if (titleEl) titleEl.textContent = section.title || '国创推荐'
+  if (titleEl) titleEl.textContent = section.headers?.[0]?.title || '国创推荐'
   if (!gridEl) return
   
   const items = section.items || []
@@ -2535,7 +2534,7 @@ function renderGuessSection(section) {
   const titleEl = document.querySelector('#bangumi-guess .section-title')
   const waterfallEl = document.getElementById('guess-waterfall')
   
-  if (titleEl) titleEl.textContent = section.title || '猜你喜欢'
+  if (titleEl) titleEl.textContent = section.headers?.[0]?.title || '猜你喜欢'
   if (!waterfallEl) return
   
   const items = section.items || []
@@ -2546,25 +2545,65 @@ function renderGuessSection(section) {
   })
 }
 
+function createFollowingCard(item) {
+  const card = document.createElement('div')
+  card.className = 'following-card'
+  
+  const coverUrl = fixImageUrl(item.cover || item.pic || '')
+  const title = item.title || item.name || ''
+  const badgeText = item.badge_info?.text || ''
+  const isMember = badgeText === '会员'
+  const isProduct = badgeText === '出品'
+  const badgeClass = isMember ? 'following-badge member' : isProduct ? 'following-badge product' : 'following-badge'
+  const newEp = item.new_ep?.index_show || ''
+  const status = item.desc || ''
+  
+  card.innerHTML = `
+    <div class="following-cover">
+      <img src="${coverUrl}" alt="${title}" loading="lazy">
+      ${badgeText ? `<span class="${badgeClass}">${badgeText}</span>` : ''}
+      ${newEp ? `<span class="following-new-ep">${newEp}</span>` : ''}
+    </div>
+    <div class="following-info">
+      <h3 class="following-title">${title}</h3>
+      <div class="following-status">${status}</div>
+    </div>
+  `
+  
+  card.addEventListener('click', () => {
+    if (item.url || item.link) {
+      const url = item.url || item.link
+      if (url.includes('bilibili.com')) {
+        window.open(url, '_blank')
+      }
+    }
+  })
+  
+  return card
+}
+
 function createBangumiCard(item) {
   const card = document.createElement('div')
   card.className = 'bangumi-card'
   
   const coverUrl = fixImageUrl(item.cover || item.pic || '')
   const title = item.title || item.name || ''
-  const badge = item.badge || ''
-  const newEp = item.new_ep?.index ? `第${item.new_ep.index}话` : ''
-  const status = item.is_finish ? '已完结' : '连载中'
+  const badgeText = item.badge_info?.text || ''
+  const isMember = badgeText === '会员'
+  const isProduct = badgeText === '出品'
+  const badgeClass = isMember ? 'bangumi-badge member' : isProduct ? 'bangumi-badge product' : 'bangumi-badge'
+  const newEp = item.new_ep?.index_show || ''
+  const desc = item.desc || ''
   
   card.innerHTML = `
     <div class="bangumi-cover">
       <img src="${coverUrl}" alt="${title}" loading="lazy">
-      ${badge ? `<span class="bangumi-badge">${badge}</span>` : ''}
+      ${badgeText ? `<span class="${badgeClass}">${badgeText}</span>` : ''}
       ${newEp ? `<span class="bangumi-new-ep">${newEp}</span>` : ''}
     </div>
     <div class="bangumi-info">
       <h3 class="bangumi-title">${title}</h3>
-      <div class="bangumi-status">${status}</div>
+      <div class="bangumi-desc">${desc}</div>
     </div>
   `
   
@@ -2586,17 +2625,23 @@ function createWaterfallCard(item) {
   
   const coverUrl = fixImageUrl(item.cover || item.pic || '')
   const title = item.title || item.name || ''
-  const season = item.season || ''
-  const score = item.score || ''
+  const badgeText = item.badge_info?.text || ''
+  const isMember = badgeText === '会员'
+  const isProduct = badgeText === '出品'
+  const badgeClass = isMember ? 'waterfall-badge member' : isProduct ? 'waterfall-badge product' : 'waterfall-badge'
+  const newEp = item.new_ep?.index_show || ''
+  const desc = item.desc || ''
   
   card.innerHTML = `
     <div class="waterfall-cover">
       <img src="${coverUrl}" alt="${title}" loading="lazy">
-      ${score ? `<span class="waterfall-score">${score}</span>` : ''}
+      ${badgeText ? `<span class="${badgeClass}">${badgeText}</span>` : ''}
+      ${newEp ? `<span class="waterfall-new-ep">${newEp}</span>` : ''}
     </div>
     <div class="waterfall-info">
       <h3 class="waterfall-title">${title}</h3>
-      ${season ? `<div class="waterfall-season">${season}</div>` : ''}
+      ${desc ? `<div class="waterfall-desc">${desc}</div>` : ''}
+      <span class="waterfall-tag">番剧</span>
     </div>
   `
   
