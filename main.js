@@ -978,25 +978,8 @@ ipcMain.handle('fetch-bangumi-data', async (event, params) => {
       const result = await fetchApiWithHeaders(url, bangumiHeaders)
       
       if (result && result.code === 0) {
-        log('Bangumi API成功, raw data:', JSON.stringify(result).substring(0, 500))
-        
-        // 保存数据到test文件夹
-        const testDir = path.join(__dirname, 'test')
-        if (!fs.existsSync(testDir)) {
-          fs.mkdirSync(testDir, { recursive: true })
-        }
-        
-        const timestamp = Date.now()
-        const filename = `bangumi_data_${is_refresh}_${cursor || 'initial'}_${timestamp}.json`
-        const filePath = path.join(testDir, filename)
-        
-        try {
-          fs.writeFileSync(filePath, JSON.stringify(result, null, 2), 'utf8')
-          log('Bangumi data saved to:', filePath)
-        } catch (saveError) {
-          log('Failed to save bangumi data:', saveError.message)
-        }
-        
+        log('Bangumi API成功')
+
         return { success: true, data: result }
       }
 
@@ -1010,6 +993,80 @@ ipcMain.handle('fetch-bangumi-data', async (event, params) => {
     }
   } catch (error) {
     log('fetch-bangumi-data 总错误:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('fetch-bangumi-condition', async (event, params) => {
+  const { index_type = 4, type = 2 } = params || {}
+  log('fetch-bangumi-condition called, index_type:', index_type, 'type:', type)
+  
+  try {
+    const url = `https://api.bilibili.com/pgc/page/index/condition?index_type=${index_type}&type=${type}`
+    log('Using bangumi condition endpoint:', url)
+    
+    const result = await fetchApiWithHeaders(url)
+    
+    if (result && result.code === 0) {
+      log('Bangumi condition API成功')
+      return { success: true, data: result }
+    }
+    
+    log('Bangumi condition API失败, result:', result)
+    return { success: false, error: '获取筛选条件失败' }
+  } catch (error) {
+    log('fetch-bangumi-condition error:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('fetch-bangumi-result', async (event, params) => {
+  const { 
+    area = -1, 
+    style_id = -1, 
+    season_version = -1, 
+    season_status = -1,
+    spoken_language_type = -1,
+    copyright = -1,
+    is_finish = -1,
+    year = -1,
+    season_month = -1,
+    type = 2,
+    order = 3,
+    index_type = 1,
+    pub_date = -1,
+    page = 1
+  } = params || {}
+  
+  log('fetch-bangumi-result called, params:', params)
+  
+  try {
+    let url = `https://api.bilibili.com/pgc/page/index/result?type=${type}&order=${order}&index_type=${index_type}&page=${page}`
+    
+    if (area !== -1) url += `&area=${area}`
+    if (style_id !== -1) url += `&style_id=${style_id}`
+    if (season_version !== -1) url += `&season_version=${season_version}`
+    if (season_status !== -1) url += `&season_status=${season_status}`
+    if (spoken_language_type !== -1) url += `&spoken_language_type=${spoken_language_type}`
+    if (copyright !== -1) url += `&copyright=${copyright}`
+    if (is_finish !== -1) url += `&is_finish=${is_finish}`
+    if (year !== -1) url += `&year=${year}`
+    if (season_month !== -1) url += `&season_month=${season_month}`
+    if (pub_date !== -1) url += `&pub_date=${pub_date}`
+    
+    log('Using bangumi result endpoint:', url)
+    
+    const result = await fetchApiWithHeaders(url)
+    
+    if (result && result.code === 0) {
+      log('Bangumi result API成功')
+      return { success: true, data: result }
+    }
+    
+    log('Bangumi result API失败, result:', result)
+    return { success: false, error: '获取追番数据失败' }
+  } catch (error) {
+    log('fetch-bangumi-result error:', error.message)
     return { success: false, error: error.message }
   }
 })

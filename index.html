@@ -161,7 +161,6 @@
 
       <!-- 追番页 -->
       <div class="page-content" id="page-bangumi">
-        <div class="bangumi-container">
           <!-- 我的追番 -->
           <div class="bangumi-section" id="bangumi-following">
             <div class="section-header">
@@ -177,7 +176,7 @@
           <div class="bangumi-section" id="bangumi-recommend">
             <div class="section-header">
               <h2 class="section-title"></h2>
-              <span class="view-all">查看全部 ></span>
+              <span class="view-all" id="view-all-bangumi">查看全部 ></span>
             </div>
             <div class="bangumi-grid" id="recommend-grid"></div>
           </div>
@@ -186,7 +185,7 @@
           <div class="bangumi-section" id="bangumi-chinese">
             <div class="section-header">
               <h2 class="section-title"></h2>
-              <span class="view-all">查看全部 ></span>
+              <span class="view-all" id="view-all-chinese">查看全部 ></span>
             </div>
             <div class="bangumi-grid" id="chinese-grid"></div>
           </div>
@@ -204,6 +203,61 @@
               <span>没有更多内容了</span>
             </div>
           </div>
+      </div>
+
+      <!-- 追番全部页 -->
+      <div class="page-content" id="page-bangumi-all">
+        <!-- 筛选条件区域 -->
+        <div class="bangumi-filter-container">
+          <div class="filter-row" id="filter-sort">
+            <span class="filter-label">综合排序</span>
+            <div class="filter-options" id="sort-options"></div>
+          </div>
+          <div class="filter-row" id="filter-area">
+            <span class="filter-label">全部地区</span>
+            <div class="filter-options" id="area-options"></div>
+          </div>
+          <div class="filter-row" id="filter-style">
+            <span class="filter-label">全部风格</span>
+            <div class="filter-options" id="style-options"></div>
+          </div>
+          <div class="filter-row" id="filter-version">
+            <span class="filter-label">版本类型</span>
+            <div class="filter-options" id="version-options"></div>
+          </div>
+          <div class="filter-row" id="filter-pay">
+            <span class="filter-label">付费类型</span>
+            <div class="filter-options" id="pay-options"></div>
+          </div>
+          <div class="filter-row" id="filter-audio">
+            <span class="filter-label">配音类型</span>
+            <div class="filter-options" id="audio-options"></div>
+          </div>
+          <div class="filter-row" id="filter-copyright">
+            <span class="filter-label">版权类型</span>
+            <div class="filter-options" id="copyright-options"></div>
+          </div>
+          <div class="filter-row" id="filter-status">
+            <span class="filter-label">完结状态</span>
+            <div class="filter-options" id="status-options"></div>
+          </div>
+          <div class="filter-row" id="filter-year">
+            <span class="filter-label">全部年份</span>
+            <div class="filter-options" id="year-options"></div>
+          </div>
+          <div class="filter-row" id="filter-quarter">
+            <span class="filter-label">全部季度</span>
+            <div class="filter-options" id="quarter-options"></div>
+          </div>
+        </div>
+
+        <!-- 视频卡片展示区域 -->
+        <div class="bangumi-all-grid" id="bangumi-all-grid"></div>
+        <div class="loading-more" id="bangumi-all-loading" style="display: none;">
+          <span>加载中...</span>
+        </div>
+        <div class="no-more" id="bangumi-all-no-more" style="display: none;">
+          <span>没有更多内容了</span>
         </div>
       </div>
 

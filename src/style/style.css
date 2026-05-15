@@ -402,13 +402,7 @@ body {
   text-overflow: ellipsis;
 }
 
-/* 追番页面样式 */
-.bangumi-container {
-  padding: 24px 40px 80px 40px;
-  overflow: auto;
-  background: #fff;
-  min-height: calc(100vh - 64px);
-}
+
 
 .bangumi-section {
   margin-bottom: 32px;
@@ -459,37 +453,51 @@ body {
 /* 我的追番卡片 */
 .following-card {
   flex-shrink: 0;
-  width: 188px;
-  background: #fff;
-  border-radius: 4px;
+  width: 240px;
+  background-color: #fff;
+  border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   cursor: pointer;
+  transition: all 0.25s;
+}
+
+.following-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .following-cover {
   position: relative;
   width: 100%;
-  height: 108px;
+  padding-top: 56.25%;
+  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
   overflow: hidden;
-  background: #f5f5f5;
 }
 
 .following-cover img {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
+  transition: transform 0.3s;
+}
+
+.following-card:hover .following-cover img {
+  transform: scale(1.05);
 }
 
 .following-badge {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 8px;
+  right: 8px;
   background: #00C0FF;
   color: #fff;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -498,177 +506,175 @@ body {
 }
 
 .following-badge.member {
+  position: absolute;
+  top: 8px;
+  left: 8px;
   background: #FB7299;
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  width: auto;
+  height: auto;
+}
+
+.following-total {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .following-new-ep {
   position: absolute;
-  bottom: 4px;
-  right: 4px;
-  background: rgba(0,0,0,0.6);
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px);
   color: #fff;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .following-info {
-  padding: 8px;
+  padding: 12px;
 }
 
 .following-title {
-  font-size: 13px;
-  color: #111;
+  font-size: 14px;
+  color: #18191c;
   font-weight: 500;
-  margin-bottom: 3px;
+  margin-bottom: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .following-status {
-  font-size: 11px;
-  color: #999;
+  font-size: 12px;
+  color: #9499a0;
 }
 
 /* 番剧推荐/国创推荐卡片 */
 .bangumi-card {
-  background: #fff;
-  border-radius: 4px;
+  background-color: #fff;
+  border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   cursor: pointer;
+  transition: all 0.25s;
+  width: 100%;
+}
+
+.bangumi-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .bangumi-card .bangumi-cover {
   position: relative;
   width: 100%;
-  aspect-ratio: 3/4;
+  padding-top: 133.33%;
+  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
   overflow: hidden;
-  background: #f5f5f5;
 }
 
 .bangumi-card .bangumi-cover img {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
-  display: block;
+  transition: transform 0.3s;
 }
 
-.bangumi-card .bangumi-badge {
-  position: absolute;
-  top: 4px;
-  right: 4px;
-  background: #00C0FF;
-  color: #fff;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 11px;
-  font-weight: 500;
-}
-
-.bangumi-card .bangumi-badge.product {
-  background: #56C425;
-}
-
-.bangumi-card .bangumi-badge.member {
-  position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
-  background: #FB7299;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
-}
-
-.bangumi-card .bangumi-new-ep {
-  position: absolute;
-  bottom: 4px;
-  right: 4px;
-  background: rgba(0,0,0,0.6);
-  color: #fff;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 10px;
+.bangumi-card:hover .bangumi-cover img {
+  transform: scale(1.05);
 }
 
 .bangumi-card .bangumi-info {
-  padding: 8px;
-}
-
-.bangumi-card .bangumi-title {
-  font-size: 13px;
-  color: #111;
-  font-weight: 500;
-  margin-bottom: 4px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.bangumi-card .bangumi-desc {
-  font-size: 11px;
-  color: #999;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  padding: 12px;
 }
 
 .bangumi-grid {
-  display: grid;
-  grid-template-columns: repeat(6, 1fr);
+  display: flex;
+  flex-wrap: nowrap;
   gap: 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.bangumi-grid::-webkit-scrollbar {
+  display: none;
 }
 
 .bangumi-grid .bangumi-card {
-  width: 100%;
+  flex-shrink: 0;
+  width: 200px;
 }
 
 .waterfall-container {
-  column-count: 4;
-  column-gap: 16px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 24px;
 }
 
 .waterfall-item {
-  display: inline-block;
-  width: 100%;
-  margin: 0 0 16px;
   background: #fff;
-  border-radius: 4px;
+  border-radius: 12px;
   overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   cursor: pointer;
+  transition: all 0.25s;
+}
+
+.waterfall-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
 }
 
 .waterfall-cover {
   position: relative;
   width: 100%;
-  aspect-ratio: 3/4;
+  padding-top: 133.33%;
   overflow: hidden;
-  background: #f5f5f5;
+  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
 }
 
 .waterfall-cover img {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
   display: block;
+  transition: transform 0.3s;
+}
+
+.waterfall-item:hover .waterfall-cover img {
+  transform: scale(1.05);
 }
 
 .waterfall-badge {
   position: absolute;
-  top: 4px;
-  right: 4px;
+  top: 8px;
+  right: 8px;
   background: #00C0FF;
   color: #fff;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 500;
 }
 
@@ -678,82 +684,63 @@ body {
 
 .waterfall-badge.member {
   position: absolute;
-  top: 4px;
-  left: 4px;
-  width: 24px;
-  height: 24px;
-  border-radius: 50%;
+  top: 8px;
+  left: 8px;
   background: #FB7299;
   color: #fff;
-  font-size: 11px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
   font-weight: 600;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 0;
+  width: auto;
+  height: auto;
+  display: inline;
 }
 
 .waterfall-new-ep {
   position: absolute;
-  bottom: 4px;
-  right: 4px;
-  background: rgba(0,0,0,0.6);
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px);
   color: #fff;
-  padding: 2px 6px;
-  border-radius: 3px;
-  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
 }
 
 .waterfall-info {
-  padding: 8px;
+  padding: 12px;
 }
 
 .waterfall-title {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
-  color: #111;
-  margin-bottom: 4px;
+  color: #18191c;
+  margin-bottom: 6px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .waterfall-desc {
-  font-size: 11px;
-  color: #999;
-  margin-bottom: 4px;
+  font-size: 12px;
+  color: #9499a0;
+  margin-bottom: 6px;
 }
 
 .waterfall-tag {
   display: inline-block;
-  font-size: 11px;
-  color: #999;
+  font-size: 12px;
+  color: #9499a0;
   background: #f5f5f5;
-  padding: 2px 6px;
-  border-radius: 3px;
-  margin-right: 4px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-right: 6px;
 }
 
 /* 响应式 */
-@media (max-width: 1400px) {
-  .bangumi-grid { grid-template-columns: repeat(5, 1fr); }
-}
-@media (max-width: 1200px) {
-  .waterfall-container { column-count: 3; }
-  .bangumi-grid { grid-template-columns: repeat(4, 1fr); }
-  .bangumi-horizontal-list .bangumi-card { width: 220px; }
-}
-@media (max-width: 900px) {
-  .bangumi-grid { grid-template-columns: repeat(3, 1fr); }
-}
-@media (max-width: 800px) {
-  .waterfall-container { column-count: 2; }
-  .bangumi-horizontal-list .bangumi-card { width: 48vw; }
-}
-@media (max-width: 600px) {
-  .bangumi-grid { grid-template-columns: repeat(2, 1fr); }
-  .bangumi-container { padding: 16px 16px 80px 16px; }
-}
 
 .hot-tag {
   font-size: 12px;
@@ -2897,6 +2884,32 @@ body.dark-theme .video-meta {
   color: #808080;
 }
 
+body.dark-theme .bangumi-card {
+  background-color: #2a2a2a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-theme .bangumi-card .following-title {
+  color: #e0e0e0;
+}
+
+body.dark-theme .bangumi-card .following-status {
+  color: #808080;
+}
+
+body.dark-theme .waterfall-item {
+  background-color: #2a2a2a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-theme .waterfall-item .following-title {
+  color: #e0e0e0;
+}
+
+body.dark-theme .waterfall-item .following-status {
+  color: #808080;
+}
+
 body.dark-theme .settings-container {
   background-color: transparent;
 }
@@ -3229,6 +3242,189 @@ body.dark-theme .logout-btn:hover {
 
 body.dark-theme .my-stats {
   border-bottom-color: #3a3a3a;
+}
+
+/* 追番全部页面样式 */
+.bangumi-filter-container {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.filter-row:last-child {
+  border-bottom: none;
+}
+
+.filter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #fb7299;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+}
+
+.filter-option {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  color: #666;
+  background: #f5f5f5;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.filter-option:hover {
+  background: #eee;
+}
+
+.filter-option.active {
+  background: #fb7299;
+  color: #fff;
+}
+
+.bangumi-all-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 20px;
+}
+
+.bangumi-all-card {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.bangumi-all-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.bangumi-all-cover {
+  position: relative;
+  width: 100%;
+  padding-top: 133.33%;
+  overflow: hidden;
+}
+
+.bangumi-all-cover img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.bangumi-all-card:hover .bangumi-all-cover img {
+  transform: scale(1.05);
+}
+
+.bangumi-all-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: #fb7299;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bangumi-all-badge.blue {
+  background: #00C0FF;
+}
+
+.bangumi-all-badge.green {
+  background: #56C425;
+}
+
+.bangumi-all-info {
+  padding: 12px;
+}
+
+.bangumi-all-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #18191c;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 6px;
+}
+
+.bangumi-all-desc {
+  font-size: 12px;
+  color: #9499a0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 6px;
+}
+
+.bangumi-all-stat {
+  font-size: 12px;
+  color: #9499a0;
+}
+
+body.dark-theme .bangumi-filter-container {
+  background: #2a2a2a;
+}
+
+body.dark-theme .filter-row {
+  border-bottom-color: #3a3a3a;
+}
+
+body.dark-theme .filter-label {
+  color: #fb7299;
+}
+
+body.dark-theme .filter-option {
+  background: #333;
+  color: #a0a0a0;
+}
+
+body.dark-theme .filter-option:hover {
+  background: #3a3a3a;
+}
+
+body.dark-theme .filter-option.active {
+  background: #fb7299;
+  color: #fff;
+}
+
+body.dark-theme .bangumi-all-card {
+  background: #2a2a2a;
+}
+
+body.dark-theme .bangumi-all-title {
+  color: #e0e0e0;
+}
+
+body.dark-theme .bangumi-all-desc,
+body.dark-theme .bangumi-all-stat {
+  color: #808080;
 }
 
 body.dark-theme .my-stat-item .stat-value {
@@ -3730,92 +3926,6 @@ body.dark-theme .ranking-tab.active {
   display: none;
 }
 
-.following-card {
-  flex-shrink: 0;
-  width: 200px;
-  background-color: #fff;
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  cursor: pointer;
-  transition: all 0.25s;
-}
-
-.following-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
-}
-
-.following-cover {
-  position: relative;
-  width: 100%;
-  padding-top: 140%;
-  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
-}
-
-.following-cover img {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.following-cover .badge {
-  position: absolute;
-  top: 8px;
-  left: 8px;
-  padding: 2px 8px;
-  font-size: 12px;
-  font-weight: 600;
-  border-radius: 4px;
-}
-
-.badge-new {
-  background-color: #ff5a5a;
-  color: #fff;
-}
-
-.badge-update {
-  background-color: #fb7299;
-  color: #fff;
-}
-
-.following-cover .cover-mask {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 40%;
-  background: linear-gradient(transparent, rgba(0, 0, 0, 0.6));
-}
-
-.following-info {
-  padding: 12px;
-}
-
-.following-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: #18191c;
-  margin: 0 0 6px 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.following-progress {
-  font-size: 12px;
-  color: #9499a0;
-  margin: 0 0 4px 0;
-}
-
-.following-total {
-  font-size: 12px;
-  color: #fb7299;
-}
-
 .empty-carousel {
   display: flex;
   flex-direction: column;
@@ -3987,6 +4097,10 @@ body.dark-theme .following-card {
 
 body.dark-theme .following-title {
   color: #e0e0e0;
+}
+
+body.dark-theme .following-status {
+  color: #808080;
 }
 
 body.dark-theme .following-progress {

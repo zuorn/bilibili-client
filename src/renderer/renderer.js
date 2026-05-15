@@ -601,6 +601,10 @@ function updateNavLinks(page) {
     navLinks.style.display = 'flex'
     if (homeLinks) homeLinks.style.display = 'none'
     if (dynamicLinks) dynamicLinks.style.display = 'flex'
+  } else if (page === 'bangumi-all') {
+    navLinks.style.display = 'flex'
+    if (homeLinks) homeLinks.style.display = 'flex'
+    if (dynamicLinks) dynamicLinks.style.display = 'none'
   } else {
     navLinks.style.display = 'flex'
     if (homeLinks) homeLinks.style.display = 'flex'
@@ -1917,6 +1921,21 @@ function handleScroll() {
       pageStates.up.scrollLocked = true
       loadUpVideos(pageStates.up.mid, pageStates.up.offset)
     }
+  } else if (currentPage === 'bangumi') {
+    if (scrollTop + clientHeight >= scrollHeight - 300) {
+      const state = pageStates.bangumi
+      if (!state.loading && state.hasMore && state.cursor) {
+        console.log('触发加载更多猜你喜欢')
+        loadMoreGuessItems()
+      }
+    }
+  } else if (currentPage === 'bangumi-all') {
+    if (scrollTop + clientHeight >= scrollHeight - 300) {
+      if (!bangumiAllState.loading && bangumiAllState.hasMore) {
+        console.log('触发加载更多追番全部')
+        loadBangumiAllData(true)
+      }
+    }
   } else {
     if (scrollTop + clientHeight >= scrollHeight - 300) {
       const states = {
@@ -2407,6 +2426,12 @@ function loadPageContent(page) {
     home: () => { pageStates.home.pageNum = 1; pageStates.home.hasMore = true; fetchVideos(1, false) },
     popular: () => { pageStates.popular.pageNum = 1; pageStates.popular.hasMore = true; fetchPopularVideos(1, false) },
     bangumi: () => loadBangumiPage(),
+    'bangumi-all': () => {
+      bangumiAllState.page = 1
+      bangumiAllState.hasMore = true
+      loadBangumiAllFilters()
+      loadBangumiAllData()
+    },
     media: () => { console.log('Media page - to be implemented') },
     my: () => { if (currentUser?.isLogin) loadHistory() },
     dynamic: () => initDynamicPage()
@@ -2430,11 +2455,11 @@ async function loadBangumiPage() {
   try {
     const result = await ipcRenderer.invoke('fetch-bangumi-data', { is_refresh: 0 })
     console.log('Bangumi API result:', result)
-    
-    if (result.success && result.data && result.data.data) {
+
+    if (result.success && result.data && result.data.data && result.data.data.modules) {
       state.data = result.data.data
       state.cursor = result.data.data.next_cursor || ''
-      state.hasMore = true
+      state.hasMore = result.data.data.has_next === 1
       renderBangumiSections(result.data.data)
     } else {
       showEmptyMessage('bangumi-following', '获取追番数据失败')
@@ -2485,9 +2510,23 @@ function renderBangumiSections(data) {
 function renderFollowingSection(section) {
   const titleEl = document.querySelector('#bangumi-following .section-title')
   const listEl = document.getElementById('following-list')
+  const viewAllEl = document.querySelector('#bangumi-following .view-all')
   
-  if (titleEl) titleEl.textContent = section.headers?.[0]?.title || '我的追番'
+  if (titleEl) titleEl.textContent = '我的追番'
   if (!listEl) return
+  
+  if (viewAllEl) {
+    viewAllEl.style.cursor = 'pointer'
+    viewAllEl.onclick = () => {
+      navigateToPage('my')
+      setTimeout(() => {
+        const bangumiTab = document.querySelector('.my-tab[data-tab="bangumi"]')
+        if (bangumiTab) {
+          bangumiTab.click()
+        }
+      }, 100)
+    }
+  }
   
   const items = section.items || []
   listEl.innerHTML = ''
@@ -2502,7 +2541,7 @@ function renderAnimeRecommend(section) {
   const titleEl = document.querySelector('#bangumi-recommend .section-title')
   const gridEl = document.getElementById('recommend-grid')
   
-  if (titleEl) titleEl.textContent = section.headers?.[0]?.title || '番剧推荐'
+  if (titleEl) titleEl.textContent = '番剧推荐'
   if (!gridEl) return
   
   const items = section.items || []
@@ -2518,7 +2557,7 @@ function renderChineseRecommend(section) {
   const titleEl = document.querySelector('#bangumi-chinese .section-title')
   const gridEl = document.getElementById('chinese-grid')
   
-  if (titleEl) titleEl.textContent = section.headers?.[0]?.title || '国创推荐'
+  if (titleEl) titleEl.textContent = '国创推荐'
   if (!gridEl) return
   
   const items = section.items || []
@@ -2534,7 +2573,7 @@ function renderGuessSection(section) {
   const titleEl = document.querySelector('#bangumi-guess .section-title')
   const waterfallEl = document.getElementById('guess-waterfall')
   
-  if (titleEl) titleEl.textContent = section.headers?.[0]?.title || '猜你喜欢'
+  if (titleEl) titleEl.textContent = '猜你喜欢'
   if (!waterfallEl) return
   
   const items = section.items || []
@@ -2556,17 +2595,34 @@ function createFollowingCard(item) {
   const isProduct = badgeText === '出品'
   const badgeClass = isMember ? 'following-badge member' : isProduct ? 'following-badge product' : 'following-badge'
   const newEp = item.new_ep?.index_show || ''
+  const totalEp = item.episode?.total || item.total || ''
   const status = item.desc || ''
+  const seasonType = item.season_type || ''
+  
+  let bottomBadge = ''
+  if (totalEp) {
+    bottomBadge = `<span class="following-total">全${totalEp}话</span>`
+  }
+  
+  let watchingStatus = ''
+  if (item.progress && item.progress.last_ep_index) {
+    watchingStatus = `看到第${item.progress.last_ep_index}话`
+  } else if (item.progress && item.progress.is_finish) {
+    watchingStatus = '看到全片'
+  } else if (status) {
+    watchingStatus = status
+  }
   
   card.innerHTML = `
     <div class="following-cover">
       <img src="${coverUrl}" alt="${title}" loading="lazy">
       ${badgeText ? `<span class="${badgeClass}">${badgeText}</span>` : ''}
+      ${bottomBadge}
       ${newEp ? `<span class="following-new-ep">${newEp}</span>` : ''}
     </div>
     <div class="following-info">
       <h3 class="following-title">${title}</h3>
-      <div class="following-status">${status}</div>
+      <div class="following-status">${watchingStatus}</div>
     </div>
   `
   
@@ -2591,19 +2647,26 @@ function createBangumiCard(item) {
   const badgeText = item.badge_info?.text || ''
   const isMember = badgeText === '会员'
   const isProduct = badgeText === '出品'
-  const badgeClass = isMember ? 'bangumi-badge member' : isProduct ? 'bangumi-badge product' : 'bangumi-badge'
+  const badgeClass = isMember ? 'following-badge member' : isProduct ? 'following-badge product' : 'following-badge'
   const newEp = item.new_ep?.index_show || ''
+  const totalEp = item.episode?.total || item.total || ''
   const desc = item.desc || ''
+  
+  let bottomBadge = ''
+  if (totalEp) {
+    bottomBadge = `<span class="following-total">全${totalEp}话</span>`
+  }
   
   card.innerHTML = `
     <div class="bangumi-cover">
       <img src="${coverUrl}" alt="${title}" loading="lazy">
       ${badgeText ? `<span class="${badgeClass}">${badgeText}</span>` : ''}
-      ${newEp ? `<span class="bangumi-new-ep">${newEp}</span>` : ''}
+      ${bottomBadge}
+      ${newEp ? `<span class="following-new-ep">${newEp}</span>` : ''}
     </div>
     <div class="bangumi-info">
-      <h3 class="bangumi-title">${title}</h3>
-      <div class="bangumi-desc">${desc}</div>
+      <h3 class="following-title">${title}</h3>
+      <div class="following-status">${desc}</div>
     </div>
   `
   
@@ -2628,20 +2691,19 @@ function createWaterfallCard(item) {
   const badgeText = item.badge_info?.text || ''
   const isMember = badgeText === '会员'
   const isProduct = badgeText === '出品'
-  const badgeClass = isMember ? 'waterfall-badge member' : isProduct ? 'waterfall-badge product' : 'waterfall-badge'
+  const badgeClass = isMember ? 'following-badge member' : isProduct ? 'following-badge product' : 'following-badge'
   const newEp = item.new_ep?.index_show || ''
   const desc = item.desc || ''
   
   card.innerHTML = `
-    <div class="waterfall-cover">
+    <div class="following-cover">
       <img src="${coverUrl}" alt="${title}" loading="lazy">
       ${badgeText ? `<span class="${badgeClass}">${badgeText}</span>` : ''}
-      ${newEp ? `<span class="waterfall-new-ep">${newEp}</span>` : ''}
+      ${newEp ? `<span class="following-new-ep">${newEp}</span>` : ''}
     </div>
-    <div class="waterfall-info">
-      <h3 class="waterfall-title">${title}</h3>
-      ${desc ? `<div class="waterfall-desc">${desc}</div>` : ''}
-      <span class="waterfall-tag">番剧</span>
+    <div class="following-info">
+      <h3 class="following-title">${title}</h3>
+      <div class="following-status">${desc}</div>
     </div>
   `
   
@@ -2657,31 +2719,32 @@ function createWaterfallCard(item) {
 async function loadMoreGuessItems() {
   const state = pageStates.bangumi
   if (state.loading || !state.hasMore || !state.cursor) return
-  
+
   state.loading = true
   const loadingEl = document.getElementById('bangumi-loading-more')
   const noMoreEl = document.getElementById('bangumi-no-more')
-  
+
   if (loadingEl) loadingEl.style.display = 'block'
   if (noMoreEl) noMoreEl.style.display = 'none'
-  
+
   try {
     const result = await ipcRenderer.invoke('fetch-bangumi-data', { is_refresh: 1, cursor: state.cursor })
-    
-    if (result.success && result.data) {
-      const guessSection = result.data.sections?.find(s => s.id === 'guess') ||
-                           result.data.sections?.find(s => s.title?.includes('猜你')) ||
-                           result.data.sections?.[3]
-      
-      if (guessSection && guessSection.items && guessSection.items.length > 0) {
+
+    if (result.success && result.data && result.data.data && result.data.data.modules) {
+      const apiData = result.data.data
+      const modules = apiData.modules || []
+
+      const guessModule = modules[0]
+
+      if (guessModule && guessModule.items && guessModule.items.length > 0) {
         const waterfallEl = document.getElementById('guess-waterfall')
-        guessSection.items.forEach(item => {
+        guessModule.items.forEach(item => {
           const card = createWaterfallCard(item)
           waterfallEl.appendChild(card)
         })
-        
-        state.cursor = result.data.cursor || ''
-        state.hasMore = !result.data.no_more
+
+        state.cursor = apiData.next_cursor || ''
+        state.hasMore = apiData.has_next === 1
       } else {
         state.hasMore = false
       }
@@ -2692,7 +2755,7 @@ async function loadMoreGuessItems() {
     console.error('加载更多猜你喜欢失败:', error)
     state.hasMore = false
   }
-  
+
   state.loading = false
   if (loadingEl) loadingEl.style.display = 'none'
   if (noMoreEl && !state.hasMore) noMoreEl.style.display = 'block'
@@ -3178,7 +3241,369 @@ function matchAnyShortcut(e, keyCombinations) {
   return keyCombinations.some(keys => isKeyMatch(e, keys))
 }
 
+// 追番全部页面相关状态
+let bangumiAllState = {
+  filterData: null,
+  currentFilters: {
+    area: -1,
+    style_id: -1,
+    season_version: -1,
+    season_status: -1,
+    spoken_language_type: -1,
+    copyright: -1,
+    is_finish: -1,
+    year: -1,
+    season_month: -1,
+    type: 2,
+    order: 3,
+    index_type: 1,
+    pub_date: -1,
+    page: 1
+  },
+  loading: false,
+  hasMore: true,
+  total: 0
+}
 
+// 排序选项（固定）
+const sortOptions = [
+  { value: 3, label: '最多追番' },
+  { value: 2, label: '最多播放' },
+  { value: 5, label: '最近更新' },
+  { value: 4, label: '最高评分' }
+]
+
+// 导航到追番全部页面
+function navigateToBangumiAll(type = 'bangumi') {
+  pageHistory.push(currentPage)
+  if (pageHistory.length > 50) pageHistory.shift()
+  
+  currentPage = 'bangumi-all'
+
+  document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'))
+  document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'))
+  document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'))
+  
+  document.getElementById('page-bangumi-all')?.classList.add('active')
+  updateNavLinks('bangumi-all')
+  updateBackButton()
+
+  const content = document.querySelector('.content')
+  if (content) {
+    content.removeEventListener('scroll', handleScroll)
+    content.removeEventListener('scroll', handleDynamicScroll)
+    content.addEventListener('scroll', handleScroll)
+  }
+
+  // 重置状态
+  bangumiAllState.page = 1
+  bangumiAllState.hasMore = true
+  
+  // 根据类型设置地区筛选
+  if (type === 'chinese') {
+    bangumiAllState.currentFilters.area = 2
+  } else {
+    bangumiAllState.currentFilters.area = -1
+  }
+  
+  // 加载筛选条件和数据
+  loadBangumiAllFilters()
+  loadBangumiAllData()
+}
+
+// 加载筛选条件数据
+async function loadBangumiAllFilters() {
+  try {
+    const result = await ipcRenderer.invoke('fetch-bangumi-condition', { index_type: 4, type: 2 })
+    
+    if (result.success && result.data) {
+      bangumiAllState.filterData = result.data.data
+      renderFilters(bangumiAllState.filterData)
+    }
+  } catch (error) {
+    console.error('加载筛选条件失败:', error)
+  }
+}
+
+// 渲染筛选条件
+function renderFilters(filterData) {
+  // 渲染地区
+  renderFilterOptions('area-options', filterData.area || [], 'area', '全部地区')
+  
+  // 渲染风格
+  renderFilterOptions('style-options', filterData.style || [], 'style_id', '全部风格')
+  
+  // 渲染版本类型
+  renderFilterOptions('version-options', filterData.season_version || [], 'season_version', '全部版本')
+  
+  // 渲染付费类型
+  renderFilterOptions('pay-options', filterData.pay || [], 'pay', '全部类型')
+  
+  // 渲染配音类型
+  renderFilterOptions('audio-options', filterData.language || [], 'spoken_language_type', '全部配音')
+  
+  // 渲染版权类型
+  renderFilterOptions('copyright-options', filterData.copyright || [], 'copyright', '全部版权')
+  
+  // 渲染完结状态
+  renderFilterOptions('status-options', filterData.is_finish || [], 'is_finish', '全部状态')
+  
+  // 渲染年份
+  renderYearOptions(filterData.year || [])
+  
+  // 渲染季度
+  renderQuarterOptions()
+  
+  // 渲染排序
+  renderSortOptions()
+}
+
+// 渲染普通筛选选项
+function renderFilterOptions(containerId, options, filterKey, allLabel) {
+  const container = document.getElementById(containerId)
+  if (!container || !options.length) return
+  
+  let html = `<span class="filter-option ${bangumiAllState.currentFilters[filterKey] === -1 ? 'active' : ''}" data-key="${filterKey}" data-value="-1">${allLabel}</span>`
+  
+  options.forEach(opt => {
+    const isActive = bangumiAllState.currentFilters[filterKey] === opt.id
+    html += `<span class="filter-option ${isActive ? 'active' : ''}" data-key="${filterKey}" data-value="${opt.id}">${opt.name}</span>`
+  })
+  
+  container.innerHTML = html
+  
+  // 添加点击事件
+  container.querySelectorAll('.filter-option').forEach(el => {
+    el.addEventListener('click', () => {
+      const key = el.dataset.key
+      const value = parseInt(el.dataset.value)
+      bangumiAllState.currentFilters[key] = value
+      bangumiAllState.page = 1
+      bangumiAllState.hasMore = true
+      
+      // 更新激活状态
+      container.querySelectorAll('.filter-option').forEach(opt => opt.classList.remove('active'))
+      el.classList.add('active')
+      
+      // 重新加载数据
+      loadBangumiAllData()
+    })
+  })
+}
+
+// 渲染年份选项
+function renderYearOptions(years) {
+  const container = document.getElementById('year-options')
+  if (!container) return
+  
+  let html = `<span class="filter-option ${bangumiAllState.currentFilters.year === -1 ? 'active' : ''}" data-key="year" data-value="-1">全部年份</span>`
+  
+  // 按年份排序，最新的在前
+  const sortedYears = [...years].sort((a, b) => b.id - a.id)
+  
+  sortedYears.forEach(year => {
+    const isActive = bangumiAllState.currentFilters.year === year.id
+    html += `<span class="filter-option ${isActive ? 'active' : ''}" data-key="year" data-value="${year.id}">${year.id}</span>`
+  })
+  
+  container.innerHTML = html
+  
+  // 添加点击事件
+  container.querySelectorAll('.filter-option').forEach(el => {
+    el.addEventListener('click', () => {
+      bangumiAllState.currentFilters.year = parseInt(el.dataset.value)
+      bangumiAllState.page = 1
+      bangumiAllState.hasMore = true
+      
+      container.querySelectorAll('.filter-option').forEach(opt => opt.classList.remove('active'))
+      el.classList.add('active')
+      
+      loadBangumiAllData()
+    })
+  })
+}
+
+// 渲染季度选项
+function renderQuarterOptions() {
+  const container = document.getElementById('quarter-options')
+  if (!container) return
+  
+  const quarters = [
+    { value: -1, label: '全部季度' },
+    { value: 1, label: '1月' },
+    { value: 4, label: '4月' },
+    { value: 7, label: '7月' },
+    { value: 10, label: '10月' }
+  ]
+  
+  let html = ''
+  quarters.forEach(q => {
+    const isActive = bangumiAllState.currentFilters.season_month === q.value
+    html += `<span class="filter-option ${isActive ? 'active' : ''}" data-key="season_month" data-value="${q.value}">${q.label}</span>`
+  })
+  
+  container.innerHTML = html
+  
+  container.querySelectorAll('.filter-option').forEach(el => {
+    el.addEventListener('click', () => {
+      bangumiAllState.currentFilters.season_month = parseInt(el.dataset.value)
+      bangumiAllState.page = 1
+      bangumiAllState.hasMore = true
+      
+      container.querySelectorAll('.filter-option').forEach(opt => opt.classList.remove('active'))
+      el.classList.add('active')
+      
+      loadBangumiAllData()
+    })
+  })
+}
+
+// 渲染排序选项
+function renderSortOptions() {
+  const container = document.getElementById('sort-options')
+  if (!container) return
+  
+  let html = ''
+  sortOptions.forEach(opt => {
+    const isActive = bangumiAllState.currentFilters.order === opt.value
+    html += `<span class="filter-option ${isActive ? 'active' : ''}" data-key="order" data-value="${opt.value}">${opt.label}</span>`
+  })
+  
+  container.innerHTML = html
+  
+  container.querySelectorAll('.filter-option').forEach(el => {
+    el.addEventListener('click', () => {
+      bangumiAllState.currentFilters.order = parseInt(el.dataset.value)
+      bangumiAllState.page = 1
+      bangumiAllState.hasMore = true
+      
+      container.querySelectorAll('.filter-option').forEach(opt => opt.classList.remove('active'))
+      el.classList.add('active')
+      
+      loadBangumiAllData()
+    })
+  })
+}
+
+// 加载追番全部页面数据
+async function loadBangumiAllData(append = false) {
+  if (bangumiAllState.loading) return
+  bangumiAllState.loading = true
+  
+  const loadingEl = document.getElementById('bangumi-all-loading')
+  const noMoreEl = document.getElementById('bangumi-all-no-more')
+  const gridEl = document.getElementById('bangumi-all-grid')
+  
+  if (loadingEl) loadingEl.style.display = 'block'
+  if (noMoreEl) noMoreEl.style.display = 'none'
+  
+  try {
+    const params = { ...bangumiAllState.currentFilters, page: bangumiAllState.page }
+    const result = await ipcRenderer.invoke('fetch-bangumi-result', params)
+    
+    if (result.success && result.data && result.data.data) {
+      const data = result.data.data
+      bangumiAllState.total = data.total || 0
+      
+      if (data.list && data.list.length > 0) {
+        if (append) {
+          appendBangumiAllCards(data.list)
+        } else {
+          renderBangumiAllCards(data.list)
+        }
+        
+        bangumiAllState.hasMore = data.has_more === 1 || data.list.length >= 20
+        bangumiAllState.page++
+      } else if (!append) {
+        gridEl.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">暂无数据</div>'
+        bangumiAllState.hasMore = false
+      }
+    } else if (!append) {
+      gridEl.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">获取数据失败</div>'
+    }
+  } catch (error) {
+    console.error('加载追番数据失败:', error)
+    if (!append) {
+      gridEl.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">加载失败</div>'
+    }
+  }
+  
+  bangumiAllState.loading = false
+  if (loadingEl) loadingEl.style.display = 'none'
+  if (noMoreEl && !bangumiAllState.hasMore) noMoreEl.style.display = 'block'
+}
+
+// 渲染追番全部卡片
+function renderBangumiAllCards(items) {
+  const gridEl = document.getElementById('bangumi-all-grid')
+  if (!gridEl) return
+  
+  gridEl.innerHTML = items.map(item => createBangumiAllCard(item)).join('')
+  
+  // 添加点击事件
+  gridEl.querySelectorAll('.bangumi-all-card').forEach((card, index) => {
+    card.addEventListener('click', () => {
+      const item = items[index]
+      if (item.season_id) {
+        window.open(`https://www.bilibili.com/bangumi/media/md${item.season_id}/`, '_blank')
+      }
+    })
+  })
+}
+
+// 添加追番全部卡片
+function appendBangumiAllCards(items) {
+  const gridEl = document.getElementById('bangumi-all-grid')
+  if (!gridEl) return
+  
+  items.forEach(item => {
+    const card = document.createElement('div')
+    card.innerHTML = createBangumiAllCard(item)
+    gridEl.appendChild(card)
+    
+    card.addEventListener('click', () => {
+      if (item.season_id) {
+        window.open(`https://www.bilibili.com/bangumi/media/md${item.season_id}/`, '_blank')
+      }
+    })
+  })
+}
+
+// 创建追番全部卡片HTML
+function createBangumiAllCard(item) {
+  const coverUrl = item.cover?.startsWith('//') ? 'https:' + item.cover : (item.cover || '')
+  const badge = item.is_pay === 1 ? '大会员' : item.is_free === 1 ? '免费' : ''
+  const badgeClass = item.is_pay === 1 ? '' : item.is_free === 1 ? 'green' : 'blue'
+  
+  return `
+    <div class="bangumi-all-card">
+      <div class="bangumi-all-cover">
+        <img src="${coverUrl}" alt="${item.title}" loading="lazy">
+        ${badge ? `<span class="bangumi-all-badge ${badgeClass}">${badge}</span>` : ''}
+        ${item.index_show ? `<span style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 3px;">${item.index_show}</span>` : ''}
+      </div>
+      <div class="bangumi-all-info">
+        <h3 class="bangumi-all-title">${item.title}</h3>
+        <p class="bangumi-all-desc">${item.subtitle || ''}</p>
+        <div class="bangumi-all-stat">${item.stat?.follow ? formatPlayCount(item.stat.follow) + '人追番' : ''}</div>
+      </div>
+    </div>
+  `
+}
+
+// 初始化追番全部页面的查看全部按钮事件
+function initBangumiViewAllButtons() {
+  const bangumiViewAll = document.getElementById('view-all-bangumi')
+  const chineseViewAll = document.getElementById('view-all-chinese')
+  
+  bangumiViewAll?.addEventListener('click', () => navigateToBangumiAll('bangumi'))
+  chineseViewAll?.addEventListener('click', () => navigateToBangumiAll('chinese'))
+}
+
+// 在初始化时绑定事件
+document.addEventListener('DOMContentLoaded', () => {
+  initBangumiViewAllButtons()
+})
 
 document.addEventListener('keydown', e => {
   // 如果快速访问键模式已开启，不处理其他快捷键
