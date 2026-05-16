@@ -997,8 +997,115 @@ ipcMain.handle('fetch-bangumi-data', async (event, params) => {
   }
 })
 
+// 影视页面接口
+ipcMain.handle('fetch-media-data', async (event, params) => {
+  const { is_refresh = 0, cursor = '' } = params || {}
+  log('fetch-media-data called, is_refresh:', is_refresh, 'cursor:', cursor)
+  
+  try {
+    let url = `https://api.bilibili.com/pgc/page/pc/cinema/tab?is_refresh=${is_refresh}`
+    if (cursor) {
+      url += `&cursor=${cursor}`
+    }
+    log('Using cinema endpoint:', url)
+    
+    const savedCookies = cookieManager.getSavedCookies()
+    log('请求前的savedCookies状态:', JSON.stringify(savedCookies))
+    log('savedCookies包含的key:', Object.keys(savedCookies))
+    if (savedCookies.SESSDATA) {
+      log('SESSDATA存在, 前20字符:', savedCookies.SESSDATA.substring(0, 20))
+    } else {
+      log('SESSDATA不存在!')
+    }
+
+    // 如果没有 sec_ck，先请求推荐接口触发下发，然后直接从 session 读取最新的 sec_ck
+    let secCkValue = savedCookies.sec_ck || ''
+    if ((!secCkValue || secCkValue === '') && savedCookies.SESSDATA) {
+      log('sec_ck不存在或为空，先请求推荐接口触发下发...')
+      try {
+        const recommendUrl = buildRecommendUrl(1)
+        log('请求推荐接口:', recommendUrl)
+        await fetchApi(recommendUrl)
+        log('推荐接口请求完成，等待 session 更新...')
+        // 从 session 直接读取 sec_ck
+        if (mainWindow && mainWindow.webContents && mainWindow.webContents.session) {
+          secCkValue = await cookieManager.getCookieFromSession(mainWindow.webContents.session, 'sec_ck') || ''
+          if (secCkValue) {
+            log('从 session 成功读取到 sec_ck:', secCkValue.substring(0, 20) + '...')
+            // 更新内存 savedCookies 以便后续使用
+            const sc = cookieManager.getSavedCookies()
+            sc.sec_ck = secCkValue
+            cookieManager.setSavedCookies(sc)
+          } else {
+            log('推荐接口未返回 sec_ck（session 中未找到）')
+          }
+        } else {
+          log('无法访问 mainWindow.session，跳过直接读取 sec_ck')
+        }
+      } catch (e) {
+        log('请求推荐接口失败:', e.message)
+        // 继续尝试请求影视接口，不中断流程
+      }
+    }
+
+    // 优先使用主进程 session 中的 cookies 和更接近官方客户端的请求头
+    try {
+      const sessionCookies = mainWindow && mainWindow.webContents && mainWindow.webContents.session
+        ? await mainWindow.webContents.session.cookies.get({ domain: '.bilibili.com' })
+        : []
+
+      const sessionMap = {}
+      for (const c of sessionCookies) {
+        if (c.value === undefined || c.value === null || c.value === '') continue
+        sessionMap[c.name] = c.value
+      }
+
+      // 合并到 savedCookies（session 优先覆盖）
+      const merged = Object.assign({}, cookieManager.getSavedCookies() || {}, sessionMap)
+      cookieManager.setSavedCookies(merged)
+      cookieManager.saveCookies()
+      log('Merged session cookies for media request:', Object.keys(merged))
+
+      const mediaHeaders = {
+        'Accept': '*/*',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'Referer': 'https://www.bilibili.com/client',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-site',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) bilibili_pc/1.17.5 Chrome/108.0.5359.215 Electron/22.3.27 Safari/537.36 build/1001017006',
+        'Origin': 'https://www.bilibili.com',
+        'sec-ch-ua': '"Not?A_Brand";v="8", "Chromium";v="108"',
+        'sec-ch-ua-mobile': '?0',
+        'sec-ch-ua-platform': '"Windows"',
+        'x-app-version': '1.17.6'
+      }
+
+      const result = await fetchApiWithHeaders(url, mediaHeaders)
+      
+      if (result && result.code === 0) {
+        log('Cinema API成功')
+
+        return { success: true, data: result }
+      }
+
+      log('Cinema API失败, result:', result)
+      log('savedCookies状态:', JSON.stringify(merged))
+      return { success: false, error: '获取影视数据失败' }
+    } catch (error) {
+      log('Cinema API错误:', error.message)
+      log('错误时的savedCookies状态:', JSON.stringify(cookieManager.getSavedCookies()))
+      return { success: false, error: error.message }
+    }
+  } catch (error) {
+    log('fetch-media-data 总错误:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
 ipcMain.handle('fetch-bangumi-condition', async (event, params) => {
-  const { index_type = 4, type = 2 } = params || {}
+  const { index_type = 1, type = 2 } = params || {}
   log('fetch-bangumi-condition called, index_type:', index_type, 'type:', type)
   
   try {
@@ -1006,9 +1113,11 @@ ipcMain.handle('fetch-bangumi-condition', async (event, params) => {
     log('Using bangumi condition endpoint:', url)
     
     const result = await fetchApiWithHeaders(url)
+    log('Bangumi condition API raw result:', JSON.stringify(result, null, 2))
     
     if (result && result.code === 0) {
-      log('Bangumi condition API成功')
+      log('Bangumi condition API成功, result.data keys:', Object.keys(result.data || {}))
+      log('Bangumi condition API result.data:', JSON.stringify(result.data, null, 2))
       return { success: true, data: result }
     }
     
@@ -1043,16 +1152,18 @@ ipcMain.handle('fetch-bangumi-result', async (event, params) => {
   try {
     let url = `https://api.bilibili.com/pgc/page/index/result?type=${type}&order=${order}&index_type=${index_type}&page=${page}`
     
-    if (area !== -1) url += `&area=${area}`
-    if (style_id !== -1) url += `&style_id=${style_id}`
-    if (season_version !== -1) url += `&season_version=${season_version}`
-    if (season_status !== -1) url += `&season_status=${season_status}`
-    if (spoken_language_type !== -1) url += `&spoken_language_type=${spoken_language_type}`
-    if (copyright !== -1) url += `&copyright=${copyright}`
-    if (is_finish !== -1) url += `&is_finish=${is_finish}`
-    if (year !== -1) url += `&year=${year}`
-    if (season_month !== -1) url += `&season_month=${season_month}`
-    if (pub_date !== -1) url += `&pub_date=${pub_date}`
+    // 使用 String(value) !== '-1' 来处理字符串和数字类型的值
+    if (String(area) !== '-1') url += `&area=${area}`
+    if (String(style_id) !== '-1') url += `&style_id=${style_id}`
+    if (String(season_version) !== '-1') url += `&season_version=${season_version}`
+    if (String(season_status) !== '-1') url += `&season_status=${season_status}`
+    if (String(spoken_language_type) !== '-1') url += `&spoken_language_type=${spoken_language_type}`
+    if (String(copyright) !== '-1') url += `&copyright=${copyright}`
+    if (String(is_finish) !== '-1') url += `&is_finish=${is_finish}`
+    // 年份参数需要 URL 编码，因为值包含特殊字符如 [2025,2026)
+    if (String(year) !== '-1') url += `&year=${encodeURIComponent(year)}`
+    if (String(season_month) !== '-1') url += `&season_month=${season_month}`
+    if (String(pub_date) !== '-1') url += `&pub_date=${pub_date}`
     
     log('Using bangumi result endpoint:', url)
     
@@ -1067,6 +1178,69 @@ ipcMain.handle('fetch-bangumi-result', async (event, params) => {
     return { success: false, error: '获取追番数据失败' }
   } catch (error) {
     log('fetch-bangumi-result error:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('fetch-media-condition', async (event, params) => {
+  const { index_type = 2, type = 2 } = params || {}
+  log('fetch-media-condition called, index_type:', index_type, 'type:', type)
+  
+  try {
+    const url = `https://api.bilibili.com/pgc/page/index/condition?index_type=${index_type}&type=${type}`
+    log('Using media condition endpoint:', url)
+    
+    const result = await fetchApiWithHeaders(url)
+    log('Media condition API raw result:', JSON.stringify(result, null, 2))
+    
+    if (result && result.code === 0) {
+      log('Media condition API成功, result.data keys:', Object.keys(result.data || {}))
+      return { success: true, data: result }
+    }
+    
+    log('Media condition API失败, result:', result)
+    return { success: false, error: '获取筛选条件失败' }
+  } catch (error) {
+    log('fetch-media-condition error:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('fetch-media-result', async (event, params) => {
+  const { 
+    area = -1, 
+    style_id = -1, 
+    release_date = -1, 
+    season_status = -1,
+    type = 2,
+    order = 8,
+    index_type = 2,
+    page = 1
+  } = params || {}
+  
+  log('fetch-media-result called, params:', params)
+  
+  try {
+    let url = `https://api.bilibili.com/pgc/page/index/result?type=${type}&order=${order}&index_type=${index_type}&page=${page}`
+    
+    if (String(area) !== '-1') url += `&area=${area}`
+    if (String(style_id) !== '-1') url += `&style_id=${style_id}`
+    if (String(release_date) !== '-1') url += `&release_date=${release_date}`
+    if (String(season_status) !== '-1') url += `&season_status=${season_status}`
+    
+    log('Using media result endpoint:', url)
+    
+    const result = await fetchApiWithHeaders(url)
+    
+    if (result && result.code === 0) {
+      log('Media result API成功')
+      return { success: true, data: result }
+    }
+    
+    log('Media result API失败, result:', result)
+    return { success: false, error: '获取影视数据失败' }
+  } catch (error) {
+    log('fetch-media-result error:', error.message)
     return { success: false, error: error.message }
   }
 })
@@ -1727,7 +1901,7 @@ ipcMain.handle('set-window-position', async (event, x, y) => {
   }
 })
 
-ipcMain.on('set-window-position-direct', (event, x, y) => {
+ipcMain.handle('set-window-position-direct', async (event, x, y) => {
   if (playerWindow) {
     playerWindow.setPosition(Math.round(x), Math.round(y), false)
   }
@@ -2427,20 +2601,61 @@ ipcMain.handle('get-user-info', async () => {
     log('User info result code:', result.code)
     
     if (result.code === 0 && result.data) {
+      const mid = result.data.mid || 0
+      let viewCount = 0
+      let following = 0
+      let follower = 0
+      let dynCount = 0
+      
+      if (mid > 0) {
+        try {
+          const cardResult = await fetchApi(`https://api.bilibili.com/x/web-interface/card?mid=${mid}&photo=true`)
+          if (cardResult.code === 0 && cardResult.data?.card?.stat) {
+            viewCount = cardResult.data.card.stat.like || 0
+            log('Got view count:', viewCount)
+          }
+        } catch (e) {
+          log('Error getting view count:', e.message)
+        }
+        
+        try {
+          const relationResult = await fetchApi(`https://api.bilibili.com/x/relation/stat?vmid=${mid}&web_location=bilibili-electron`)
+          if (relationResult.code === 0 && relationResult.data) {
+            following = relationResult.data.following || 0
+            follower = relationResult.data.follower || 0
+            log('Got relation stats - following:', following, 'follower:', follower)
+          }
+        } catch (e) {
+          log('Error getting relation stats:', e.message)
+        }
+        
+        try {
+          const dynResult = await fetchApi(`https://api.bilibili.com/x/dynamic/feed/space/dyn_num?uid_str=${mid}&web_location=bilibili-electron`)
+          if (dynResult.code === 0 && dynResult.data) {
+            dynCount = dynResult.data.num || 0
+            log('Got dyn count:', dynCount)
+          }
+        } catch (e) {
+          log('Error getting dyn count:', e.message)
+        }
+      }
+      
       return {
         success: true,
         data: {
           isLogin: result.data.isLogin,
           uname: result.data.uname || '未登录',
           face: result.data.face || '',
-          mid: result.data.mid || 0,
+          mid: mid,
           level: result.data.level_info?.current_level || 0,
           coins: result.data.coins || 0,
           bCoins: result.data.bcoins || 0,
           vipStatus: result.data.vip?.status || 0,
           vipType: result.data.vip?.type || 0,
-          following: result.data.following || 0,
-          follower: result.data.follower || 0
+          following: following,
+          follower: follower,
+          viewCount: viewCount,
+          dynCount: dynCount
         }
       }
     } else {
@@ -2548,6 +2763,80 @@ ipcMain.handle('get-history', async (event, cursor = null) => {
     }
   } catch (error) {
     log('Error getting history:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('delete-history', async (event, bvid) => {
+  log('delete-history called, bvid:', bvid)
+  try {
+    if (!bvid) {
+      return { success: false, error: '缺少视频ID' }
+    }
+
+    const savedCookies = cookieManager.getSavedCookies()
+    const csrf = savedCookies.bili_jct || ''
+    if (!csrf) {
+      return { success: false, error: '缺少 bili_jct，无法删除历史记录' }
+    }
+
+    return new Promise((resolve, reject) => {
+      const params = new URLSearchParams({
+        bvid,
+        csrf,
+        csrf_token: csrf
+      })
+      const data = params.toString()
+      const options = {
+        hostname: 'api.bilibili.com',
+        port: 443,
+        path: '/x/v2/history/delete',
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Content-Length': Buffer.byteLength(data),
+          'Cookie': cookieManager.getCookieString(),
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': 'https://www.bilibili.com/',
+          'Origin': 'https://www.bilibili.com',
+          'Accept': 'application/json, text/javascript, */*; q=0.01',
+          'X-Requested-With': 'XMLHttpRequest'
+        },
+        rejectUnauthorized: false
+      }
+
+      const req = https.request(options, (res) => {
+        let body = ''
+        log('Delete history response status:', res.statusCode)
+        res.on('data', (chunk) => {
+          body += chunk
+        })
+        res.on('end', () => {
+          log('Delete history response:', body)
+          try {
+            const result = JSON.parse(body)
+            if (result.code === 0) {
+              resolve({ success: true, data: result.data })
+            } else {
+              resolve({ success: false, error: result.message || '删除失败' })
+            }
+          } catch (e) {
+            log('Error parsing response:', e.message)
+            resolve({ success: false, error: '响应解析失败' })
+          }
+        })
+      })
+
+      req.on('error', (e) => {
+        log('Delete history request error:', e.message)
+        resolve({ success: false, error: e.message })
+      })
+
+      req.write(data)
+      req.end()
+    })
+  } catch (error) {
+    log('Error deleting history:', error.message)
     return { success: false, error: error.message }
   }
 })

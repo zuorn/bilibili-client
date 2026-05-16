@@ -926,11 +926,11 @@ body {
 .video-card {
   background-color: #fff;
   border-radius: 12px;
-  overflow: hidden;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
   cursor: pointer;
   transition: all 0.25s;
   width: 100%;
+  position: relative;
 }
 
 .video-card:hover {
@@ -988,6 +988,7 @@ body {
 
 .video-info {
   padding: 14px;
+  position: relative;
 }
 
 .video-history-time {
@@ -2016,13 +2017,14 @@ body {
   border-radius: 8px;
   padding: 20px;
   margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .my-avatar-container {
   display: flex;
   align-items: center;
-  padding-bottom: 20px;
-  border-bottom: 1px solid #f0f0f0;
 }
 
 .my-avatar {
@@ -2061,6 +2063,23 @@ body {
 
 .my-login-text:hover {
   color: #fb7299;
+}
+
+.my-login-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.my-user-level {
+  background: linear-gradient(135deg, #fb7299 0%, #ff85ad 100%);
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  display: none;
 }
 
 .my-coins {
@@ -2106,14 +2125,19 @@ body {
   color: #fb7299;
 }
 
+.my-right-content {
+  display: flex;
+  align-items: center;
+  gap: 30px;
+  flex-shrink: 0;
+}
+
 .my-stats {
   display: flex;
-  padding: 16px 0;
-  border-bottom: 1px solid #f0f0f0;
+  gap: 30px;
 }
 
 .my-stat-item {
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2123,12 +2147,12 @@ body {
   font-size: 18px;
   font-weight: 600;
   color: #18191c;
-  margin-bottom: 4px;
 }
 
 .my-stat-item .stat-label {
   font-size: 12px;
-  color: #999;
+  color: #9499a0;
+  margin-top: 2px;
 }
 
 .my-stat-item.space-link {
@@ -3071,6 +3095,12 @@ body.dark-theme .header.search-focused .search-dropdown {
   stroke-width: 2.5;
 }
 
+.backtop-btn.hidden {
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(20px);
+}
+
 body.dark-theme .bottom-action-btn {
   background-color: rgba(42, 42, 42, 0.95);
 }
@@ -3253,6 +3283,39 @@ body.dark-theme .my-stats {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
+.more-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 2px solid #fb7299;
+  background: transparent;
+  color: #fb7299;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 20px;
+  transition: all 0.2s;
+}
+
+.more-filter-btn:hover {
+  background: rgba(251, 114, 153, 0.1);
+}
+
+.more-filter-icon {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s;
+}
+
+.more-filter-btn.expanded .more-filter-icon {
+  transform: rotate(180deg);
+}
+
+.filter-expandable {
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
 .filter-row {
   display: flex;
   align-items: center;
@@ -3340,10 +3403,16 @@ body.dark-theme .my-stats {
   transform: scale(1.05);
 }
 
-.bangumi-all-badge {
+.badges-container {
   position: absolute;
   top: 8px;
-  left: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 1;
+}
+
+.bangumi-all-badge {
   background: #fb7299;
   color: #fff;
   padding: 2px 8px;
@@ -3352,12 +3421,16 @@ body.dark-theme .my-stats {
   font-weight: 600;
 }
 
+.bangumi-all-badge.red {
+  background: #FB7299;
+}
+
 .bangumi-all-badge.blue {
   background: #00C0FF;
 }
 
 .bangumi-all-badge.green {
-  background: #56C425;
+  background: #5CB85C;
 }
 
 .bangumi-all-info {
@@ -4873,4 +4946,113 @@ body.dark-theme .accesskey-label {
 
 body.dark-theme .accesskey-label.highlight {
   background: linear-gradient(135deg, #ffd700 0%, #ffb700 100%);
+}
+
+/* 历史记录卡片更多按钮 */
+.video-card {
+  position: relative;
+}
+
+.video-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.video-title-row .video-title {
+  flex: 1;
+  margin-bottom: 0;
+  margin-right: 8px;
+}
+
+.history-more-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.history-more-btn {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #999;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.history-more-btn:hover {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.history-more-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 历史记录下拉菜单 */
+.history-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  min-width: 120px;
+  display: none;
+  z-index: 200;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  padding: 8px 16px;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.dropdown-item:hover {
+  background-color: #f5f5f5;
+}
+
+.delete-history-btn {
+  color: #ff4d4f;
+}
+
+.delete-history-btn:hover {
+  background-color: #fff0f0;
+}
+
+/* 暗色主题样式 */
+body.dark-theme .history-more-btn {
+  color: #666;
+}
+
+body.dark-theme .history-more-btn:hover {
+  background: #3a3a3a;
+  color: #a0a0a0;
+}
+
+body.dark-theme .history-dropdown {
+  background: #2a2a2a;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-theme .dropdown-item {
+  color: #e0e0e0;
+}
+
+body.dark-theme .dropdown-item:hover {
+  background-color: #3a3a3a;
+}
+
+body.dark-theme .delete-history-btn:hover {
+  background-color: #3a2a30;
 }

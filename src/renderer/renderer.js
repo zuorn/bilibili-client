@@ -93,7 +93,7 @@ let pageStates = {
   home: { pageNum: 1, videos: [], loading: false, hasMore: true },
   popular: { pageNum: 1, videos: [], loading: false, hasMore: true },
 
-  media: { pageNum: 1, loading: false, hasMore: true },
+  media: { cursor: '', loading: false, hasMore: true, data: null },
   search: { keyword: '', pageNum: 1, loading: false, hasMore: true },
   up: { mid: null, name: '', offset: '', loading: false, hasMore: true },
   my: { historyCursor: null, hasMoreHistory: true, isHistoryLoading: false, tabsOriginalOffset: null, favoritesPageNum: 1, hasMoreFavorites: true, isFavoritesLoading: false, toviewPageNum: 1, hasMoreToview: true, isToviewLoading: false },
@@ -254,6 +254,7 @@ function initEventListeners() {
         document.getElementById('history-content').style.display = 'block'
         document.getElementById('favorites-content').style.display = 'none'
         document.getElementById('bangumi-content')?.style.setProperty('display', 'none')
+        document.getElementById('drama-content')?.style.setProperty('display', 'none')
         document.getElementById('toview-content').style.display = 'none'
         document.getElementById('historySearchInput').placeholder = '搜索你的历史记录'
         if (currentUser?.isLogin) loadHistory()
@@ -261,6 +262,7 @@ function initEventListeners() {
         document.getElementById('history-content').style.display = 'none'
         document.getElementById('favorites-content').style.display = 'block'
         document.getElementById('bangumi-content')?.style.setProperty('display', 'none')
+        document.getElementById('drama-content')?.style.setProperty('display', 'none')
         document.getElementById('toview-content').style.display = 'none'
         document.getElementById('historySearchInput').placeholder = '搜索你的收藏内容'
         if (currentUser?.isLogin) {
@@ -274,6 +276,7 @@ function initEventListeners() {
         console.log('bangumi tab clicked')
         document.getElementById('history-content').style.display = 'none'
         document.getElementById('favorites-content').style.display = 'none'
+        document.getElementById('drama-content')?.style.setProperty('display', 'none')
         document.getElementById('toview-content')?.style.setProperty('display', 'none')
         const bangumiContent = document.getElementById('bangumi-content')
         console.log('bangumi-content element:', bangumiContent)
@@ -286,18 +289,20 @@ function initEventListeners() {
         console.log('drama tab clicked')
         document.getElementById('history-content').style.display = 'none'
         document.getElementById('favorites-content').style.display = 'none'
-        document.getElementById('toview-content')?.style.setProperty('display', 'none')
-        const bangumiContent = document.getElementById('bangumi-content')
-        console.log('bangumi-content element:', bangumiContent)
-        if (bangumiContent) {
-          bangumiContent.style.display = 'block'
-          console.log('bangumi-content display set to block')
+        document.getElementById('bangumi-content')?.style.setProperty('display', 'none')
+        document.getElementById('toview-content').style.display = 'none'
+        const dramaContent = document.getElementById('drama-content')
+        console.log('drama-content element:', dramaContent)
+        if (dramaContent) {
+          dramaContent.style.display = 'block'
+          console.log('drama-content display set to block')
         }
-        loadBangumi(3)
+        loadDrama()
       } else if (tabName === 'later') {
         document.getElementById('history-content').style.display = 'none'
         document.getElementById('favorites-content').style.display = 'none'
         document.getElementById('bangumi-content')?.style.setProperty('display', 'none')
+        document.getElementById('drama-content')?.style.setProperty('display', 'none')
         document.getElementById('toview-content').style.display = 'block'
         document.getElementById('historySearchInput').placeholder = '搜索你的稍后再看'
         if (currentUser?.isLogin) {
@@ -1333,12 +1338,25 @@ function updateMyPageUI(user) {
   const myAvatar = document.querySelector('.my-avatar')
   const myCoins = document.querySelector('.my-coins')
   const logoutBtn = document.getElementById('logoutBtn')
+  const myUserLevel = document.getElementById('myUserLevel')
+  const myRightContent = document.getElementById('myRightContent')
+  const myDynCount = document.getElementById('myDynCount')
+  const myFollowingCount = document.getElementById('myFollowingCount')
+  const myFanCount = document.getElementById('myFanCount')
   if (!loginText) return
 
   if (user.isLogin) {
     loginText.textContent = user.uname || '用户'
     if (myAvatar && user.face) myAvatar.innerHTML = `<img src="${user.face}" alt="头像" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">`
     if (myCoins) myCoins.innerHTML = `<span>B币: ${user.bCoins || 0}</span><span class="separator">|</span><span>硬币: ${user.coins || 0}</span>`
+    if (myUserLevel) {
+      myUserLevel.textContent = user.level ? `Lv${user.level}` : ''
+      myUserLevel.style.display = user.level ? 'inline-block' : 'none'
+    }
+    if (myRightContent) myRightContent.style.display = 'flex'
+    if (myDynCount) myDynCount.textContent = formatPlayCount(user.dynCount || 0)
+    if (myFollowingCount) myFollowingCount.textContent = formatPlayCount(user.following || 0)
+    if (myFanCount) myFanCount.textContent = formatPlayCount(user.follower || 0)
     if (logoutBtn) logoutBtn.style.display = 'block'
     document.querySelectorAll('.no-login-area').forEach(area => area.style.display = 'none')
     document.getElementById('historyGrid').style.display = 'grid'
@@ -1348,13 +1366,19 @@ function updateMyPageUI(user) {
     loginText.textContent = '点击登录'
     if (myAvatar) myAvatar.innerHTML = `<svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" fill="#f5f5f5"/><circle cx="24" cy="20" r="8" fill="#e0e0e0"/><circle cx="20" cy="18" r="1.5" fill="#999"/><circle cx="28" cy="18" r="1.5" fill="#999"/><path d="M20 26 Q24 30 28 26" stroke="#999" stroke-width="2" fill="none"/></svg>`
     if (myCoins) myCoins.innerHTML = `<span>B币: -</span><span class="separator">|</span><span>硬币: -</span>`
-    if (logoutBtn) logoutBtn.style.display = 'none'
+    if (myUserLevel) {
+      myUserLevel.textContent = ''
+      myUserLevel.style.display = 'none'
+    }
+    if (myRightContent) myRightContent.style.display = 'none'
     document.querySelectorAll('.no-login-area').forEach(area => area.style.display = 'flex')
     document.getElementById('historyGrid').style.display = 'none'
     document.getElementById('favoritesGrid').style.display = 'none'
     document.getElementById('toviewGrid').style.display = 'none'
   }
 }
+
+
 
 function openLoginModal() {
   document.getElementById('loginModal').style.display = 'flex'
@@ -1517,7 +1541,21 @@ function createHistoryCard(video, onAuthorClick) {
       ` : ''}
     </div>
     <div class="video-info">
-      <h3 class="video-title">${video.title}</h3>
+      <div class="video-title-row">
+        <h3 class="video-title">${video.title}</h3>
+        <div class="history-more-wrapper">
+          <button class="history-more-btn" title="更多操作">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="4" r="1.5"/>
+              <circle cx="12" cy="12" r="1.5"/>
+              <circle cx="12" cy="20" r="1.5"/>
+            </svg>
+          </button>
+          <div class="history-dropdown">
+            <div class="dropdown-item delete-history-btn">删除记录</div>
+          </div>
+        </div>
+      </div>
       <div class="video-meta">
         <span class="video-play">${video.historyTime || ''}</span>
         <span class="video-author" data-mid="${video.owner?.mid || ''}">${video.author}</span>
@@ -1534,6 +1572,37 @@ function createHistoryCard(video, onAuthorClick) {
     e.stopPropagation()
     const mid = video.owner?.mid || video.mid
     if (mid && onAuthorClick) onAuthorClick(mid)
+  })
+
+  const moreBtn = card.querySelector('.history-more-btn')
+  const dropdown = card.querySelector('.history-dropdown')
+  
+  moreBtn.addEventListener('click', e => {
+    e.stopPropagation()
+    dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block'
+  })
+
+  const deleteBtn = card.querySelector('.delete-history-btn')
+  deleteBtn.addEventListener('click', async e => {
+    e.stopPropagation()
+    dropdown.style.display = 'none'
+    
+    const result = await ipcRenderer.invoke('delete-history', video.bvid)
+    if (result.success) {
+      card.remove()
+      const historyGrid = document.getElementById('historyGrid')
+      if (historyGrid && historyGrid.children.length === 0) {
+        showEmptyMessage('historyGrid', '暂无观看记录')
+      }
+    } else {
+      console.error('删除历史记录失败:', result.error)
+    }
+  })
+
+  document.addEventListener('click', e => {
+    if (!card.contains(e.target)) {
+      dropdown.style.display = 'none'
+    }
   })
 
   return card
@@ -1685,6 +1754,66 @@ async function loadBangumi(type = 1) {
   } catch (error) {
     console.error('加载追番失败:', error)
     const container = document.getElementById('bangumiGrid')
+    if (container) {
+      container.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">加载失败</div>'
+    }
+  }
+}
+
+async function loadDrama() {
+  try {
+    const result = await ipcRenderer.invoke('get-bangumi-follow', 2, 1)
+    
+    const content = document.getElementById('drama-content')
+    const container = document.getElementById('dramaGrid')
+    
+    if (!content || !container) {
+      console.error('drama elements not found')
+      return
+    }
+    
+    content.style.display = 'block'
+    container.innerHTML = ''
+    container.className = 'my-anime-grid'
+    container.style.display = 'grid'
+    
+    if (!result.success || !result.data || result.data.length === 0) {
+      container.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">暂无追剧内容</div>'
+      return
+    }
+    
+    result.data.forEach(item => {
+      const card = document.createElement('div')
+      card.className = 'my-anime-card'
+      
+      const coverUrl = item.cover?.startsWith('//') ? 'https:' + item.cover : (item.cover || '')
+      
+      card.innerHTML = `
+        <div class="my-anime-cover">
+          <img src="${coverUrl}" alt="${item.title}" loading="lazy">
+          ${item.badge ? `<span style="position: absolute; top: 8px; left: 8px; background: #fb7299; color: #fff; font-size: 12px; padding: 2px 8px; border-radius: 4px; z-index: 1;">${item.badge}</span>` : ''}
+          ${item.new_ep?.index ? `<span style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 3px; z-index: 1;">第${item.new_ep.index}集</span>` : ''}
+        </div>
+        <div class="my-anime-info">
+          <h3 class="my-anime-title">${item.title}</h3>
+          <div class="my-anime-history">
+            <span>${item.is_finish ? '已完结' : '连载中'}</span>
+            ${item.stat?.follow ? `<span>${item.stat.follow.toLocaleString()}人追剧</span>` : ''}
+          </div>
+        </div>
+      `
+      
+      card.addEventListener('click', () => {
+        if (item.url) {
+          window.open(item.url, '_blank')
+        }
+      })
+      
+      container.appendChild(card)
+    })
+  } catch (error) {
+    console.error('加载追剧失败:', error)
+    const container = document.getElementById('dramaGrid')
     if (container) {
       container.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">加载失败</div>'
     }
@@ -1858,6 +1987,15 @@ function handleScroll() {
 
   const { scrollTop, scrollHeight, clientHeight } = content
 
+  const backTopBtn = document.getElementById('backTopBtn')
+  if (backTopBtn) {
+    if (scrollTop > 300) {
+      backTopBtn.classList.remove('hidden')
+    } else {
+      backTopBtn.classList.add('hidden')
+    }
+  }
+
   if (currentPage === 'my') {
     const myTabs = document.querySelector('.my-tabs')
     const state = pageStates.my
@@ -1925,8 +2063,16 @@ function handleScroll() {
     if (scrollTop + clientHeight >= scrollHeight - 300) {
       const state = pageStates.bangumi
       if (!state.loading && state.hasMore && state.cursor) {
-        console.log('触发加载更多猜你喜欢')
+        console.log('触发加载更多追番猜你喜欢')
         loadMoreGuessItems()
+      }
+    }
+  } else if (currentPage === 'media') {
+    if (scrollTop + clientHeight >= scrollHeight - 300) {
+      const state = pageStates.media
+      if (!state.loading && state.hasMore && state.cursor) {
+        console.log('触发加载更多影视猜你喜欢')
+        loadMoreMediaGuessItems()
       }
     }
   } else if (currentPage === 'bangumi-all') {
@@ -1934,6 +2080,13 @@ function handleScroll() {
       if (!bangumiAllState.loading && bangumiAllState.hasMore) {
         console.log('触发加载更多追番全部')
         loadBangumiAllData(true)
+      }
+    }
+  } else if (currentPage === 'media-all') {
+    if (scrollTop + clientHeight >= scrollHeight - 300) {
+      if (!mediaAllState.loading && mediaAllState.hasMore) {
+        console.log('触发加载更多影视全部')
+        loadMediaAllData(true)
       }
     }
   } else {
@@ -2259,13 +2412,14 @@ function renderFollowingList(followings) {
   })
 }
 
-function createDynamicVideoCard(dynamic) {
+function createDynamicVideoCard(dynamic, onAuthorClick) {
   const card = document.createElement('div')
   card.className = 'video-card'
 
   const thumbnail = dynamic.thumbnail || dynamic.pic || ''
   const title = dynamic.title || dynamic.desc || '暂无标题'
   const author = dynamic.authorName || dynamic.author || '未知'
+  const authorMid = dynamic.authorMid || ''
   const duration = dynamic.duration || ''
   const pubTs = dynamic.pubTs || dynamic.time || 0
   const pubTime = dynamic.pubTime || ''
@@ -2274,7 +2428,7 @@ function createDynamicVideoCard(dynamic) {
   let durationHtml = duration ? '<div class="video-duration">' + duration + '</div>' : ''
   const videoDate = pubTime || formatDynamicTime(pubTs)
 
-  card.innerHTML = '<div class="video-thumbnail"><img src="' + fixImageUrl(thumbnail) + '" alt="' + title + '" loading="lazy">' + durationHtml + '</div><div class="video-info"><div class="video-title">' + title + '</div><div class="video-meta"><span class="video-author">' + author + '</span><span class="video-date">' + videoDate + '</span></div></div>'
+  card.innerHTML = '<div class="video-thumbnail"><img src="' + fixImageUrl(thumbnail) + '" alt="' + title + '" loading="lazy">' + durationHtml + '</div><div class="video-info"><div class="video-title">' + title + '</div><div class="video-meta"><span class="video-author" data-mid="' + authorMid + '">' + author + '</span><span class="video-date">' + videoDate + '</span></div></div>'
 
   if (bvid) {
     card.addEventListener('click', () => {
@@ -2282,16 +2436,22 @@ function createDynamicVideoCard(dynamic) {
     })
   }
 
+  const authorSpan = card.querySelector('.video-author')
+  authorSpan.addEventListener('click', e => {
+    e.stopPropagation()
+    if (authorMid && onAuthorClick) onAuthorClick(authorMid)
+  })
+
   return card
 }
 
-function renderDynamicVideos(dynamics) {
+function renderDynamicVideos(dynamics, onAuthorClick) {
   const videoContainer = document.getElementById('videoContainer')
   if (!videoContainer) return
 
   dynamics.forEach(dynamic => {
     if (dynamic.bvid || dynamic.thumbnail) {
-      videoContainer.appendChild(createDynamicVideoCard(dynamic))
+      videoContainer.appendChild(createDynamicVideoCard(dynamic, onAuthorClick))
     }
   })
 }
@@ -2309,7 +2469,7 @@ async function loadDynamicVideos(upId = null, offset = '') {
     const result = await fetchDynamics(upId, offset)
 
     if (result.items.length > 0) {
-      renderDynamicVideos(result.items)
+      renderDynamicVideos(result.items, navigateToUP)
       dynamicHasMore = result.has_more
       currentDynamicOffset = result.next_offset
 
@@ -2432,7 +2592,13 @@ function loadPageContent(page) {
       loadBangumiAllFilters()
       loadBangumiAllData()
     },
-    media: () => { console.log('Media page - to be implemented') },
+    'media-all': () => {
+      mediaAllState.page = 1
+      mediaAllState.hasMore = true
+      loadMediaAllFilters()
+      loadMediaAllData()
+    },
+    media: () => loadMediaPage(),
     my: () => { if (currentUser?.isLogin) loadHistory() },
     dynamic: () => initDynamicPage()
   }
@@ -2590,10 +2756,14 @@ function createFollowingCard(item) {
   
   const coverUrl = fixImageUrl(item.cover || item.pic || '')
   const title = item.title || item.name || ''
-  const badgeText = item.badge_info?.text || ''
-  const isMember = badgeText === '会员'
+  const badgeText = item.badge_info?.text || item.badge || ''
+  const isMember = badgeText === '会员' || badgeText === '大会员'
   const isProduct = badgeText === '出品'
-  const badgeClass = isMember ? 'following-badge member' : isProduct ? 'following-badge product' : 'following-badge'
+  const isDub = badgeText === '独播' || badgeText === '独家'
+  let colorStyle = ''
+  if (isMember) colorStyle = 'background: #FB7299;'
+  else if (isProduct) colorStyle = 'background: #5CB85C;'
+  else if (isDub) colorStyle = 'background: #56B0FF;'
   const newEp = item.new_ep?.index_show || ''
   const totalEp = item.episode?.total || item.total || ''
   const status = item.desc || ''
@@ -2616,9 +2786,9 @@ function createFollowingCard(item) {
   card.innerHTML = `
     <div class="following-cover">
       <img src="${coverUrl}" alt="${title}" loading="lazy">
-      ${badgeText ? `<span class="${badgeClass}">${badgeText}</span>` : ''}
+      ${badgeText ? `<span class="following-badge" style="${colorStyle} position: absolute; top: 8px; right: 8px;">${badgeText}</span>` : ''}
       ${bottomBadge}
-      ${newEp ? `<span class="following-new-ep">${newEp}</span>` : ''}
+      ${newEp ? `<span class="following-new-ep" style="position: absolute; bottom: 8px; left: 8px; right: auto;">${newEp}</span>` : ''}
     </div>
     <div class="following-info">
       <h3 class="following-title">${title}</h3>
@@ -2644,10 +2814,14 @@ function createBangumiCard(item) {
   
   const coverUrl = fixImageUrl(item.cover || item.pic || '')
   const title = item.title || item.name || ''
-  const badgeText = item.badge_info?.text || ''
-  const isMember = badgeText === '会员'
+  const badgeText = item.badge_info?.text || item.badge || ''
+  const isMember = badgeText === '会员' || badgeText === '大会员'
   const isProduct = badgeText === '出品'
-  const badgeClass = isMember ? 'following-badge member' : isProduct ? 'following-badge product' : 'following-badge'
+  const isDub = badgeText === '独播' || badgeText === '独家'
+  let colorStyle = ''
+  if (isMember) colorStyle = 'background: #FB7299;'
+  else if (isProduct) colorStyle = 'background: #5CB85C;'
+  else if (isDub) colorStyle = 'background: #56B0FF;'
   const newEp = item.new_ep?.index_show || ''
   const totalEp = item.episode?.total || item.total || ''
   const desc = item.desc || ''
@@ -2660,9 +2834,9 @@ function createBangumiCard(item) {
   card.innerHTML = `
     <div class="bangumi-cover">
       <img src="${coverUrl}" alt="${title}" loading="lazy">
-      ${badgeText ? `<span class="${badgeClass}">${badgeText}</span>` : ''}
+      ${badgeText ? `<span class="following-badge" style="${colorStyle} position: absolute; top: 8px; right: 8px;">${badgeText}</span>` : ''}
       ${bottomBadge}
-      ${newEp ? `<span class="following-new-ep">${newEp}</span>` : ''}
+      ${newEp ? `<span class="following-new-ep" style="position: absolute; bottom: 8px; left: 8px; right: auto;">${newEp}</span>` : ''}
     </div>
     <div class="bangumi-info">
       <h3 class="following-title">${title}</h3>
@@ -2753,6 +2927,273 @@ async function loadMoreGuessItems() {
     }
   } catch (error) {
     console.error('加载更多猜你喜欢失败:', error)
+    state.hasMore = false
+  }
+
+  state.loading = false
+  if (loadingEl) loadingEl.style.display = 'none'
+  if (noMoreEl && !state.hasMore) noMoreEl.style.display = 'block'
+}
+
+// 影视页面相关函数
+async function loadMediaPage() {
+  console.log('Loading media page')
+  const state = pageStates.media
+  state.loading = true
+  state.hasMore = true
+  state.cursor = ''
+  
+  const loadingEl = document.getElementById('media-loading-more')
+  const noMoreEl = document.getElementById('media-no-more')
+  if (loadingEl) loadingEl.style.display = 'none'
+  if (noMoreEl) noMoreEl.style.display = 'none'
+
+  try {
+    const result = await ipcRenderer.invoke('fetch-media-data', { is_refresh: 0 })
+    console.log('Media API result:', result)
+
+    if (result.success && result.data && result.data.data && result.data.data.modules) {
+      state.data = result.data.data
+      state.cursor = result.data.data.next_cursor || ''
+      state.hasMore = result.data.data.has_next === 1
+      renderMediaSections(result.data.data)
+    } else {
+      showEmptyMessage('media-following', '获取影视数据失败')
+    }
+  } catch (error) {
+    console.error('加载影视页面失败:', error)
+    showEmptyMessage('media-following', '加载失败，请稍后重试')
+  }
+  
+  state.loading = false
+}
+
+function renderMediaSections(data) {
+  console.log('Rendering media sections')
+  
+  const modules = data.modules || []
+  
+  // 渲染我的追剧（只在找到明确的追剧模块时才显示）
+  const followingSection = modules.find(m => m.headers?.[0]?.title?.includes('追剧')) ||
+                          modules.find(m => m.attr?.follow === 1)
+  if (followingSection) {
+    renderMediaFollowingSection(followingSection)
+  } else {
+    // 如果没有追剧内容，隐藏"我的追剧"区域
+    const followingEl = document.getElementById('media-following')
+    if (followingEl) followingEl.style.display = 'none'
+  }
+  
+  // 渲染正在热播
+  const hotSection = modules.find(m => m.headers?.[0]?.title?.includes('正在热播')) ||
+                     modules.find(m => m.headers?.[0]?.title?.includes('影视推荐')) ||
+                     modules[1]
+  if (hotSection) {
+    renderMediaHot(hotSection)
+  }
+  
+  // 渲染电影热播
+  const movieSection = modules.find(m => m.headers?.[0]?.title?.includes('电影热播')) ||
+                       modules.find(m => m.headers?.[0]?.title?.includes('电影')) ||
+                       modules[2]
+  if (movieSection) {
+    renderMovieHot(movieSection)
+  }
+  
+  // 渲染电视剧热播
+  const tvSection = modules.find(m => m.headers?.[0]?.title?.includes('电视剧热播')) ||
+                     modules.find(m => m.headers?.[0]?.title?.includes('电视剧')) ||
+                     modules[3]
+  if (tvSection) {
+    renderTvHot(tvSection)
+  }
+  
+  // 渲染纪录片热播
+  const documentarySection = modules.find(m => m.headers?.[0]?.title?.includes('纪录片热播')) ||
+                            modules.find(m => m.headers?.[0]?.title?.includes('纪录片')) ||
+                            modules[4]
+  if (documentarySection) {
+    renderDocumentaryHot(documentarySection)
+  }
+  
+  // 渲染综艺热播
+  const varietySection = modules.find(m => m.headers?.[0]?.title?.includes('综艺热播')) ||
+                         modules.find(m => m.headers?.[0]?.title?.includes('综艺')) ||
+                         modules[5]
+  if (varietySection) {
+    renderVarietyHot(varietySection)
+  }
+  
+  // 渲染猜你喜欢（瀑布流）
+  const guessSection = modules.find(m => m.headers?.[0]?.title?.includes('猜你')) ||
+                       modules[6]
+  if (guessSection) {
+    renderMediaGuessSection(guessSection)
+  }
+}
+
+function renderMediaFollowingSection(section) {
+  const titleEl = document.querySelector('#media-following .section-title')
+  const listEl = document.getElementById('media-following-list')
+  const viewAllEl = document.querySelector('#media-following .view-all')
+  
+  if (titleEl) titleEl.textContent = '我的追剧'
+  if (!listEl) return
+  
+  if (viewAllEl) {
+    viewAllEl.style.cursor = 'pointer'
+    viewAllEl.onclick = () => {
+      navigateToPage('my')
+      setTimeout(() => {
+        const dramaTab = document.querySelector('.my-tab[data-tab="drama"]')
+        if (dramaTab) {
+          dramaTab.click()
+        }
+      }, 100)
+    }
+  }
+  
+  const items = section.items || []
+  listEl.innerHTML = ''
+  
+  items.forEach(item => {
+    const card = createFollowingCard(item)
+    listEl.appendChild(card)
+  })
+}
+
+function renderMediaHot(section) {
+  const titleEl = document.querySelector('#media-hot .section-title')
+  const gridEl = document.getElementById('media-hot-grid')
+  
+  if (titleEl) titleEl.textContent = '正在热播'
+  if (!gridEl) return
+  
+  const items = section.items || []
+  gridEl.innerHTML = ''
+  
+  items.forEach(item => {
+    const card = createBangumiCard(item)
+    gridEl.appendChild(card)
+  })
+}
+
+function renderMovieHot(section) {
+  const titleEl = document.querySelector('#media-movie .section-title')
+  const gridEl = document.getElementById('movie-grid')
+  
+  if (titleEl) titleEl.textContent = '电影热播'
+  if (!gridEl) return
+  
+  const items = section.items || []
+  gridEl.innerHTML = ''
+  
+  items.forEach(item => {
+    const card = createBangumiCard(item)
+    gridEl.appendChild(card)
+  })
+}
+
+function renderTvHot(section) {
+  const titleEl = document.querySelector('#media-tv .section-title')
+  const gridEl = document.getElementById('tv-grid')
+  
+  if (titleEl) titleEl.textContent = '电视剧热播'
+  if (!gridEl) return
+  
+  const items = section.items || []
+  gridEl.innerHTML = ''
+  
+  items.forEach(item => {
+    const card = createBangumiCard(item)
+    gridEl.appendChild(card)
+  })
+}
+
+function renderDocumentaryHot(section) {
+  const titleEl = document.querySelector('#media-documentary .section-title')
+  const gridEl = document.getElementById('documentary-grid')
+  
+  if (titleEl) titleEl.textContent = '纪录片热播'
+  if (!gridEl) return
+  
+  const items = section.items || []
+  gridEl.innerHTML = ''
+  
+  items.forEach(item => {
+    const card = createBangumiCard(item)
+    gridEl.appendChild(card)
+  })
+}
+
+function renderVarietyHot(section) {
+  const titleEl = document.querySelector('#media-variety .section-title')
+  const gridEl = document.getElementById('variety-grid')
+  
+  if (titleEl) titleEl.textContent = '综艺热播'
+  if (!gridEl) return
+  
+  const items = section.items || []
+  gridEl.innerHTML = ''
+  
+  items.forEach(item => {
+    const card = createBangumiCard(item)
+    gridEl.appendChild(card)
+  })
+}
+
+function renderMediaGuessSection(section) {
+  const titleEl = document.querySelector('#media-guess .section-title')
+  const waterfallEl = document.getElementById('media-guess-waterfall')
+  
+  if (titleEl) titleEl.textContent = '猜你喜欢'
+  if (!waterfallEl) return
+  
+  const items = section.items || []
+  
+  items.forEach(item => {
+    const card = createWaterfallCard(item)
+    waterfallEl.appendChild(card)
+  })
+}
+
+async function loadMoreMediaGuessItems() {
+  const state = pageStates.media
+  if (state.loading || !state.hasMore || !state.cursor) return
+
+  state.loading = true
+  const loadingEl = document.getElementById('media-loading-more')
+  const noMoreEl = document.getElementById('media-no-more')
+
+  if (loadingEl) loadingEl.style.display = 'block'
+  if (noMoreEl) noMoreEl.style.display = 'none'
+
+  try {
+    const result = await ipcRenderer.invoke('fetch-media-data', { is_refresh: 1, cursor: state.cursor })
+
+    if (result.success && result.data && result.data.data && result.data.data.modules) {
+      const apiData = result.data.data
+      const modules = apiData.modules || []
+
+      const guessModule = modules[0]
+
+      if (guessModule && guessModule.items && guessModule.items.length > 0) {
+        const waterfallEl = document.getElementById('media-guess-waterfall')
+        guessModule.items.forEach(item => {
+          const card = createWaterfallCard(item)
+          waterfallEl.appendChild(card)
+        })
+
+        state.cursor = apiData.next_cursor || ''
+        state.hasMore = apiData.has_next === 1
+      } else {
+        state.hasMore = false
+      }
+    } else {
+      state.hasMore = false
+    }
+  } catch (error) {
+    console.error('加载更多影视猜你喜欢失败:', error)
     state.hasMore = false
   }
 
@@ -3273,6 +3714,332 @@ const sortOptions = [
   { value: 4, label: '最高评分' }
 ]
 
+// 影视全部页面相关状态
+let mediaAllState = {
+  filterData: null,
+  currentFilters: {
+    area: -1,
+    style_id: -1,
+    release_date: -1,
+    season_status: -1,
+    type: 2,
+    order: 8,
+    index_type: 2,
+    page: 1
+  },
+  loading: false,
+  hasMore: true,
+  total: 0
+}
+
+// 影视排序选项（固定）
+const mediaSortOptions = [
+  { value: 8, label: '综合排序' },
+  { value: 2, label: '最多播放' },
+  { value: 5, label: '最近更新' }
+]
+
+// 导航到影视全部页面
+function navigateToMediaAll() {
+  pageHistory.push(currentPage)
+  if (pageHistory.length > 50) pageHistory.shift()
+  
+  currentPage = 'media-all'
+
+  document.querySelectorAll('.sidebar-item').forEach(item => item.classList.remove('active'))
+  document.querySelectorAll('.nav-link').forEach(link => link.classList.remove('active'))
+  document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'))
+  
+  document.getElementById('page-media-all')?.classList.add('active')
+  updateNavLinks('media-all')
+  updateBackButton()
+
+  const content = document.querySelector('.content')
+  if (content) {
+    content.removeEventListener('scroll', handleScroll)
+    content.removeEventListener('scroll', handleDynamicScroll)
+    content.addEventListener('scroll', handleScroll)
+  }
+
+  // 重置状态
+  mediaAllState.page = 1
+  mediaAllState.hasMore = true
+  mediaAllState.currentFilters.area = -1
+  mediaAllState.currentFilters.style_id = -1
+  mediaAllState.currentFilters.release_date = -1
+  mediaAllState.currentFilters.season_status = -1
+  
+  // 加载筛选条件和数据
+  loadMediaAllFilters()
+  loadMediaAllData()
+}
+
+// 加载影视全部筛选条件数据
+async function loadMediaAllFilters() {
+  try {
+    const result = await ipcRenderer.invoke('fetch-media-condition', { index_type: 2, type: 2 })
+    console.log('Media condition API result:', JSON.stringify(result, null, 2))
+    
+    if (result.success && result.data) {
+      const filterData = result.data.data?.filter || result.data.filter || result.data.result?.filters || []
+      console.log('Media filterData set to:', JSON.stringify(filterData, null, 2))
+      renderMediaFilters(filterData)
+    } else {
+      console.error('Media condition API failed:', result.error)
+    }
+  } catch (error) {
+    console.error('加载影视筛选条件失败:', error)
+  }
+}
+
+// 渲染影视筛选条件
+function renderMediaFilters(filterData) {
+  console.log('renderMediaFilters called with:', JSON.stringify(filterData, null, 2))
+  
+  const filtersMap = {}
+  const labelsMap = {}
+  if (Array.isArray(filterData)) {
+    filterData.forEach(item => {
+      filtersMap[item.field] = item.values || []
+      labelsMap[item.field] = item.name || ''
+    })
+  }
+  
+  console.log('Media filtersMap:', JSON.stringify(filtersMap, null, 2))
+  console.log('Media labelsMap:', JSON.stringify(labelsMap, null, 2))
+  
+  // 渲染排序
+  renderMediaSortOptions()
+  
+  // 渲染地区
+  renderMediaFilterOptions('filter-media-area', 'media-area-options', filtersMap.area || [], 'area', labelsMap.area || '地区')
+  
+  // 渲染风格
+  renderMediaFilterOptions('filter-media-style', 'media-style-options', filtersMap.style_id || [], 'style_id', labelsMap.style_id || '风格')
+  
+  // 渲染上映时间
+  renderMediaFilterOptions('filter-media-release', 'media-release-options', filtersMap.release_date || [], 'release_date', labelsMap.release_date || '上映时间')
+  
+  // 渲染付费状态
+  renderMediaFilterOptions('filter-media-status', 'media-status-options', filtersMap.season_status || [], 'season_status', labelsMap.season_status || '付费状态')
+}
+
+// 渲染排序选项
+function renderMediaSortOptions() {
+  const container = document.getElementById('media-sort-options')
+  const filterRow = document.getElementById('filter-media-sort')
+  if (!container) return
+  
+  if (filterRow) {
+    const labelEl = filterRow.querySelector('.filter-label')
+    if (labelEl) labelEl.textContent = '综合排序'
+  }
+  
+  let html = ''
+  mediaSortOptions.forEach(opt => {
+    const isActive = mediaAllState.currentFilters.order === opt.value
+    html += `<span class="filter-option ${isActive ? 'active' : ''}" data-order="${opt.value}">${opt.label}</span>`
+  })
+  
+  container.innerHTML = html
+  
+  container.querySelectorAll('.filter-option').forEach(el => {
+    el.addEventListener('click', () => {
+      mediaAllState.currentFilters.order = parseInt(el.dataset.order)
+      mediaAllState.page = 1
+      mediaAllState.hasMore = true
+      
+      container.querySelectorAll('.filter-option').forEach(opt => opt.classList.remove('active'))
+      el.classList.add('active')
+      
+      loadMediaAllData()
+    })
+  })
+}
+
+// 渲染影视筛选选项
+function renderMediaFilterOptions(filterRowId, containerId, options, filterKey, label) {
+  const container = document.getElementById(containerId)
+  const filterRow = document.getElementById(filterRowId)
+  console.log(`renderMediaFilterOptions called: filterRowId=${filterRowId}, containerId=${containerId}, options.length=${options?.length}, filterKey=${filterKey}, label=${label}`)
+  
+  if (!container) {
+    console.log(`renderMediaFilterOptions: skipping render for ${containerId} - container does not exist`)
+    return
+  }
+  
+  if (filterRow) {
+    const labelEl = filterRow.querySelector('.filter-label')
+    if (labelEl) labelEl.textContent = label
+  }
+  
+  const allLabel = `全部${label}`
+  
+  let html = `<span class="filter-option ${mediaAllState.currentFilters[filterKey] === -1 ? 'active' : ''}" data-key="${filterKey}" data-value="-1">${allLabel}</span>`
+  
+  if (options && options.length > 0) {
+    options.forEach(opt => {
+      if (opt.keyword === '-1') return
+      const value = opt.keyword
+      const isActive = mediaAllState.currentFilters[filterKey] === value || 
+                      mediaAllState.currentFilters[filterKey] === parseInt(value)
+      html += `<span class="filter-option ${isActive ? 'active' : ''}" data-key="${filterKey}" data-value="${value}">${opt.name}</span>`
+    })
+  }
+  
+  container.innerHTML = html
+  console.log(`renderMediaFilterOptions: rendered ${options?.length || 0} options for ${containerId}`)
+  
+  container.querySelectorAll('.filter-option').forEach(el => {
+    el.addEventListener('click', () => {
+      const key = el.dataset.key
+      const value = el.dataset.value
+      mediaAllState.currentFilters[key] = value === '-1' ? -1 : value
+      mediaAllState.page = 1
+      mediaAllState.hasMore = true
+      
+      container.querySelectorAll('.filter-option').forEach(opt => opt.classList.remove('active'))
+      el.classList.add('active')
+      
+      loadMediaAllData()
+    })
+  })
+}
+
+// 加载影视全部数据
+async function loadMediaAllData(append = false) {
+  if (mediaAllState.loading) return
+  mediaAllState.loading = true
+  
+  const loadingEl = document.getElementById('media-all-loading')
+  const noMoreEl = document.getElementById('media-all-no-more')
+  const gridEl = document.getElementById('media-all-grid')
+  
+  if (loadingEl) loadingEl.style.display = 'block'
+  if (noMoreEl) noMoreEl.style.display = 'none'
+  
+  try {
+    const params = { ...mediaAllState.currentFilters, page: mediaAllState.page }
+    const result = await ipcRenderer.invoke('fetch-media-result', params)
+    
+    if (result.success && result.data && result.data.data) {
+      const data = result.data.data
+      mediaAllState.total = data.total || 0
+      
+      if (data.list && data.list.length > 0) {
+        if (append) {
+          appendMediaAllCards(data.list)
+        } else {
+          renderMediaAllCards(data.list)
+        }
+        
+        mediaAllState.hasMore = data.has_more === 1 || data.list.length >= 20
+        mediaAllState.page++
+      } else if (!append) {
+        gridEl.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">暂无数据</div>'
+        mediaAllState.hasMore = false
+      }
+    } else if (!append) {
+      gridEl.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">获取数据失败</div>'
+    }
+  } catch (error) {
+    console.error('加载影视数据失败:', error)
+    if (!append) {
+      gridEl.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">加载失败</div>'
+    }
+  }
+  
+  mediaAllState.loading = false
+  if (loadingEl) loadingEl.style.display = 'none'
+  if (noMoreEl && !mediaAllState.hasMore) noMoreEl.style.display = 'block'
+}
+
+// 渲染影视全部卡片
+function renderMediaAllCards(items) {
+  const gridEl = document.getElementById('media-all-grid')
+  if (!gridEl) return
+  
+  gridEl.innerHTML = items.map(item => createMediaAllCard(item)).join('')
+  
+  gridEl.querySelectorAll('.bangumi-all-card').forEach((card, index) => {
+    card.addEventListener('click', () => {
+      const item = items[index]
+      if (item.season_id) {
+        window.open(`https://www.bilibili.com/bangumi/media/md${item.season_id}/`, '_blank')
+      }
+    })
+  })
+}
+
+// 添加影视全部卡片
+function appendMediaAllCards(items) {
+  const gridEl = document.getElementById('media-all-grid')
+  if (!gridEl) return
+  
+  items.forEach(item => {
+    const card = document.createElement('div')
+    card.innerHTML = createMediaAllCard(item)
+    gridEl.appendChild(card)
+    
+    card.addEventListener('click', () => {
+      if (item.season_id) {
+        window.open(`https://www.bilibili.com/bangumi/media/md${item.season_id}/`, '_blank')
+      }
+    })
+  })
+}
+
+// 创建影视全部卡片HTML
+function createMediaAllCard(item) {
+  const coverUrl = item.cover?.startsWith('//') ? 'https:' + item.cover : (item.cover || '')
+  
+  let badges = []
+  
+  const badgeText = item.badge_info?.text || item.badge || ''
+  if (badgeText) {
+    const isMember = badgeText === '会员' || badgeText === '大会员'
+    const isProduct = badgeText === '出品'
+    const isDub = badgeText === '独播' || badgeText === '独家'
+    let colorClass = ''
+    if (isMember) colorClass = 'red'
+    else if (isProduct) colorClass = 'green'
+    else if (isDub) colorClass = 'blue'
+    badges.push({ text: badgeText, class: colorClass })
+  }
+  
+  if (item.is_pay === 1 && badgeText !== '会员' && badgeText !== '大会员') {
+    badges.push({ text: '大会员', class: 'red' })
+  } else if (item.is_free === 1) {
+    badges.push({ text: '免费', class: 'green' })
+  }
+  
+  const badgesHtml = badges.map(b => 
+    `<span class="bangumi-all-badge ${b.class}">${b.text}</span>`
+  ).join('')
+  
+  return `
+    <div class="bangumi-all-card">
+      <div class="bangumi-all-cover">
+        <img src="${coverUrl}" alt="${item.title}" loading="lazy">
+        ${badges.length > 0 ? `<div class="badges-container">${badgesHtml}</div>` : ''}
+        ${item.index_show ? `<span style="position: absolute; bottom: 8px; left: 8px; right: auto; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 3px;">${item.index_show}</span>` : ''}
+      </div>
+      <div class="bangumi-all-info">
+        <h3 class="bangumi-all-title">${item.title}</h3>
+        <p class="bangumi-all-desc">${item.subtitle || ''}</p>
+        <div class="bangumi-all-stat">${item.stat?.follow ? formatPlayCount(item.stat.follow) + '人追剧' : ''}</div>
+      </div>
+    </div>
+  `
+}
+
+// 初始化影视页面的查看全部按钮事件
+function initMediaViewAllButtons() {
+  const mediaHotViewAll = document.getElementById('view-all-media')
+  
+  mediaHotViewAll?.addEventListener('click', () => navigateToMediaAll())
+}
+
 // 导航到追番全部页面
 function navigateToBangumiAll(type = 'bangumi') {
   pageHistory.push(currentPage)
@@ -3315,10 +4082,19 @@ function navigateToBangumiAll(type = 'bangumi') {
 async function loadBangumiAllFilters() {
   try {
     const result = await ipcRenderer.invoke('fetch-bangumi-condition', { index_type: 4, type: 2 })
+    console.log('Bangumi condition API result:', JSON.stringify(result, null, 2))
     
     if (result.success && result.data) {
-      bangumiAllState.filterData = result.data.data
-      renderFilters(bangumiAllState.filterData)
+      console.log('Bangumi condition API response data:', JSON.stringify(result.data, null, 2))
+      // main.js返回的是 { success: true, data: apiResult }
+      // apiResult的结构是 { code: 0, data: { filter: [...] }, message: "success" }
+      // 所以实际路径是 result.data.data.filter
+      const filterData = result.data.data?.filter || result.data.filter || result.data.result?.filters || []
+      console.log('filterData set to:', JSON.stringify(filterData, null, 2))
+      console.log('filterData length:', filterData.length)
+      renderFilters(filterData)
+    } else {
+      console.error('Bangumi condition API failed:', result.error)
     }
   } catch (error) {
     console.error('加载筛选条件失败:', error)
@@ -3327,57 +4103,140 @@ async function loadBangumiAllFilters() {
 
 // 渲染筛选条件
 function renderFilters(filterData) {
+  console.log('renderFilters called with:', JSON.stringify(filterData, null, 2))
+  
+  const filtersMap = {}
+  const labelsMap = {}
+  if (Array.isArray(filterData)) {
+    filterData.forEach(item => {
+      filtersMap[item.field] = item.values || []
+      labelsMap[item.field] = item.name || ''
+    })
+  }
+  
+  console.log('filtersMap:', JSON.stringify(filtersMap, null, 2))
+  console.log('labelsMap:', JSON.stringify(labelsMap, null, 2))
+  
   // 渲染地区
-  renderFilterOptions('area-options', filterData.area || [], 'area', '全部地区')
+  renderFilterOptions('filter-area', 'area-options', filtersMap.area || [], 'area', labelsMap.area || '地区')
   
   // 渲染风格
-  renderFilterOptions('style-options', filterData.style || [], 'style_id', '全部风格')
+  renderFilterOptions('filter-style', 'style-options', filtersMap.style_id || [], 'style_id', labelsMap.style_id || '风格')
   
   // 渲染版本类型
-  renderFilterOptions('version-options', filterData.season_version || [], 'season_version', '全部版本')
+  renderFilterOptions('filter-version', 'version-options', filtersMap.season_version || [], 'season_version', labelsMap.season_version || '版本类型')
   
   // 渲染付费类型
-  renderFilterOptions('pay-options', filterData.pay || [], 'pay', '全部类型')
+  renderFilterOptions('filter-pay', 'pay-options', filtersMap.season_status || [], 'season_status', labelsMap.season_status || '付费类型')
   
   // 渲染配音类型
-  renderFilterOptions('audio-options', filterData.language || [], 'spoken_language_type', '全部配音')
+  console.log('spoken_language_type data:', JSON.stringify(filtersMap.spoken_language_type, null, 2))
+  renderFilterOptions('filter-audio', 'audio-options', filtersMap.spoken_language_type || [], 'spoken_language_type', labelsMap.spoken_language_type || '配音类型')
   
   // 渲染版权类型
-  renderFilterOptions('copyright-options', filterData.copyright || [], 'copyright', '全部版权')
+  renderFilterOptions('filter-copyright', 'copyright-options', filtersMap.copyright || [], 'copyright', labelsMap.copyright || '版权类型')
   
   // 渲染完结状态
-  renderFilterOptions('status-options', filterData.is_finish || [], 'is_finish', '全部状态')
+  renderFilterOptions('filter-status', 'status-options', filtersMap.is_finish || [], 'is_finish', labelsMap.is_finish || '完结状态')
   
   // 渲染年份
-  renderYearOptions(filterData.year || [])
+  renderYearOptions('filter-year', filtersMap.year || [], labelsMap.year || '年份')
   
   // 渲染季度
-  renderQuarterOptions()
+  renderQuarterOptions('filter-quarter', labelsMap.season_month || '季度')
   
   // 渲染排序
   renderSortOptions()
+  
+  // 初始化更多筛选按钮
+  initMoreFilterButton()
+}
+
+// 更多筛选按钮初始化标志，防止重复绑定事件
+let moreFilterButtonInitialized = false
+
+// 初始化更多筛选按钮
+function initMoreFilterButton() {
+  const moreFilterBtn = document.getElementById('moreFilterBtn')
+  const filterExpandable = document.getElementById('filterExpandable')
+  
+  if (!moreFilterBtn || !filterExpandable) return
+  
+  // 如果已经初始化过，直接重置状态并返回
+  if (moreFilterButtonInitialized) {
+    // 重置为收缩状态
+    filterExpandable.style.display = 'none'
+    moreFilterBtn.classList.remove('expanded')
+    moreFilterBtn.querySelector('.more-filter-text').textContent = '更多筛选'
+    return
+  }
+  
+  // 添加点击事件
+  moreFilterBtn.addEventListener('click', () => {
+    const isExpanded = filterExpandable.style.display !== 'none'
+    
+    if (isExpanded) {
+      // 收缩
+      filterExpandable.style.display = 'none'
+      moreFilterBtn.classList.remove('expanded')
+      moreFilterBtn.querySelector('.more-filter-text').textContent = '更多筛选'
+    } else {
+      // 展开
+      filterExpandable.style.display = 'block'
+      moreFilterBtn.classList.add('expanded')
+      moreFilterBtn.querySelector('.more-filter-text').textContent = '收起筛选'
+    }
+  })
+  
+  // 标记已初始化
+  moreFilterButtonInitialized = true
 }
 
 // 渲染普通筛选选项
-function renderFilterOptions(containerId, options, filterKey, allLabel) {
+function renderFilterOptions(filterRowId, containerId, options, filterKey, label) {
   const container = document.getElementById(containerId)
-  if (!container || !options.length) return
+  const filterRow = document.getElementById(filterRowId)
+  console.log(`renderFilterOptions called: filterRowId=${filterRowId}, containerId=${containerId}, options.length=${options?.length}, filterKey=${filterKey}, label=${label}`)
+  
+  if (!container) {
+    console.log(`renderFilterOptions: skipping render for ${containerId} - container does not exist`)
+    return
+  }
+  
+  // 更新筛选条件标签
+  if (filterRow) {
+    const labelEl = filterRow.querySelector('.filter-label')
+    if (labelEl) {
+      labelEl.textContent = label
+    }
+  }
+  
+  // "全部"选项的标签：在label前加"全部"
+  const allLabel = `全部${label}`
   
   let html = `<span class="filter-option ${bangumiAllState.currentFilters[filterKey] === -1 ? 'active' : ''}" data-key="${filterKey}" data-value="-1">${allLabel}</span>`
   
-  options.forEach(opt => {
-    const isActive = bangumiAllState.currentFilters[filterKey] === opt.id
-    html += `<span class="filter-option ${isActive ? 'active' : ''}" data-key="${filterKey}" data-value="${opt.id}">${opt.name}</span>`
-  })
+  if (options && options.length > 0) {
+    options.forEach(opt => {
+      // 使用 keyword 代替 id，并且跳过 keyword 为 -1 的选项（已经有"全部"选项）
+      if (opt.keyword === '-1') return
+      const value = opt.keyword
+      const isActive = bangumiAllState.currentFilters[filterKey] === value || 
+                      bangumiAllState.currentFilters[filterKey] === parseInt(value)
+      html += `<span class="filter-option ${isActive ? 'active' : ''}" data-key="${filterKey}" data-value="${value}">${opt.name}</span>`
+    })
+  }
   
   container.innerHTML = html
+  console.log(`renderFilterOptions: rendered ${options?.length || 0} options for ${containerId}`)
   
   // 添加点击事件
   container.querySelectorAll('.filter-option').forEach(el => {
     el.addEventListener('click', () => {
       const key = el.dataset.key
-      const value = parseInt(el.dataset.value)
-      bangumiAllState.currentFilters[key] = value
+      const value = el.dataset.value
+      // 对于数值类型的筛选条件，转换为整数
+      bangumiAllState.currentFilters[key] = value === '-1' ? -1 : value
       bangumiAllState.page = 1
       bangumiAllState.hasMore = true
       
@@ -3392,26 +4251,50 @@ function renderFilterOptions(containerId, options, filterKey, allLabel) {
 }
 
 // 渲染年份选项
-function renderYearOptions(years) {
+function renderYearOptions(filterRowId, years, label) {
   const container = document.getElementById('year-options')
+  const filterRow = document.getElementById(filterRowId)
   if (!container) return
   
-  let html = `<span class="filter-option ${bangumiAllState.currentFilters.year === -1 ? 'active' : ''}" data-key="year" data-value="-1">全部年份</span>`
+  // 更新筛选条件标签
+  if (filterRow) {
+    const labelEl = filterRow.querySelector('.filter-label')
+    if (labelEl) {
+      labelEl.textContent = label
+    }
+  }
   
-  // 按年份排序，最新的在前
-  const sortedYears = [...years].sort((a, b) => b.id - a.id)
+  // "全部"选项的标签：在label前加"全部"
+  const allLabel = `全部${label}`
   
-  sortedYears.forEach(year => {
-    const isActive = bangumiAllState.currentFilters.year === year.id
-    html += `<span class="filter-option ${isActive ? 'active' : ''}" data-key="year" data-value="${year.id}">${year.id}</span>`
-  })
+  let html = `<span class="filter-option ${bangumiAllState.currentFilters.year === -1 ? 'active' : ''}" data-key="year" data-value="-1">${allLabel}</span>`
+  
+  if (years && years.length > 0) {
+    // 过滤掉 keyword 为 -1 的选项，然后按名称排序（最新的在前）
+    const filteredYears = years.filter(y => y.keyword !== '-1')
+    const sortedYears = [...filteredYears].sort((a, b) => {
+      // 尝试提取年份数字进行排序
+      const yearA = parseInt(a.name) || 0
+      const yearB = parseInt(b.name) || 0
+      return yearB - yearA
+    })
+    
+    sortedYears.forEach(year => {
+      const value = year.keyword
+      const isActive = bangumiAllState.currentFilters.year === value || 
+                      bangumiAllState.currentFilters.year === parseInt(value)
+      html += `<span class="filter-option ${isActive ? 'active' : ''}" data-key="year" data-value="${value}">${year.name}</span>`
+    })
+  }
   
   container.innerHTML = html
+  console.log(`renderYearOptions: rendered ${years?.length || 0} years`)
   
   // 添加点击事件
   container.querySelectorAll('.filter-option').forEach(el => {
     el.addEventListener('click', () => {
-      bangumiAllState.currentFilters.year = parseInt(el.dataset.value)
+      const value = el.dataset.value
+      bangumiAllState.currentFilters.year = value === '-1' ? -1 : value
       bangumiAllState.page = 1
       bangumiAllState.hasMore = true
       
@@ -3424,12 +4307,24 @@ function renderYearOptions(years) {
 }
 
 // 渲染季度选项
-function renderQuarterOptions() {
+function renderQuarterOptions(filterRowId, label) {
   const container = document.getElementById('quarter-options')
+  const filterRow = document.getElementById(filterRowId)
   if (!container) return
   
+  // 更新筛选条件标签
+  if (filterRow) {
+    const labelEl = filterRow.querySelector('.filter-label')
+    if (labelEl) {
+      labelEl.textContent = label
+    }
+  }
+  
+  // "全部"选项的标签：在label前加"全部"
+  const allLabel = `全部${label}`
+  
   const quarters = [
-    { value: -1, label: '全部季度' },
+    { value: -1, label: allLabel },
     { value: 1, label: '1月' },
     { value: 4, label: '4月' },
     { value: 7, label: '7月' },
@@ -3572,15 +4467,37 @@ function appendBangumiAllCards(items) {
 // 创建追番全部卡片HTML
 function createBangumiAllCard(item) {
   const coverUrl = item.cover?.startsWith('//') ? 'https:' + item.cover : (item.cover || '')
-  const badge = item.is_pay === 1 ? '大会员' : item.is_free === 1 ? '免费' : ''
-  const badgeClass = item.is_pay === 1 ? '' : item.is_free === 1 ? 'green' : 'blue'
+  
+  let badges = []
+  
+  const badgeText = item.badge_info?.text || item.badge || ''
+  if (badgeText) {
+    const isMember = badgeText === '会员' || badgeText === '大会员'
+    const isProduct = badgeText === '出品'
+    const isDub = badgeText === '独播' || badgeText === '独家'
+    let colorClass = ''
+    if (isMember) colorClass = 'red'
+    else if (isProduct) colorClass = 'green'
+    else if (isDub) colorClass = 'blue'
+    badges.push({ text: badgeText, class: colorClass })
+  }
+  
+  if (item.is_pay === 1 && badgeText !== '会员' && badgeText !== '大会员') {
+    badges.push({ text: '大会员', class: 'red' })
+  } else if (item.is_free === 1) {
+    badges.push({ text: '免费', class: 'green' })
+  }
+  
+  const badgesHtml = badges.map(b => 
+    `<span class="bangumi-all-badge ${b.class}">${b.text}</span>`
+  ).join('')
   
   return `
     <div class="bangumi-all-card">
       <div class="bangumi-all-cover">
         <img src="${coverUrl}" alt="${item.title}" loading="lazy">
-        ${badge ? `<span class="bangumi-all-badge ${badgeClass}">${badge}</span>` : ''}
-        ${item.index_show ? `<span style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 3px;">${item.index_show}</span>` : ''}
+        ${badges.length > 0 ? `<div class="badges-container">${badgesHtml}</div>` : ''}
+        ${item.index_show ? `<span style="position: absolute; bottom: 8px; left: 8px; right: auto; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 3px;">${item.index_show}</span>` : ''}
       </div>
       <div class="bangumi-all-info">
         <h3 class="bangumi-all-title">${item.title}</h3>
@@ -3603,6 +4520,7 @@ function initBangumiViewAllButtons() {
 // 在初始化时绑定事件
 document.addEventListener('DOMContentLoaded', () => {
   initBangumiViewAllButtons()
+  initMediaViewAllButtons()
 })
 
 document.addEventListener('keydown', e => {
@@ -3690,7 +4608,13 @@ function getClickableElements() {
     '.history-tag',
     '.my-tab',
     '.bottom-action-btn',
-    '.nav-link'
+    '.nav-link',
+    '.bangumi-card',
+    '.bangumi-all-card',
+    '.following-card',
+    '.waterfall-item',
+    '.filter-options span',
+    '.view-all'
   ]
   
   const elements = []

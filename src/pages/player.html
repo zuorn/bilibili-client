@@ -55,11 +55,17 @@
       opacity: 0;
       transition: transform 0.3s ease, opacity 0.3s ease;
       z-index: 100;
+      pointer-events: none;
+    }
+
+    .player-header * {
+      -webkit-app-region: no-drag;
     }
 
     .player-header.visible {
       transform: translateY(0);
       opacity: 1;
+      pointer-events: auto;
     }
 
     .header-left {
@@ -153,6 +159,7 @@
       z-index: 9999;
       display: none;
       overflow: hidden;
+      -webkit-app-region: no-drag;
     }
 
     .context-menu.show {
@@ -211,17 +218,15 @@
       margin: 0 !important;
       padding: 0 !important;
       overflow: hidden;
+      -webkit-app-region: no-drag;
+    }
+
+    .video-area, .video-area * {
+      -webkit-app-region: no-drag;
     }
     
     .drag-region {
-      position: absolute;
-      top: 20%;
-      left: 0;
-      right: 0;
-      bottom: 20%;
-      -webkit-app-region: drag;
-      background: transparent;
-      pointer-events: none;
+      display: none;
     }
 
     .video-player {
@@ -232,6 +237,8 @@
       position: absolute;
       top: 0;
       left: 0;
+      user-select: none;
+      -webkit-user-drag: none;
     }
 
     :fullscreen,
@@ -841,7 +848,7 @@
         <button class="retry-btn" id="retryBtn">重新加载</button>
       </div>
 
-      <video class="video-player" id="videoPlayer" playsinline webkit-playsinline></video>
+      <video class="video-player" id="videoPlayer" playsinline webkit-playsinline draggable="false"></video>
 
       <div class="drag-region"></div>
 
@@ -1057,12 +1064,74 @@
       contextMenu.classList.add('show')
     })
 
-    document.addEventListener('click', () => {
+    document.addEventListener('click', (e) => {
+      // 忽略右键点击，避免右键本身立即关闭上下文菜单
+      if (e.button === 2) return
       contextMenu.classList.remove('show')
     })
 
     contextMenu.addEventListener('click', (e) => {
       e.stopPropagation()
+    })
+
+    contextMenu.addEventListener('contextmenu', (e) => {
+      e.stopPropagation()
+    })
+
+    const videoArea = document.querySelector('.video-area')
+    let isWindowDragging = false
+    let dragStart = null
+    let windowStart = null
+
+    const stopWindowDrag = () => {
+      if (!isWindowDragging) return
+      isWindowDragging = false
+      dragStart = null
+      windowStart = null
+      document.removeEventListener('mousemove', handleWindowDrag)
+      document.removeEventListener('mouseup', stopWindowDrag)
+    }
+
+    const handleWindowDrag = (e) => {
+      if (!isWindowDragging) return
+      e.preventDefault()
+      const deltaX = e.screenX - dragStart.screenX
+      const deltaY = e.screenY - dragStart.screenY
+      if (windowStart) {
+        ipcRenderer.invoke('set-window-position-direct', windowStart.x + deltaX, windowStart.y + deltaY)
+      }
+    }
+
+    videoArea.addEventListener('mousedown', async (e) => {
+      if (e.button !== 0) return
+      const ignoreControl = e.target.closest('.player-controls, .video-info-panel, .window-control-btn, .speed-selector, .speed-option, .action-btn, .control-btn, .context-menu, .video-overlay')
+      if (ignoreControl) return
+
+      e.preventDefault()
+      e.stopPropagation()
+
+      const pos = await ipcRenderer.invoke('get-window-position')
+      if (!pos) return
+
+      isWindowDragging = true
+      dragStart = { screenX: e.screenX, screenY: e.screenY }
+      windowStart = { x: pos.x, y: pos.y }
+      document.addEventListener('mousemove', handleWindowDrag)
+      document.addEventListener('mouseup', stopWindowDrag)
+    })
+
+    videoArea.addEventListener('dragstart', (e) => {
+      e.preventDefault()
+    })
+
+    videoPlayer.addEventListener('dragstart', (e) => {
+      e.preventDefault()
+    })
+
+    document.addEventListener('dragstart', (e) => {
+      if (isWindowDragging) {
+        e.preventDefault()
+      }
     })
 
     menuCopyUrl.addEventListener('click', () => {

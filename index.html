@@ -156,7 +156,75 @@
 
       <!-- 影视页 -->
       <div class="page-content" id="page-media">
-        <!-- 影视页面内容将在这里实现 -->
+          <!-- 我的追剧 -->
+          <div class="bangumi-section" id="media-following">
+            <div class="section-header">
+              <h2 class="section-title"></h2>
+              <span class="view-all">我的追剧 ></span>
+            </div>
+            <div class="bangumi-scroll-container">
+              <div class="bangumi-horizontal-list" id="media-following-list"></div>
+            </div>
+          </div>
+
+          <!-- 正在热播 -->
+          <div class="bangumi-section" id="media-hot">
+            <div class="section-header">
+              <h2 class="section-title"></h2>
+              <span class="view-all" id="view-all-media">查看全部 ></span>
+            </div>
+            <div class="bangumi-grid" id="media-hot-grid"></div>
+          </div>
+
+          <!-- 电影热播 -->
+          <div class="bangumi-section" id="media-movie">
+            <div class="section-header">
+              <h2 class="section-title"></h2>
+              <span class="view-all" id="view-all-movie">查看全部 ></span>
+            </div>
+            <div class="bangumi-grid" id="movie-grid"></div>
+          </div>
+
+          <!-- 电视剧热播 -->
+          <div class="bangumi-section" id="media-tv">
+            <div class="section-header">
+              <h2 class="section-title"></h2>
+              <span class="view-all" id="view-all-tv">查看全部 ></span>
+            </div>
+            <div class="bangumi-grid" id="tv-grid"></div>
+          </div>
+
+          <!-- 纪录片热播 -->
+          <div class="bangumi-section" id="media-documentary">
+            <div class="section-header">
+              <h2 class="section-title"></h2>
+              <span class="view-all" id="view-all-documentary">查看全部 ></span>
+            </div>
+            <div class="bangumi-grid" id="documentary-grid"></div>
+          </div>
+
+          <!-- 综艺热播 -->
+          <div class="bangumi-section" id="media-variety">
+            <div class="section-header">
+              <h2 class="section-title"></h2>
+              <span class="view-all" id="view-all-variety">查看全部 ></span>
+            </div>
+            <div class="bangumi-grid" id="variety-grid"></div>
+          </div>
+
+          <!-- 猜你喜欢 - 瀑布流 -->
+          <div class="bangumi-section" id="media-guess">
+            <div class="section-header">
+              <h2 class="section-title"></h2>
+            </div>
+            <div class="waterfall-container" id="media-guess-waterfall"></div>
+            <div class="loading-more" id="media-loading-more" style="display: none;">
+              <span>加载中...</span>
+            </div>
+            <div class="no-more" id="media-no-more" style="display: none;">
+              <span>没有更多内容了</span>
+            </div>
+          </div>
       </div>
 
       <!-- 追番页 -->
@@ -212,6 +280,12 @@
           <div class="filter-row" id="filter-sort">
             <span class="filter-label">综合排序</span>
             <div class="filter-options" id="sort-options"></div>
+            <button class="more-filter-btn" id="moreFilterBtn">
+              <span class="more-filter-text">更多筛选</span>
+              <svg class="more-filter-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 17l-6-6 1.41-1.41L12 14.17l4.59-4.58L18 11l-6 6z"/>
+              </svg>
+            </button>
           </div>
           <div class="filter-row" id="filter-area">
             <span class="filter-label">全部地区</span>
@@ -229,25 +303,28 @@
             <span class="filter-label">付费类型</span>
             <div class="filter-options" id="pay-options"></div>
           </div>
-          <div class="filter-row" id="filter-audio">
-            <span class="filter-label">配音类型</span>
-            <div class="filter-options" id="audio-options"></div>
-          </div>
-          <div class="filter-row" id="filter-copyright">
-            <span class="filter-label">版权类型</span>
-            <div class="filter-options" id="copyright-options"></div>
-          </div>
-          <div class="filter-row" id="filter-status">
-            <span class="filter-label">完结状态</span>
-            <div class="filter-options" id="status-options"></div>
-          </div>
-          <div class="filter-row" id="filter-year">
-            <span class="filter-label">全部年份</span>
-            <div class="filter-options" id="year-options"></div>
-          </div>
-          <div class="filter-row" id="filter-quarter">
-            <span class="filter-label">全部季度</span>
-            <div class="filter-options" id="quarter-options"></div>
+          <!-- 可收缩的筛选区域 -->
+          <div class="filter-expandable" id="filterExpandable" style="display: none;">
+            <div class="filter-row" id="filter-audio">
+              <span class="filter-label">配音类型</span>
+              <div class="filter-options" id="audio-options"></div>
+            </div>
+            <div class="filter-row" id="filter-copyright">
+              <span class="filter-label">版权类型</span>
+              <div class="filter-options" id="copyright-options"></div>
+            </div>
+            <div class="filter-row" id="filter-status">
+              <span class="filter-label">完结状态</span>
+              <div class="filter-options" id="status-options"></div>
+            </div>
+            <div class="filter-row" id="filter-year">
+              <span class="filter-label">全部年份</span>
+              <div class="filter-options" id="year-options"></div>
+            </div>
+            <div class="filter-row" id="filter-quarter">
+              <span class="filter-label">全部季度</span>
+              <div class="filter-options" id="quarter-options"></div>
+            </div>
           </div>
         </div>
 
@@ -257,6 +334,42 @@
           <span>加载中...</span>
         </div>
         <div class="no-more" id="bangumi-all-no-more" style="display: none;">
+          <span>没有更多内容了</span>
+        </div>
+      </div>
+
+      <!-- 影视全部页 -->
+      <div class="page-content" id="page-media-all">
+        <!-- 筛选条件区域 -->
+        <div class="bangumi-filter-container">
+          <div class="filter-row" id="filter-media-sort">
+            <span class="filter-label">综合排序</span>
+            <div class="filter-options" id="media-sort-options"></div>
+          </div>
+          <div class="filter-row" id="filter-media-area">
+            <span class="filter-label">全部地区</span>
+            <div class="filter-options" id="media-area-options"></div>
+          </div>
+          <div class="filter-row" id="filter-media-style">
+            <span class="filter-label">全部风格</span>
+            <div class="filter-options" id="media-style-options"></div>
+          </div>
+          <div class="filter-row" id="filter-media-release">
+            <span class="filter-label">上映时间</span>
+            <div class="filter-options" id="media-release-options"></div>
+          </div>
+          <div class="filter-row" id="filter-media-status">
+            <span class="filter-label">付费状态</span>
+            <div class="filter-options" id="media-status-options"></div>
+          </div>
+        </div>
+
+        <!-- 视频卡片展示区域 -->
+        <div class="bangumi-all-grid" id="media-all-grid"></div>
+        <div class="loading-more" id="media-all-loading" style="display: none;">
+          <span>加载中...</span>
+        </div>
+        <div class="no-more" id="media-all-no-more" style="display: none;">
           <span>没有更多内容了</span>
         </div>
       </div>
@@ -307,11 +420,30 @@
                 </svg>
               </div>
               <div class="my-user-info">
-                <div class="my-login-text">点击登录</div>
+                <div class="my-login-row">
+                  <div class="my-login-text">点击登录</div>
+                  <span class="my-user-level" id="myUserLevel"></span>
+                </div>
                 <div class="my-coins">
                   <span>B币: -</span>
                   <span class="separator">|</span>
                   <span>硬币: -</span>
+                </div>
+              </div>
+            </div>
+            <div class="my-right-content" id="myRightContent" style="display: none;">
+              <div class="my-stats">
+                <div class="my-stat-item">
+                  <span class="stat-value" id="myDynCount">0</span>
+                  <span class="stat-label">动态</span>
+                </div>
+                <div class="my-stat-item">
+                  <span class="stat-value" id="myFollowingCount">0</span>
+                  <span class="stat-label">关注</span>
+                </div>
+                <div class="my-stat-item">
+                  <span class="stat-value" id="myFanCount">0</span>
+                  <span class="stat-label">粉丝</span>
                 </div>
               </div>
               <button class="logout-btn" id="logoutBtn" style="display: none;">退出登录</button>
@@ -383,6 +515,10 @@
             <div class="video-grid" id="bangumiGrid"></div>
           </div>
 
+          <div class="my-tab-content" id="drama-content" style="display: none;">
+            <div class="video-grid" id="dramaGrid"></div>
+          </div>
+
           <div class="my-tab-content" id="toview-content" style="display: none;">
             <div class="no-login-area">
               <div class="no-login-icon">
@@ -427,10 +563,10 @@
                   <span class="stat-value" id="fanCount">0</span>
                   <span class="stat-label">粉丝数</span>
                 </div>
-                <div class="stat-item">
+                <!-- <div class="stat-item">
                   <span class="stat-value" id="viewCount">0</span>
                   <span class="stat-label">获赞数</span>
-                </div>
+                </div> -->
               </div>
               <div class="up-actions">
                 <button class="follow-btn">+ 关注</button>
@@ -609,7 +745,7 @@
               <span class="settings-value">v1.0.0</span>
             </div>
             <div class="settings-item about-desc">
-              <p>基于 Electron + MPV 构建的哔哩哔哩客户端， <br>
+              <p>基于 Electron 构建的哔哩哔哩客户端， <br>
               仅供学习使用，不涉及任何商业用途。</p>
 
             </div>
@@ -625,7 +761,7 @@
             <path d="M21 3v5h-5"/>
           </svg>
         </button>
-        <button class="bottom-action-btn backtop-btn" id="backTopBtn" title="回到顶部">
+        <button class="bottom-action-btn backtop-btn hidden" id="backTopBtn" title="回到顶部">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M12 19V5"/>
             <path d="M5 12l7-7 7 7"/>
