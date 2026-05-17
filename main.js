@@ -2693,6 +2693,65 @@ ipcMain.handle('get-user-followings', async (event, mid) => {
   }
 })
 
+ipcMain.handle('get-following-groups', async (event, mid) => {
+  log('get-following-groups called, mid:', mid)
+  try {
+    const url = `https://api.bilibili.com/x/relation/tags?vmid=${mid}`
+    const result = await fetchApi(url)
+    log('Following groups result code:', result.code)
+    
+    if (result.code === 0 && result.data) {
+      return {
+        success: true,
+        data: result.data
+      }
+    } else {
+      return { success: false, error: '获取关注分组失败' }
+    }
+  } catch (error) {
+    log('Error getting following groups:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
+ipcMain.handle('get-following-list', async (event, params) => {
+  const { mid, tagid = -1, pn = 1, ps = 20, order = 'desc', order_type } = params || {}
+  log('get-following-list called, params:', params)
+  try {
+    let url
+    if (tagid !== -1) {
+      url = `https://api.bilibili.com/x/relation/tag?tagid=${tagid}&mid=${mid}&pn=${pn}&ps=${ps}`
+      if (order_type !== undefined) {
+        url += `&order_type=${order_type}`
+      }
+    } else {
+      url = `https://api.bilibili.com/x/relation/followings?vmid=${mid}&pn=${pn}&ps=${ps}&order=${order}`
+    }
+    const result = await fetchApi(url)
+    log('Following list result code:', result.code)
+    
+    if (result.code === 0 && result.data) {
+      let data = result.data
+      if (tagid !== -1 && data.list === undefined) {
+        if (Array.isArray(data)) {
+          data = { list: data }
+        } else if (data.followings !== undefined) {
+          data = { list: data.followings }
+        }
+      }
+      return {
+        success: true,
+        data: data
+      }
+    } else {
+      return { success: false, error: '获取关注列表失败' }
+    }
+  } catch (error) {
+    log('Error getting following list:', error.message)
+    return { success: false, error: error.message }
+  }
+})
+
 ipcMain.handle('get-history', async (event, cursor = null) => {
   log('get-history called, cursor:', cursor)
   try {
