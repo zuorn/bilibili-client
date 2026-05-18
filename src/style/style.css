@@ -6,7 +6,7 @@
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-  background-color: #f4f4f4;
+  background-color: #ffffff;
   display: flex;
   flex-direction: column;
   height: 100vh;
@@ -894,7 +894,7 @@ body {
 .content-frame {
   flex: 1;
   border: none;
-  background-color: #f4f4f4;
+  background-color: #ffffff;
   height: calc(100vh - 64px);
   width: 100%;
 }
@@ -904,7 +904,7 @@ body {
   min-height: 0;
   overflow-y: auto;
   padding: 24px;
-  background-color: #f4f4f4;
+  background-color: #ffffff;
   margin-left: 80px;
 }
 
@@ -1073,7 +1073,7 @@ body {
 }
 
 .up-info-section {
-  background-color: #fff;
+  background-color: #f6f7f8;
   padding: 20px;
   display: flex;
   align-items: center;
@@ -1189,7 +1189,7 @@ body {
 }
 
 .message-btn {
-  background-color: #f1f2f3;
+  background-color: #ffffff;
   color: #61666d;
   border: none;
   padding: 8px 24px;
@@ -1275,7 +1275,7 @@ body {
 
 .dynamic-page {
   min-height: 100%;
-  background-color: #f4f4f4;
+  background-color: #ffffff;
 }
 
 .dynamic-header {
@@ -1371,7 +1371,7 @@ body {
 
 .my-page {
   min-height: 100%;
-  background-color: #f4f4f4;
+  background-color: #ffffff;
 }
 
 .user-header {
@@ -1464,7 +1464,7 @@ body {
 .history-search-box {
   display: flex;
   align-items: center;
-  background-color: #f4f4f4;
+  background-color: #ffffff;
   border-radius: 20px;
   padding: 4px 12px;
 }
@@ -2011,7 +2011,7 @@ body {
 }
 
 .my-header {
-  background-color: #fff;
+  background-color: #f6f7f8;
   border-radius: 8px;
   padding: 20px;
   margin-bottom: 16px;
@@ -2109,7 +2109,7 @@ body {
 
 .logout-btn {
   padding: 8px 16px;
-  background-color: #f5f5f5;
+  background-color: #ffffff;
   border: none;
   border-radius: 8px;
   color: #757575;
@@ -2985,28 +2985,38 @@ body.dark-theme .about-desc p {
 
 .settings-button {
   padding: 8px 20px;
-  background-color: #f1f2f3;
-  border: none;
+  background-color: rgba(251, 114, 153, 0.08);
+  border: 1px solid rgba(251, 114, 153, 0.2);
   border-radius: 8px;
-  font-size: 14px;
-  color: #61666d;
+  font-size: 13px;
+  color: #fb7299;
   cursor: pointer;
   transition: all 0.2s;
+  font-weight: 500;
 }
 
 .settings-button:hover {
-  background-color: #e5e6e7;
-  color: #18191c;
+  background-color: #fb7299;
+  color: #fff;
+  border-color: #fb7299;
+  box-shadow: 0 2px 8px rgba(251, 114, 153, 0.25);
+}
+
+.settings-button:active {
+  transform: scale(0.97);
 }
 
 body.dark-theme .settings-button {
-  background-color: #333;
-  color: #a0a0a0;
+  background-color: rgba(251, 114, 153, 0.12);
+  border-color: rgba(251, 114, 153, 0.25);
+  color: #fb7299;
 }
 
 body.dark-theme .settings-button:hover {
-  background-color: #3a3a3a;
-  color: #e0e0e0;
+  background-color: #fb7299;
+  color: #fff;
+  border-color: #fb7299;
+  box-shadow: 0 2px 12px rgba(251, 114, 153, 0.3);
 }
 
 body.dark-theme .settings-user-name {
@@ -3591,7 +3601,7 @@ body.dark-theme .sidebar::-webkit-scrollbar-thumb {
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  background-color: #f4f4f4;
+  background-color: #ffffff;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
@@ -4211,7 +4221,7 @@ body.dark-theme .refresh-btn:not(.bottom-action-btn):hover {
 
 .my-tabs-container {
   z-index: 100;
-  background-color: #f4f4f4;
+  background-color: #ffffff;
   transition: box-shadow 0.2s ease;
 }
 
@@ -4690,7 +4700,7 @@ body.dark-theme .sort-btn.active {
 }
 
 .shortcut-close-btn:hover {
-  background-color: #f4f4f4;
+  background-color: #ffffff;
   color: #18191c;
 }
 
@@ -4871,7 +4881,7 @@ body.dark-theme .sort-btn.active {
 }
 
 .shortcut-reset-btn {
-  background-color: #f4f4f4;
+  background-color: #ffffff;
   border: 1px solid #e3e5e7;
   color: #444;
 }

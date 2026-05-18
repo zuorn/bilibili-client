@@ -1,0 +1,692 @@
+.bangumi-section {
+  margin-bottom: 32px;
+}
+
+.bangumi-section .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.bangumi-section .section-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: #111;
+}
+
+.section-header .view-all {
+  font-size: 14px;
+  color: #999;
+  cursor: pointer;
+  padding: 5px 14px;
+  border-radius: 20px;
+  background: #f5f5f5;
+}
+
+.section-header .view-all:hover {
+  background: #eee;
+}
+
+/* 我的追番 - 横向滚动列表 */
+.bangumi-scroll-container {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.bangumi-scroll-container::-webkit-scrollbar {
+  display: none;
+}
+
+.bangumi-horizontal-list {
+  display: flex;
+  gap: 16px;
+  padding-bottom: 8px;
+}
+
+/* 我的追番卡片 */
+.following-card {
+  flex-shrink: 0;
+  width: 240px;
+  background-color: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.following-card:hover {
+}
+
+.following-cover {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%;
+  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+  overflow: hidden;
+}
+
+.following-cover img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.following-card:hover .following-cover img {
+  transform: scale(1.05);
+}
+
+.following-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #00C0FF;
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.following-badge.product {
+  background: #56C425;
+}
+
+.following-badge.member {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: #FB7299;
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  width: auto;
+  height: auto;
+}
+
+.following-total {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.following-new-ep {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.following-info {
+  padding: 12px;
+}
+
+.following-title {
+  font-size: 14px;
+  color: #18191c;
+  font-weight: 500;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.following-status {
+  font-size: 12px;
+  color: #9499a0;
+}
+
+/* 番剧推荐/国创推荐卡片 */
+.bangumi-card {
+  background-color: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: all 0.25s;
+  width: 100%;
+}
+
+.bangumi-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.bangumi-card .bangumi-cover {
+  position: relative;
+  width: 100%;
+  padding-top: 133.33%;
+  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+  overflow: hidden;
+}
+
+.bangumi-card .bangumi-cover img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.bangumi-card:hover .bangumi-cover img {
+  transform: scale(1.05);
+}
+
+.bangumi-card .bangumi-info {
+  padding: 12px;
+}
+
+.bangumi-grid {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 16px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.bangumi-grid::-webkit-scrollbar {
+  display: none;
+}
+
+.bangumi-grid .bangumi-card {
+  flex-shrink: 0;
+  width: 200px;
+}
+
+.waterfall-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 24px;
+}
+
+.waterfall-item {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.waterfall-item:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.waterfall-cover {
+  position: relative;
+  width: 100%;
+  padding-top: 133.33%;
+  overflow: hidden;
+  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+}
+
+.waterfall-cover img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  transition: transform 0.3s;
+}
+
+.waterfall-item:hover .waterfall-cover img {
+  transform: scale(1.05);
+}
+
+.waterfall-badge {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: #00C0FF;
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.waterfall-badge.product {
+  background: #56C425;
+}
+
+.waterfall-badge.member {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: #FB7299;
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  width: auto;
+  height: auto;
+  display: inline;
+}
+
+.waterfall-new-ep {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  background: rgba(0,0,0,0.75);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.waterfall-info {
+  padding: 12px;
+}
+
+.waterfall-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #18191c;
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.waterfall-desc {
+  font-size: 12px;
+  color: #9499a0;
+  margin-bottom: 6px;
+}
+
+.waterfall-tag {
+  display: inline-block;
+  font-size: 12px;
+  color: #9499a0;
+  background: #f5f5f5;
+  padding: 3px 8px;
+  border-radius: 6px;
+  margin-right: 6px;
+}
+
+/* 响应式 */
+
+.hot-tag {
+  font-size: 12px;
+  color: #999;
+  margin-left: 8px;
+}
+
+.hot-tag.bangumi {
+  color: #fb7299;
+}
+
+.hot-tag.video {
+  color: #00a1d6;
+}
+
+.hot-tag.new {
+  color: #56c425;
+}
+
+.hot-tag.exclusive {
+  color: #fb7299;
+}
+
+.anime-section {
+  margin-bottom: 32px;
+}
+
+.anime-section .section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.anime-section .section-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #18191c;
+  margin: 0;
+}
+
+.anime-section .section-more {
+  font-size: 14px;
+  color: #9499a0;
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+}
+
+.anime-section .section-more:hover {
+  color: #fb7299;
+}
+
+.anime-carousel {
+  overflow: hidden;
+  position: relative;
+}
+
+.carousel-scroll {
+  display: flex;
+  gap: 16px;
+  overflow-x: auto;
+  padding-bottom: 8px;
+  scrollbar-width: none;
+}
+
+.carousel-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+.empty-carousel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 0;
+  background-color: #fff;
+  border-radius: 12px;
+}
+
+.empty-carousel p {
+  font-size: 14px;
+  color: #9499a0;
+  margin: 0;
+}
+
+.empty-carousel .empty-hint {
+  font-size: 12px;
+  margin-top: 8px;
+}
+
+.anime-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.anime-waterfall-grid {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 16px;
+}
+
+.waterfall-item {
+  break-inside: avoid;
+}
+
+.anime-card {
+  background-color: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.anime-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.anime-cover {
+  position: relative;
+  width: 100%;
+  padding-top: 140%;
+  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+}
+
+.anime-cover img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.anime-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  background-color: rgba(0, 0, 0, 0.6);
+  color: #fff;
+  border-radius: 4px;
+}
+
+.anime-score {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+  color: #fff;
+  border-radius: 4px;
+}
+
+.anime-info {
+  padding: 10px;
+}
+
+.anime-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #18191c;
+  margin: 0 0 6px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.anime-episode {
+  font-size: 12px;
+  color: #9499a0;
+  margin: 0;
+}
+
+.empty-grid {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 40px;
+  color: #9499a0;
+  background-color: #fff;
+  border-radius: 8px;
+}
+
+.refresh-btn:not(.bottom-action-btn) {
+  background: none;
+  border: none;
+  cursor: pointer;
+  color: #9499a0;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.refresh-btn:not(.bottom-action-btn):hover {
+  background-color: #f5f5f5;
+  color: #61666d;
+}
+
+.refresh-btn:not(.bottom-action-btn) svg {
+  width: 18px;
+  height: 18px;
+}
+
+.refresh-btn.refreshing {
+  animation: rotate 0.5s linear infinite;
+}
+
+@keyframes rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.anime-page-container {
+  padding: 0;
+}
+
+.anime-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 300px;
+  color: #9499a0;
+  font-size: 14px;
+}
+
+.anime-loading span::after {
+  content: '';
+  width: 16px;
+  height: 16px;
+  border: 2px solid #fb7299;
+  border-top-color: transparent;
+  border-radius: 50%;
+  margin-left: 8px;
+  animation: spin 0.8s linear infinite;
+  display: inline-block;
+  vertical-align: middle;
+}
+
+.anime-page-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 20px;
+  color: #9499a0;
+}
+
+.anime-page-error .error-icon {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 16px;
+  color: #d0d0d0;
+}
+
+.anime-page-error .error-text {
+  font-size: 14px;
+  margin-bottom: 16px;
+}
+
+.anime-page-error .retry-btn {
+  padding: 8px 24px;
+  background-color: #fb7299;
+  color: #fff;
+  border: none;
+  border-radius: 20px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.anime-page-error .retry-btn:hover {
+  background-color: #e66488;
+}
+
+.my-anime-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 16px;
+}
+
+.my-anime-card {
+  background-color: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.my-anime-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.my-anime-cover {
+  position: relative;
+  width: 100%;
+  padding-top: 140%;
+  background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
+}
+
+.my-anime-cover img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.my-anime-progress {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 4px;
+  background-color: rgba(0, 0, 0, 0.3);
+}
+
+.my-anime-progress-bar {
+  height: 100%;
+  background: linear-gradient(90deg, #fb7299 0%, #ff8eb3 100%);
+  transition: width 0.3s;
+}
+
+.my-anime-info {
+  padding: 10px;
+}
+
+.my-anime-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: #18191c;
+  margin: 0 0 6px 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.4;
+}
+
+.my-anime-history {
+  display: flex;
+  justify-content: space-between;
+  font-size: 12px;
+  color: #9499a0;
+}

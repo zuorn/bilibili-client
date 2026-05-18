@@ -1,0 +1,254 @@
+.following-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.following-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  width: 80px;
+  position: relative;
+}
+
+.following-item .update-dot {
+  position: absolute;
+  top: 22px;
+  left: -10px;
+  width: 14px;
+  height: 14px;
+  background-color: #ff5a5a;
+  border-radius: 50%;
+  border: 2px solid #fff;
+  z-index: 1;
+  flex-shrink: 0;
+}
+
+.following-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  margin-bottom: 8px;
+  position: relative;
+}
+
+.following-avatar .avatar-wrap {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  overflow: hidden;
+}
+
+.following-avatar .avatar-wrap img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.following-avatar svg {
+  width: 56px;
+  height: 56px;
+}
+
+.following-name {
+  font-size: 12px;
+  color: #666;
+  text-align: center;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.following-container {
+  display: flex;
+  height: 100%;
+}
+
+.following-content {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.following-section-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.following-section {
+  background-color: #fff;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.following-section-header {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.following-section-header:hover {
+  background-color: #fafafa;
+}
+
+.following-section-sort-btn {
+  margin-left: auto;
+  padding: 4px 10px;
+  font-size: 12px;
+  color: #666;
+  background-color: #f5f5f5;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.following-section-sort-btn:hover {
+  background-color: #e8e8e8;
+  color: #333;
+}
+
+.following-section-icon {
+  width: 14px;
+  height: 14px;
+  color: #666;
+  margin-right: 8px;
+  transition: transform 0.2s ease;
+  flex-shrink: 0;
+}
+
+.following-section-icon.rotated {
+  transform: rotate(180deg);
+}
+
+.following-section-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #18191c;
+}
+
+.following-section-count {
+  font-size: 12px;
+  color: #999;
+  margin-left: 8px;
+}
+
+.following-section-content {
+  transition: max-height 0.25s ease, opacity 0.25s ease, padding 0.25s ease;
+  overflow: hidden;
+  max-height: 2000px;
+  opacity: 1;
+  padding: 8px 0;
+}
+
+.following-section-content.collapsed {
+  max-height: 0;
+  padding: 0;
+  opacity: 0;
+}
+
+.following-users-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0;
+}
+
+.following-user-card {
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: background-color 0.15s;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.user-card-inner {
+  display: flex;
+  width: 100%;
+}
+
+.following-user-card:nth-child(odd) {
+  border-right: 1px solid #f0f0f0;
+}
+
+.following-user-card:last-child,
+.following-user-card:nth-last-child(2) {
+  border-bottom: none;
+}
+
+.following-user-card:hover {
+  background-color: #f8f9fa;
+}
+
+.user-avatar-wrapper {
+  position: relative;
+  margin-right: 14px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-top: 35px;
+}
+
+.user-avatar {
+  width: 90px;
+  height: 90px;
+  border-radius: 100%;
+  object-fit: cover;
+  border: 1px solid #ddd;
+}
+
+.user-verify-icon {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  width: 16px;
+  height: 16px;
+}
+
+.user-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 4px;
+  align-items: flex-start;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: #fb7299;
+  margin-bottom: 3px;
+}
+
+.user-sign {
+  font-size: 12px;
+  color: #999;
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.user-follow-btn {
+  padding: 4px 14px;
+  border: 1px solid #e0e0e0;
+  border-radius: 14px;
+  background-color: #f5f5f5;
+  color: #999;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: fit-content;
+}
+
+.user-follow-btn:hover {
+  border-color: #d0d0d0;
+  background-color: #eeeeee;
+}

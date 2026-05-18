@@ -58,7 +58,7 @@
       pointer-events: none;
     }
 
-    .player-header * {
+    .header-right {
       -webkit-app-region: no-drag;
     }
 
@@ -401,6 +401,7 @@
       opacity: 0;
       transition: transform 0.3s ease, opacity 0.3s ease;
       z-index: 100;
+      -webkit-app-region: no-drag;
     }
 
     .control-btn {
@@ -1078,60 +1079,37 @@
       e.stopPropagation()
     })
 
+    // 手动窗口拖拽（视频区域左键拖拽移动窗口）
     const videoArea = document.querySelector('.video-area')
-    let isWindowDragging = false
-    let dragStart = null
-    let windowStart = null
-
-    const stopWindowDrag = () => {
-      if (!isWindowDragging) return
-      isWindowDragging = false
-      dragStart = null
-      windowStart = null
-      document.removeEventListener('mousemove', handleWindowDrag)
-      document.removeEventListener('mouseup', stopWindowDrag)
-    }
-
-    const handleWindowDrag = (e) => {
-      if (!isWindowDragging) return
-      e.preventDefault()
-      const deltaX = e.screenX - dragStart.screenX
-      const deltaY = e.screenY - dragStart.screenY
-      if (windowStart) {
-        ipcRenderer.invoke('set-window-position-direct', windowStart.x + deltaX, windowStart.y + deltaY)
-      }
-    }
+    let isDragging = false
+    let dragStartScreen = null
+    let dragBounds = null
 
     videoArea.addEventListener('mousedown', async (e) => {
       if (e.button !== 0) return
-      const ignoreControl = e.target.closest('.player-controls, .video-info-panel, .window-control-btn, .speed-selector, .speed-option, .action-btn, .control-btn, .context-menu, .video-overlay')
-      if (ignoreControl) return
+      const ignore = e.target.closest('.player-controls, .video-info-panel, .window-control-btn, .speed-selector, .speed-option, .action-btn, .control-btn, .context-menu, .video-overlay, .danmaku-container, .progress-bar, .volume-bar, .volume-control, .playback-speed, .time-display')
+      if (ignore) return
 
       e.preventDefault()
-      e.stopPropagation()
+      const bounds = await ipcRenderer.invoke('get-window-bounds')
+      if (!bounds) return
 
-      const pos = await ipcRenderer.invoke('get-window-position')
-      if (!pos) return
-
-      isWindowDragging = true
-      dragStart = { screenX: e.screenX, screenY: e.screenY }
-      windowStart = { x: pos.x, y: pos.y }
-      document.addEventListener('mousemove', handleWindowDrag)
-      document.addEventListener('mouseup', stopWindowDrag)
+      isDragging = true
+      dragStartScreen = { x: e.screenX, y: e.screenY }
+      dragBounds = { x: bounds.x, y: bounds.y, width: bounds.width, height: bounds.height }
     })
 
-    videoArea.addEventListener('dragstart', (e) => {
-      e.preventDefault()
+    document.addEventListener('mousemove', (e) => {
+      if (!isDragging) return
+      const dx = e.screenX - dragStartScreen.x
+      const dy = e.screenY - dragStartScreen.y
+      ipcRenderer.send('move-window-bounds', dragBounds.x + dx, dragBounds.y + dy, dragBounds.width, dragBounds.height)
     })
 
-    videoPlayer.addEventListener('dragstart', (e) => {
-      e.preventDefault()
-    })
-
-    document.addEventListener('dragstart', (e) => {
-      if (isWindowDragging) {
-        e.preventDefault()
-      }
+    document.addEventListener('mouseup', () => {
+      isDragging = false
+      dragStartScreen = null
+      dragBounds = null
     })
 
     menuCopyUrl.addEventListener('click', () => {
@@ -1413,7 +1391,7 @@
 
     const isVideoPlaying = () => {
       const vp = getVideoPlayer()
-      return vp && !vp.paused && vp.currentTime > 0 && !vp.ended
+      return vp && !vp.paused && !vp.ended
     }
 
     const showCursor = () => {
@@ -1436,6 +1414,8 @@
       }
       if (isVideoPlaying()) {
         cursorHideTimer = setTimeout(hideCursor, cursorHideDelay)
+      } else {
+        showCursor()
       }
     }
 
@@ -1484,24 +1464,10 @@
 
     // 按Q键关闭播放器，按F或回车键全屏，按-缩放窗口按=放大窗口
     let lastZoomTime = 0
-    const zoomThrottle = 200
-    let zoomPending = false
 
     const processZoom = (delta) => {
-      if (zoomPending) return
-
       const now = Date.now()
-      if (now - lastZoomTime < zoomThrottle) {
-        if (!zoomPending) {
-          zoomPending = true
-          setTimeout(() => {
-            zoomPending = false
-            lastZoomTime = Date.now()
-            ipcRenderer.invoke('zoom-player-window', delta)
-          }, zoomThrottle - (now - lastZoomTime))
-        }
-        return
-      }
+      if (now - lastZoomTime < 100) return
       lastZoomTime = now
       ipcRenderer.invoke('zoom-player-window', delta)
     }
@@ -1535,11 +1501,13 @@
         e.preventDefault()
         showControls()
         videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5)
+        scheduleHideControls()
       }
       if (e.key === 'ArrowRight') {
         e.preventDefault()
         showControls()
         videoPlayer.currentTime = Math.min(videoPlayer.duration, videoPlayer.currentTime + 5)
+        scheduleHideControls()
       }
       if (e.key === 'ArrowUp') {
         e.preventDefault()
@@ -1599,6 +1567,31 @@
         ipcRenderer.invoke('move-player-window', 'right')
       }
     })
+
+    // 鼠标滚轮：直接滚动=音量，Ctrl+滚动=进度，Alt+滚动=窗口缩放
+    document.addEventListener('wheel', (e) => {
+      if (e.ctrlKey) {
+        e.preventDefault()
+        const delta = e.deltaY > 0 ? 5 : -5
+        if (e.deltaY > 0) {
+          videoPlayer.currentTime = Math.min(videoPlayer.duration || 0, videoPlayer.currentTime + 5)
+        } else {
+          videoPlayer.currentTime = Math.max(0, videoPlayer.currentTime - 5)
+        }
+        showControls()
+        scheduleHideControls()
+      } else if (e.altKey) {
+        e.preventDefault()
+        ipcRenderer.invoke('zoom-player-window', e.deltaY > 0 ? -1 : 1)
+      } else {
+        e.preventDefault()
+        const delta = e.deltaY > 0 ? -0.05 : 0.05
+        videoPlayer.volume = Math.max(0, Math.min(1, videoPlayer.volume + delta))
+        updateVerticalVolumeDisplay()
+        showVerticalVolumeBar()
+        saveVolume(videoPlayer.volume)
+      }
+    }, { passive: false })
 
     ipcRenderer.on('play-video-data', async (event, data) => {
       console.log('Received play-video-data:', data)

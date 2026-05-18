@@ -1,0 +1,185 @@
+.history-container {
+  margin-top: 16px;
+}
+
+.history-date {
+  font-size: 14px;
+  font-weight: 600;
+  color: #18191c;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.history-videos {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.history-video-card {
+  display: flex;
+  gap: 12px;
+  padding: 12px;
+  background-color: #fff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.history-video-card:hover {
+  background-color: #f9f9f9;
+}
+
+.history-video-thumbnail {
+  width: 180px;
+  height: 100px;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+  flex-shrink: 0;
+}
+
+.history-video-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.history-video-info {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.history-video-title {
+  font-size: 14px;
+  color: #18191c;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.history-video-author {
+  font-size: 12px;
+  color: #999;
+  cursor: pointer;
+}
+
+.history-video-author:hover {
+  color: #fb7299;
+}
+
+.history-video-time {
+  font-size: 12px;
+  color: #999;
+}
+
+.no-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 60px 0;
+  background-color: #fff;
+  border-radius: 8px;
+}
+
+.no-content-icon {
+  width: 80px;
+  height: 80px;
+  margin-bottom: 16px;
+}
+
+.no-content-icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.no-content-text {
+  font-size: 14px;
+  color: #999;
+}
+
+/* 历史记录卡片更多按钮 */
+.video-card {
+  position: relative;
+}
+
+.video-title-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.video-title-row .video-title {
+  flex: 1;
+  margin-bottom: 0;
+  margin-right: 8px;
+}
+
+.history-more-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.history-more-btn {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #999;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.history-more-btn:hover {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.history-more-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 历史记录下拉菜单 */
+.history-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 4px 0;
+  min-width: 120px;
+  display: none;
+  z-index: 200;
+  overflow: hidden;
+}
+
+.dropdown-item {
+  padding: 8px 16px;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.dropdown-item:hover {
+  background-color: #f5f5f5;
+}
+
+.delete-history-btn {
+  color: #ff4d4f;
+}
+
+.delete-history-btn:hover {
+  background-color: #fff0f0;
+}

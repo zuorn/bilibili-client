@@ -1,0 +1,186 @@
+/* 追番全部页面样式 */
+.bangumi-filter-container {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px;
+  margin-bottom: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.more-filter-btn {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border: 2px solid #fb7299;
+  background: transparent;
+  color: #fb7299;
+  font-size: 14px;
+  cursor: pointer;
+  border-radius: 20px;
+  transition: all 0.2s;
+}
+
+.more-filter-btn:hover {
+  background: rgba(251, 114, 153, 0.1);
+}
+
+.more-filter-icon {
+  width: 16px;
+  height: 16px;
+  transition: transform 0.2s;
+}
+
+.more-filter-btn.expanded .more-filter-icon {
+  transform: rotate(180deg);
+}
+
+.filter-expandable {
+  overflow: hidden;
+  transition: all 0.3s ease;
+}
+
+.filter-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.filter-row:last-child {
+  border-bottom: none;
+}
+
+.filter-label {
+  font-size: 14px;
+  font-weight: 500;
+  color: #fb7299;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.filter-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  flex: 1;
+}
+
+.filter-option {
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 14px;
+  color: #666;
+  background: #f5f5f5;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+}
+
+.filter-option:hover {
+  background: #eee;
+}
+
+.filter-option.active {
+  background: #fb7299;
+  color: #fff;
+}
+
+.bangumi-all-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 20px;
+}
+
+.bangumi-all-card {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  cursor: pointer;
+  transition: all 0.25s;
+}
+
+.bangumi-all-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+}
+
+.bangumi-all-cover {
+  position: relative;
+  width: 100%;
+  padding-top: 133.33%;
+  overflow: hidden;
+}
+
+.bangumi-all-cover img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s;
+}
+
+.bangumi-all-card:hover .bangumi-all-cover img {
+  transform: scale(1.05);
+}
+
+.badges-container {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  z-index: 1;
+}
+
+.bangumi-all-badge {
+  background: #fb7299;
+  color: #fff;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.bangumi-all-badge.red {
+  background: #FB7299;
+}
+
+.bangumi-all-badge.blue {
+  background: #00C0FF;
+}
+
+.bangumi-all-badge.green {
+  background: #5CB85C;
+}
+
+.bangumi-all-info {
+  padding: 12px;
+}
+
+.bangumi-all-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #18191c;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 6px;
+}
+
+.bangumi-all-desc {
+  font-size: 12px;
+  color: #9499a0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-bottom: 6px;
+}
+
+.bangumi-all-stat {
+  font-size: 12px;
+  color: #9499a0;
+}

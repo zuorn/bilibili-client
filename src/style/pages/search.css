@@ -1,0 +1,16 @@
+.search-header {
+  margin-bottom: 20px;
+}
+
+.search-header h2 {
+  font-size: 20px;
+  color: #18191c;
+  font-weight: 600;
+}
+
+.no-more {
+  grid-column: 1 / -1;
+  text-align: center;
+  padding: 30px;
+  color: #999;
+}

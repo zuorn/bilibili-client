@@ -4,7 +4,29 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>哔哩哔哩 - (゜-゜)つロ 干杯~</title>
-  <link rel="stylesheet" href="src/style/style.css">
+  <!-- 基础样式 -->
+  <link rel="stylesheet" href="src/style/base.css">
+  <link rel="stylesheet" href="src/style/layout.css">
+  <!-- 组件样式 -->
+  <link rel="stylesheet" href="src/style/components/accesskey.css">
+  <link rel="stylesheet" href="src/style/components/history.css">
+  <link rel="stylesheet" href="src/style/components/login-modal.css">
+  <link rel="stylesheet" href="src/style/components/search-dropdown.css">
+  <link rel="stylesheet" href="src/style/components/shortcut-modal.css">
+  <link rel="stylesheet" href="src/style/components/states.css">
+  <link rel="stylesheet" href="src/style/components/tabs.css">
+  <link rel="stylesheet" href="src/style/components/video-card.css">
+  <!-- 页面样式 -->
+  <link rel="stylesheet" href="src/style/pages/bangumi.css">
+  <link rel="stylesheet" href="src/style/pages/bangumi-all.css">
+  <link rel="stylesheet" href="src/style/pages/dynamic.css">
+  <link rel="stylesheet" href="src/style/pages/following.css">
+  <link rel="stylesheet" href="src/style/pages/my-page.css">
+  <link rel="stylesheet" href="src/style/pages/search.css">
+  <link rel="stylesheet" href="src/style/pages/settings.css">
+  <link rel="stylesheet" href="src/style/pages/up-profile.css">
+  <!-- 暗色主题（最后加载，确保覆盖） -->
+  <link rel="stylesheet" href="src/style/dark-theme.css">
 </head>
 <body>
   <header class="header">
@@ -887,6 +909,33 @@
     </div>
   </div>
 
-  <script src="src/renderer/renderer.js"></script>
+  <!-- 核心模块 - 必须最先加载 -->
+  <script src="src/renderer/core/state.js"></script>
+  <script src="src/renderer/core/utils.js"></script>
+  <script src="src/renderer/core/navigation.js"></script>
+  <!-- 组件模块 -->
+  <script src="src/renderer/components/video-card.js"></script>
+  <script src="src/renderer/components/login.js"></script>
+  <script src="src/renderer/components/access-keys.js"></script>
+  <!-- 功能模块 -->
+  <script src="src/renderer/features/playback.js"></script>
+  <script src="src/renderer/features/scroll-handler.js"></script>
+  <script src="src/renderer/features/shortcuts.js"></script>
+  <script src="src/renderer/features/page-loader.js"></script>
+  <!-- 页面模块 -->
+  <script src="src/renderer/pages/home.js"></script>
+  <script src="src/renderer/pages/popular.js"></script>
+  <script src="src/renderer/pages/search.js"></script>
+  <script src="src/renderer/pages/up.js"></script>
+  <script src="src/renderer/pages/bangumi.js"></script>
+  <script src="src/renderer/pages/bangumi-all.js"></script>
+  <script src="src/renderer/pages/media.js"></script>
+  <script src="src/renderer/pages/media-all.js"></script>
+  <script src="src/renderer/pages/dynamic.js"></script>
+  <script src="src/renderer/pages/my.js"></script>
+  <script src="src/renderer/pages/following.js"></script>
+  <script src="src/renderer/pages/settings.js"></script>
+  <!-- 事件监听器 - 最后加载，包含 DOMContentLoaded 入口 -->
+  <script src="src/renderer/core/event-listeners.js"></script>
 </body>
 </html>
