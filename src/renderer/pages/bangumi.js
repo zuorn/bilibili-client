@@ -191,12 +191,7 @@ function createFollowingCard(item) {
   `
 
   card.addEventListener('click', () => {
-    if (item.url || item.link) {
-      const url = item.url || item.link
-      if (url.includes('bilibili.com')) {
-        window.open(url, '_blank')
-      }
-    }
+    playBangumi(item)
   })
 
   return card
@@ -239,12 +234,7 @@ function createBangumiCard(item) {
   `
 
   card.addEventListener('click', () => {
-    if (item.url || item.link) {
-      const url = item.url || item.link
-      if (url.includes('bilibili.com')) {
-        window.open(url, '_blank')
-      }
-    }
+    playBangumi(item)
   })
 
   return card
@@ -276,9 +266,7 @@ function createWaterfallCard(item) {
   `
 
   card.addEventListener('click', () => {
-    if (item.url || item.link) {
-      window.open(item.url || item.link, '_blank')
-    }
+    playBangumi(item)
   })
 
   return card

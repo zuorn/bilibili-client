@@ -230,15 +230,24 @@
     }
 
     .video-player {
-      width: 100% !important;
-      height: 100% !important;
-      object-fit: cover;
-      background-color: #000;
       position: absolute;
       top: 0;
       left: 0;
+      right: 0;
+      bottom: 0;
+      width: 100%;
+      height: 100%;
+      min-width: 100%;
+      min-height: 100%;
+      object-fit: cover;
+      background-color: #000;
       user-select: none;
       -webkit-user-drag: none;
+      transition: right 0.3s ease-out;
+    }
+
+    .video-player.with-panel {
+      right: 320px;
     }
 
     :fullscreen,
@@ -299,6 +308,13 @@
       margin: auto !important;
     }
 
+    :fullscreen .video-player.with-panel,
+    :-webkit-full-screen .video-player.with-panel,
+    :-moz-full-screen .video-player.with-panel,
+    :-ms-fullscreen .video-player.with-panel {
+      max-width: calc(100vw - 320px) !important;
+    }
+
     .video-overlay {
       position: absolute;
       top: 0;
@@ -309,7 +325,6 @@
       display: flex;
       flex-direction: column;
       justify-content: flex-end;
-      padding: 20px;
     }
 
     .danmaku-container {
@@ -554,23 +569,104 @@
 
     .video-info-panel {
       position: absolute;
-      right: 20px;
-      bottom: 80px;
-      width: 300px;
-      background: rgba(0,0,0,0.85);
-      border-radius: 8px;
-      padding: 16px;
+      right: 0;
+      top: 0;
+      bottom: 0;
+      width: 320px;
+      background: rgba(0,0,0,0.92);
+      padding: 20px;
       color: #fff;
-      transform: translateX(120%);
+      transform: translateX(100%);
       opacity: 0;
       pointer-events: none;
       transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+      overflow-y: auto;
+      z-index: 50;
+    }
+
+    .video-info-panel::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .video-info-panel::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.2);
+      border-radius: 2px;
     }
 
     .video-info-panel.visible {
       transform: translateX(0);
       opacity: 1;
       pointer-events: auto;
+    }
+
+    .episode-section {
+      margin-top: 16px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      padding-top: 16px;
+    }
+
+    .episode-section-title {
+      font-size: 13px;
+      color: #999;
+      margin-bottom: 12px;
+    }
+
+    .episode-list {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      max-height: calc(100vh - 340px);
+      overflow-y: auto;
+    }
+
+    .episode-list::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .episode-list::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px;
+    }
+
+    .episode-item {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+      font-size: 13px;
+      color: #ccc;
+      flex-shrink: 0;
+    }
+
+    .episode-item:hover {
+      background: rgba(255,255,255,0.08);
+      color: #fff;
+    }
+
+    .episode-item.active {
+      background: rgba(0,161,214,0.2);
+      color: #00a1d6;
+    }
+
+    .episode-item .ep-index {
+      margin-right: 10px;
+      min-width: 28px;
+      text-align: center;
+      font-size: 12px;
+      color: #999;
+    }
+
+    .episode-item.active .ep-index {
+      color: #00a1d6;
+    }
+
+    .episode-item .ep-title {
+      flex: 1;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
     }
 
     .video-info-title {
@@ -894,6 +990,10 @@
               <span>投币</span>
             </button>
           </div>
+          <div class="episode-section" id="episodeSection" style="display: none;">
+            <div class="episode-section-title" id="episodeSectionTitle">选集</div>
+            <div class="episode-list" id="episodeList"></div>
+          </div>
         </div>
       </div>
     </div>
@@ -1004,6 +1104,8 @@
     const closeBtn = document.getElementById('closeBtn')
 
     let currentVideoData = null
+    let currentEpisodeData = null
+    let currentAudioElement = null
     let danmakuEnabled = localStorage.getItem('showDanmaku') !== 'false'
     let danmakuList = []
     let danmakuIndex = 0
@@ -1087,7 +1189,7 @@
 
     videoArea.addEventListener('mousedown', async (e) => {
       if (e.button !== 0) return
-      const ignore = e.target.closest('.player-controls, .video-info-panel, .window-control-btn, .speed-selector, .speed-option, .action-btn, .control-btn, .context-menu, .video-overlay, .danmaku-container, .progress-bar, .volume-bar, .volume-control, .playback-speed, .time-display')
+      const ignore = e.target.closest('.player-controls, .video-info-panel, .episode-section, .episode-item, .window-control-btn, .speed-selector, .speed-option, .action-btn, .control-btn, .context-menu, .video-overlay, .danmaku-container, .progress-bar, .volume-bar, .volume-control, .playback-speed, .time-display')
       if (ignore) return
 
       e.preventDefault()
@@ -1541,8 +1643,10 @@
           ipcRenderer.invoke('move-to-next-display')
         } else {
           const videoInfoPanel = document.getElementById('videoInfoPanel')
-          if (videoInfoPanel) {
-            videoInfoPanel.classList.toggle('visible')
+          const videoPlayer = document.querySelector('.video-player')
+          if (videoInfoPanel && videoPlayer) {
+            const isVisible = videoInfoPanel.classList.toggle('visible')
+            videoPlayer.classList.toggle('with-panel', isVisible)
           }
         }
       }
@@ -1599,6 +1703,16 @@
       videoTitle.textContent = data.title
       infoTitle.textContent = data.title
       
+      // 确保信息面板初始状态是隐藏的
+      const videoInfoPanel = document.getElementById('videoInfoPanel')
+      const videoPlayer = document.querySelector('.video-player')
+      if (videoInfoPanel) {
+        videoInfoPanel.classList.remove('visible')
+      }
+      if (videoPlayer) {
+        videoPlayer.classList.remove('with-panel')
+      }
+      
       // 更新登录状态显示
       const loginStatusEl = document.getElementById('loginStatus')
       const loginTextEl = document.getElementById('loginText')
@@ -1639,7 +1753,14 @@
         loginStatusEl.style.background = isLoggedIn ? '#1e8e3e' : '#333'
         loginStatusEl.style.color = isLoggedIn ? '#fff' : '#999'
       }
-      
+
+      if (data.episodeData && data.episodeData.episodes && data.episodeData.episodes.length > 0) {
+        renderEpisodeList(data.episodeData)
+      } else {
+        const episodeSection = document.getElementById('episodeSection')
+        if (episodeSection) episodeSection.style.display = 'none'
+      }
+
       try {
         await loadVideo(data.bvid, data.cid, data.progress)
         await loadVideoInfo(data.bvid)
@@ -1651,6 +1772,83 @@
         showError('加载失败', error.message)
       }
     })
+
+    function renderEpisodeList(episodeData) {
+      currentEpisodeData = episodeData
+      const episodeSection = document.getElementById('episodeSection')
+      const episodeList = document.getElementById('episodeList')
+      const episodeSectionTitle = document.getElementById('episodeSectionTitle')
+
+      if (!episodeSection || !episodeList) return
+
+      episodeSection.style.display = 'block'
+      episodeSectionTitle.textContent = `选集 (共${episodeData.episodes.length}集)`
+
+      episodeList.innerHTML = ''
+      episodeData.episodes.forEach((ep, index) => {
+        const item = document.createElement('div')
+        item.className = 'episode-item'
+        if (index === episodeData.currentIndex) {
+          item.classList.add('active')
+        }
+        item.innerHTML = `
+          <span class="ep-index">${index + 1}</span>
+          <span class="ep-title">${ep.title || `第${index + 1}集`}</span>
+        `
+        item.addEventListener('click', () => {
+          if (index === episodeData.currentIndex) return
+          switchEpisode(index)
+        })
+        episodeList.appendChild(item)
+      })
+
+      // 滚动到当前播放的集数
+      const activeItem = episodeList.querySelector('.episode-item.active')
+      if (activeItem) {
+        activeItem.scrollIntoView({ block: 'nearest' })
+      }
+    }
+
+    async function switchEpisode(index) {
+      if (!currentEpisodeData || !currentEpisodeData.episodes[index]) return
+      const episode = currentEpisodeData.episodes[index]
+      currentEpisodeData.currentIndex = index
+
+      // 更新选集高亮
+      const episodeList = document.getElementById('episodeList')
+      if (episodeList) {
+        episodeList.querySelectorAll('.episode-item').forEach((item, i) => {
+          item.classList.toggle('active', i === index)
+        })
+      }
+
+      // 更新标题
+      const fullTitle = currentEpisodeData.seasonTitle
+        ? `${currentEpisodeData.seasonTitle} - ${episode.title}`
+        : episode.title
+      videoTitle.textContent = fullTitle
+      infoTitle.textContent = fullTitle
+
+      // 更新当前播放数据
+      if (currentVideoData) {
+        currentVideoData.bvid = episode.bvid
+        currentVideoData.cid = episode.cid
+        currentVideoData.title = fullTitle
+      }
+
+      // 清除弹幕
+      danmakuList = []
+      danmakuIndex = 0
+      const danmakuContainer = document.getElementById('danmakuContainer')
+      if (danmakuContainer) danmakuContainer.innerHTML = ''
+
+      // 加载新视频
+      await loadVideo(episode.bvid, episode.cid, null)
+      await loadVideoInfo(episode.bvid)
+      if (danmakuEnabled && episode.cid) {
+        await loadDanmaku(episode.cid)
+      }
+    }
 
     async function loadVideo(bvid, cid, progress = null) {
       console.log('Loading video, bvid:', bvid, 'cid:', cid, 'progress:', progress)
@@ -1673,6 +1871,13 @@
         console.log('Audio URL:', result.audioUrl)
         console.log('Is combined format:', result.isCombined)
 
+        // 清理旧音频元素
+        if (currentAudioElement) {
+          currentAudioElement.pause()
+          currentAudioElement.remove()
+          currentAudioElement = null
+        }
+
         // 创建video元素并设置属性
         videoPlayer.src = result.url
         videoPlayer.crossOrigin = 'anonymous'
@@ -1683,39 +1888,37 @@
           videoPlayer.volume = parseFloat(savedVol)
         }
 
-        let audioElement = null
         if (result.audioUrl && !result.isCombined) {
           console.log('Creating separate audio element for DASH format')
-          audioElement = document.createElement('audio')
-          audioElement.src = result.audioUrl
-          audioElement.crossOrigin = 'anonymous'
-          
-          // 音频元素也应用保存的音量
+          currentAudioElement = document.createElement('audio')
+          currentAudioElement.src = result.audioUrl
+          currentAudioElement.crossOrigin = 'anonymous'
+
           if (savedVol !== null) {
-            audioElement.volume = parseFloat(savedVol)
+            currentAudioElement.volume = parseFloat(savedVol)
           }
 
           videoPlayer.addEventListener('play', () => {
-            if (audioElement && audioElement.paused) {
-              audioElement.play().catch(e => console.log('Audio play error:', e))
+            if (currentAudioElement && currentAudioElement.paused) {
+              currentAudioElement.play().catch(e => console.log('Audio play error:', e))
             }
           })
 
           videoPlayer.addEventListener('pause', () => {
-            if (audioElement && !audioElement.paused) {
-              audioElement.pause()
+            if (currentAudioElement && !currentAudioElement.paused) {
+              currentAudioElement.pause()
             }
           })
 
           videoPlayer.addEventListener('volumechange', () => {
-            if (audioElement) {
-              audioElement.volume = videoPlayer.volume
+            if (currentAudioElement) {
+              currentAudioElement.volume = videoPlayer.volume
             }
           })
 
           videoPlayer.addEventListener('seeked', () => {
-            if (audioElement) {
-              audioElement.currentTime = videoPlayer.currentTime
+            if (currentAudioElement) {
+              currentAudioElement.currentTime = videoPlayer.currentTime
             }
           })
         }

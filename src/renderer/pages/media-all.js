@@ -224,10 +224,7 @@ function renderMediaAllCards(items) {
 
   gridEl.querySelectorAll('.bangumi-all-card').forEach((card, index) => {
     card.addEventListener('click', () => {
-      const item = items[index]
-      if (item.season_id) {
-        window.open(`https://www.bilibili.com/bangumi/media/md${item.season_id}/`, '_blank')
-      }
+      playBangumi(items[index])
     })
   })
 }
@@ -243,9 +240,7 @@ function appendMediaAllCards(items) {
     gridEl.appendChild(card)
 
     card.addEventListener('click', () => {
-      if (item.season_id) {
-        window.open(`https://www.bilibili.com/bangumi/media/md${item.season_id}/`, '_blank')
-      }
+      playBangumi(item)
     })
   })
 }

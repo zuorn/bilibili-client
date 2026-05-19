@@ -239,9 +239,7 @@ async function loadBangumi(type = 1) {
       `
 
       card.addEventListener('click', () => {
-        if (item.url) {
-          window.open(item.url, '_blank')
-        }
+        playBangumi(item)
       })
 
       container.appendChild(card)
@@ -299,9 +297,7 @@ async function loadDrama() {
       `
 
       card.addEventListener('click', () => {
-        if (item.url) {
-          window.open(item.url, '_blank')
-        }
+        playBangumi(item)
       })
 
       container.appendChild(card)

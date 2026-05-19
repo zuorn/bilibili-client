@@ -149,6 +149,34 @@ function registerBangumiHandlers(deps) {
     }
   })
 
+  ipcMain.handle('get-season-episodes', async (event, seasonId) => {
+    log('get-season-episodes called, seasonId:', seasonId)
+    try {
+      const url = `https://api.bilibili.com/pgc/view/web/season?season_id=${seasonId}`
+      log('Season episodes URL:', url)
+      const result = await fetchApiWithHeaders(url)
+
+      if (result && result.code === 0 && result.result) {
+        const episodes = (result.result.episodes || []).map(ep => ({
+          aid: ep.aid,
+          cid: ep.cid,
+          bvid: ep.bvid,
+          id: ep.id,
+          title: ep.share_copy || ep.long_title || ep.title || '',
+          cover: ep.cover || ''
+        }))
+        log(`Got ${episodes.length} episodes for season ${seasonId}`)
+        return { success: true, data: episodes, seasonTitle: result.result.title || '' }
+      }
+
+      log('get-season-episodes failed, code:', result?.code, 'message:', result?.message)
+      return { success: false, error: result?.message || '获取剧集列表失败' }
+    } catch (error) {
+      log('get-season-episodes error:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
   ipcMain.handle('fetch-bangumi-result', async (event, params) => {
     const {
       area = -1,

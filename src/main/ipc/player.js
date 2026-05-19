@@ -31,7 +31,7 @@ function registerPlayerHandlers(deps) {
   _deps = deps
   const { ipcMain, log, fetchApi, app, dialog, state } = deps
 
-  ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmaku = true, useBuiltin = false, progress = null) => {
+  ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmaku = true, useBuiltin = false, progress = null, episodeData = null) => {
     const { getDanmakuXml, xml2ass, formatProgressTime, reportPlayHistory, openBuiltinPlayer, startReportTimer, cleanupMpvSocket, stopVideo, findMpvExecutable } = deps
 
     const startTime = Date.now()
@@ -66,7 +66,7 @@ function registerPlayerHandlers(deps) {
           log('Failed to get video dimension:', error.message)
         }
       }
-      return await openBuiltinPlayer(bvid, cid, title, videoDimension, progress, deps)
+      return await openBuiltinPlayer(bvid, cid, title, videoDimension, progress, deps, episodeData)
     }
 
     try {

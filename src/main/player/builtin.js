@@ -3,7 +3,7 @@ const path = require('path')
 const fs = require('fs')
 const cookieManager = require('../../../cookieManager')
 
-async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps) {
+async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, episodeData = null) {
   const { log, app, formatProgressTime, reportPlayHistory, startReportTimer, cleanupMpvSocket, getVideoInfo, state } = deps
   const { BrowserWindow } = require('electron')
 
@@ -151,7 +151,8 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps) {
       cid: finalCid,
       title: title || '哔哩哔哩视频',
       cookies: cookieManager.getSavedCookies(),
-      progress: progress
+      progress: progress,
+      episodeData: episodeData
     })
   })
 
