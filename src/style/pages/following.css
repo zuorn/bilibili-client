@@ -169,6 +169,7 @@
 .user-card-inner {
   display: flex;
   width: 100%;
+  align-items: center;
 }
 
 .following-user-card:nth-child(odd) {
@@ -187,11 +188,11 @@
 .user-avatar-wrapper {
   position: relative;
   margin-right: 14px;
+  margin-top: 15px;
   flex-shrink: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  margin-top: 35px;
 }
 
 .user-avatar {
@@ -210,23 +211,26 @@
   height: 16px;
 }
 
-.user-info {
+.following-user-card .user-info {
   flex: 1;
   display: flex;
   flex-direction: column;
   min-width: 0;
   gap: 4px;
-  align-items: flex-start;
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+  text-align: left !important;
 }
 
-.user-name {
+.following-user-card .user-name {
   font-size: 14px;
   font-weight: 600;
   color: #fb7299;
   margin-bottom: 3px;
+  text-align: left !important;
 }
 
-.user-sign {
+.following-user-card .user-sign {
   font-size: 12px;
   color: #999;
   line-height: 1.4;
@@ -234,9 +238,10 @@
   -webkit-line-clamp: 1;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  text-align: left !important;
 }
 
-.user-follow-btn {
+.following-user-card .user-follow-btn {
   padding: 4px 14px;
   border: 1px solid #e0e0e0;
   border-radius: 14px;
@@ -246,6 +251,7 @@
   cursor: pointer;
   transition: all 0.2s;
   width: fit-content;
+  align-self: flex-start !important;
 }
 
 .user-follow-btn:hover {

@@ -112,7 +112,7 @@ function handleScroll() {
     if (scrollTop + clientHeight >= scrollHeight - 300) {
       const states = {
         home: { state: pageStates.home, action: p => fetchVideos(p, true) },
-        popular: { state: pageStates.popular, action: p => fetchPopularVideos(p, true) },
+        popular: { state: pageStates.popular, action: p => fetchPopularVideos(pageStates.popular.currentTab, p, true, pageStates.popular.currentRid) },
         search: { state: pageStates.search, action: p => searchVideos(pageStates.search.keyword, p, true) }
       }
 

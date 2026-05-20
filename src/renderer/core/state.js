@@ -27,13 +27,13 @@ let pendingGoTop = false
 
 let pageStates = {
   home: { pageNum: 1, videos: [], loading: false, hasMore: true },
-  popular: { pageNum: 1, videos: [], loading: false, hasMore: true },
+  popular: { pageNum: 1, videos: [], loading: false, hasMore: true, currentTab: 'comprehensive', currentRid: 0 },
   media: { cursor: '', loading: false, hasMore: true, data: null },
   search: { keyword: '', pageNum: 1, loading: false, hasMore: true },
   up: { mid: null, name: '', offset: '', loading: false, hasMore: true },
   my: { historyCursor: null, hasMoreHistory: true, isHistoryLoading: false, tabsOriginalOffset: null, favoritesPageNum: 1, hasMoreFavorites: true, isFavoritesLoading: false, toviewPageNum: 1, hasMoreToview: true, isToviewLoading: false },
   bangumi: { cursor: '', loading: false, hasMore: true, data: null },
-  following: { mid: null, tagid: -1, pageNum: 1, loading: false, hasMore: true, groups: [] }
+  following: { mid: null, tagid: -1, pageNum: 1, loading: false, hasMore: true, groups: [], targetMid: null }
 }
 
 let currentQCode = null

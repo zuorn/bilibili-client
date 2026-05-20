@@ -40,9 +40,7 @@
   flex-shrink: 0;
   background-color: #fff;
   border-radius: 0;
-  padding: 16px;
-  display: flex;
-  flex-direction: column;
+  padding: 16px 22px 16px 16px;
   height: calc(100vh - 64px);
   position: fixed;
   top: 64px;
@@ -52,7 +50,7 @@
 }
 
 .dynamic-sidebar::-webkit-scrollbar {
-  width: 4px;
+  width: 5px;
 }
 
 .dynamic-sidebar::-webkit-scrollbar-track {
@@ -60,8 +58,25 @@
 }
 
 .dynamic-sidebar::-webkit-scrollbar-thumb {
-  background: #d0d0d0;
-  border-radius: 2px;
+  background-color: #c9cdd4;
+  border-radius: 3px;
+}
+
+.dynamic-sidebar::-webkit-scrollbar-thumb:hover {
+  background-color: #a9aeb6;
+}
+
+/* 暗色主题下的滚动条 */
+body.dark-theme .dynamic-sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+body.dark-theme .dynamic-sidebar::-webkit-scrollbar-thumb {
+  background-color: #555;
+}
+
+body.dark-theme .dynamic-sidebar::-webkit-scrollbar-thumb:hover {
+  background-color: #666;
 }
 
 .dynamic-sidebar-header {

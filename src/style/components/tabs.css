@@ -1,21 +1,30 @@
 .page-header {
+  margin-bottom: 16px;
+}
+
+#page-popular {
+  margin-top: -12px;
+}
+
+#page-popular .page-header {
   margin-bottom: 20px;
 }
 
 .page-tabs {
   display: flex;
-  gap: 24px;
-  padding: 4px 0;
-  border-bottom: 1px solid #f0f0f0;
+  gap: 8px;
+  padding: 0;
+  border-bottom: none;
 }
 
 .page-tab {
-  padding: 12px 0;
+  padding: 8px 20px;
   font-size: 15px;
   color: #61666d;
   cursor: pointer;
-  transition: color 0.2s;
+  transition: all 0.2s;
   position: relative;
+  border-radius: 20px;
 }
 
 .page-tab:hover {
@@ -25,16 +34,7 @@
 .page-tab.active {
   color: #fb7299;
   font-weight: 600;
-}
-
-.page-tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: -1px;
-  left: 0;
-  right: 0;
-  height: 2px;
-  background-color: #fb7299;
+  background-color: #ffdee5;
 }
 
 .ranking-tabs {

@@ -4868,26 +4868,86 @@ let followingState = {
   loading: false,
   groups: [],
   groupData: {},
-  orderType: 'attention'
+  orderType: 'attention',
+  targetMid: null
 }
 
 function initFollowingPage() {
   console.log('initFollowingPage called')
-  if (!currentUser?.isLogin) {
-    openLoginModal()
-    return
-  }
   
-  followingState.mid = currentUser.mid
   followingState.loading = false
   followingState.groups = []
   followingState.groupData = {}
-  
+
   const sectionListEl = document.getElementById('followingSectionList')
   if (sectionListEl) {
     sectionListEl.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">加载中...</div>'
   }
-  loadFollowingGroups()
+
+  const targetMid = pageStates.following?.targetMid
+
+  if (targetMid && String(targetMid) !== String(currentUser?.mid)) {
+    loadUpFollowings(targetMid)
+  } else {
+    pageStates.following.targetMid = null
+    if (!currentUser?.isLogin) {
+      openLoginModal()
+      return
+    }
+    followingState.mid = currentUser.mid
+    loadFollowingGroups()
+  }
+}
+
+async function loadUpFollowings(mid) {
+  console.log('loadUpFollowings called, mid:', mid)
+  try {
+    const result = await ipcRenderer.invoke('get-up-followings', mid)
+    console.log('get-up-followings result:', result)
+    
+    if (result.success && result.data) {
+      const users = result.data
+      renderUpFollowingsList(users)
+    } else {
+      const sectionListEl = document.getElementById('followingSectionList')
+      if (sectionListEl) {
+        sectionListEl.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">加载失败，请稍后重试</div>'
+      }
+    }
+  } catch (error) {
+    console.error('加载UP主关注列表失败:', error)
+    const sectionListEl = document.getElementById('followingSectionList')
+    if (sectionListEl) {
+      sectionListEl.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">加载失败，请稍后重试</div>'
+    }
+  }
+}
+
+function renderUpFollowingsList(users) {
+  const sectionListEl = document.getElementById('followingSectionList')
+  if (!sectionListEl) return
+
+  if (users.length > 0) {
+    let html = `
+      <div class="following-section">
+        <div class="following-section-header">
+          <span class="following-section-title">TA的关注</span> <span class="following-section-count">${users.length}</span>
+        </div>
+        <div class="following-section-content">
+          <div class="following-users-grid">
+    `
+    users.forEach(user => {
+      html += createFollowingUserCard(user)
+    })
+    html += `
+          </div>
+        </div>
+      </div>
+    `
+    sectionListEl.innerHTML = html
+  } else {
+    sectionListEl.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">暂无关注用户</div>'
+  }
 }
 
 async function loadFollowingGroups() {

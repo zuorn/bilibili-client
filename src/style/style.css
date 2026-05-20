@@ -1464,7 +1464,7 @@ body {
 .history-search-box {
   display: flex;
   align-items: center;
-  background-color: #ffffff;
+  background-color: #f2f2f2;
   border-radius: 20px;
   padding: 4px 12px;
 }
@@ -2535,7 +2535,7 @@ body {
 }
 
 .sidebar-theme-btn:hover {
-  background-color: rgba(251, 114, 153, 0.1);
+  background-color: transparent;
   color: #fb7299;
 }
 
@@ -2549,7 +2549,7 @@ body.dark-theme .sidebar-theme-btn {
 }
 
 body.dark-theme .sidebar-theme-btn:hover {
-  background-color: rgba(251, 114, 153, 0.15);
+  background-color: transparent;
   color: #fb7299;
 }
 
@@ -4371,6 +4371,7 @@ body.dark-theme .refresh-btn:not(.bottom-action-btn):hover {
 .user-card-inner {
   display: flex;
   width: 100%;
+  align-items: center;
 }
 
 .following-user-card:nth-child(odd) {
@@ -4419,6 +4420,7 @@ body.dark-theme .refresh-btn:not(.bottom-action-btn):hover {
   min-width: 0;
   gap: 4px;
   align-items: flex-start;
+  text-align: left;
 }
 
 .user-name {

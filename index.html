@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
@@ -116,9 +116,7 @@
         <span>首页</span>
       </div>
       <div class="sidebar-item" data-page="dynamic">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-        </svg>
+        <svg t="1779293986314" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="16229" width="200" height="200"><path d="M541.87 55.47l-0.06 296.95c44.59-51.23 110.27-83.62 183.53-83.62 134.32 0 243.2 108.88 243.2 243.2v29.87l-296.95-0.06c51.23 44.59 83.62 110.27 83.62 183.53 0 134.32-108.88 243.2-243.2 243.2h-29.87l0.02-296.91c-44.59 51.21-110.26 83.58-183.49 83.58-134.32 0-243.2-108.88-243.2-243.2v-29.87l296.95 0.06c-51.23-44.59-83.62-110.27-83.62-183.53 0-134.32 108.88-243.2 243.2-243.2h29.87z m0 488.83v362.03l5-0.83c81.83-15.74 144.32-85.85 148.39-171.27l0.21-8.89c0-89.41-63.95-163.87-148.6-180.16l-5-0.88z m-62.17-2.43H117.67l0.83 5c15.74 81.83 85.85 144.32 171.27 148.39l8.89 0.21c89.41 0 163.87-63.95 180.16-148.6l0.88-5z m245.63-213.34c-89.41 0-163.87 63.95-180.16 148.6l-0.88 5h362.03l-0.83-5c-15.74-81.83-85.85-144.32-171.27-148.39l-8.89-0.21z m-243.2-210.9l-5 0.88c-84.65 16.28-148.6 90.75-148.6 180.16l0.21 8.89c4.07 85.42 66.56 155.53 148.39 171.27l5 0.83V117.63z" p-id="16230"></path></svg>
         <span>动态</span>
       </div>
       <div class="sidebar-item" data-page="my">
@@ -171,6 +169,39 @@
 
       <!-- 热门页 -->
       <div class="page-content" id="page-popular">
+        <div class="page-header">
+          <div class="page-tabs" id="popularTabs">
+            <div class="page-tab active" data-tab="comprehensive">综合热门</div>
+            <div class="page-tab" data-tab="weekly">每周必看</div>
+            <div class="page-tab" data-tab="precious">入站必刷</div>
+            <div class="page-tab" data-tab="ranking">排行榜</div>
+          </div>
+          <!-- 排行榜筛选项 -->
+          <div class="ranking-filters" id="rankingFilters" style="display: none;">
+            <div class="filter-tag active" data-rid="0">全站</div>
+            <div class="filter-tag" data-rid="1">番剧</div>
+            <div class="filter-tag" data-rid="168">国创</div>
+            <div class="filter-tag" data-rid="155">纪录片</div>
+            <div class="filter-tag" data-rid="23">电影</div>
+            <div class="filter-tag" data-rid="11">电视剧</div>
+            <div class="filter-tag" data-rid="24">动画</div>
+            <div class="filter-tag" data-rid="20">动漫</div>
+            <div class="filter-tag" data-rid="17">游戏</div>
+            <div class="filter-tag" data-rid="5">鬼畜</div>
+            <div class="filter-tag" data-rid="3">音乐</div>
+            <div class="filter-tag" data-rid="19">舞蹈</div>
+            <div class="filter-tag" data-rid="21">舞蹈</div>
+            <div class="filter-tag" data-rid="18">影视</div>
+            <div class="filter-tag" data-rid="13">娱乐</div>
+            <div class="filter-tag" data-rid="36">知识</div>
+            <div class="filter-tag" data-rid="95">科技数码</div>
+            <div class="filter-tag" data-rid="25">美食</div>
+            <div class="filter-tag" data-rid="26">汽车</div>
+            <div class="filter-tag" data-rid="169">时尚美妆</div>
+            <div class="filter-tag" data-rid="122">体育运动</div>
+            <div class="filter-tag" data-rid="27">动物</div>
+          </div>
+        </div>
         <div class="video-grid" id="popularGrid"></div>
       </div>
 

@@ -77,14 +77,18 @@ function registerFeedsHandlers(deps) {
       let result = null
       let endpoint = ''
 
-      if (tab === 'comprehensive' || tab === 'ranking' || typeof tab === 'number') {
-        // 使用用户指定的可用接口
-        const currentRid = typeof tab === 'number' ? 0 : rid
-        endpoint = `https://api.bilibili.com/x/web-interface/ranking/v2?rid=${currentRid}&type=all&ps=30&pn=${page}`
+      if (tab === 'comprehensive' || typeof tab === 'number') {
+        // 综合热门接口
+        endpoint = `https://api.bilibili.com/x/web-interface/popular?ps=40&pn=${page}&web_location=bilibili-electron`
+        log('Using popular endpoint:', endpoint)
+        result = await fetchWithRetry(endpoint)
+      } else if (tab === 'ranking') {
+        // 排行榜接口
+        endpoint = `https://api.bilibili.com/x/web-interface/ranking/v2?rid=${rid}&type=all&ps=30&pn=${page}&web_location=bilibili-electron`
         log('Using ranking/v2 endpoint:', endpoint)
         result = await fetchWithRetry(endpoint)
       } else if (tab === 'weekly') {
-        endpoint = `https://api.bilibili.com/x/web-interface/popular/series/list?ps=30&pn=${page}`
+        endpoint = `https://api.bilibili.com/x/web-interface/popular/series/one?number=373&web_location=bilibili-electron`
         log('Using weekly endpoint:', endpoint)
         result = await fetchWithRetry(endpoint)
       } else if (tab === 'precious') {

@@ -5,7 +5,7 @@ body.dark-theme .sidebar-theme-btn {
 }
 
 body.dark-theme .sidebar-theme-btn:hover {
-  background-color: rgba(251, 114, 153, 0.15);
+  background-color: transparent;
   color: #fb7299;
 }
 
@@ -78,6 +78,11 @@ body.dark-theme .sidebar-item:hover {
 body.dark-theme .sidebar-item.active {
   background: transparent;
   color: #fb7299;
+}
+
+/* 动态图标使用fill而非stroke，需要单独处理选中状态 */
+body.dark-theme .sidebar-item[data-page="dynamic"].active svg path {
+  fill: #fb7299;
 }
 
 body.dark-theme .content {

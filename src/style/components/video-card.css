@@ -128,3 +128,63 @@
 .video-author:hover {
   color: #fb7299;
 }
+
+.video-rank {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+  color: #fff;
+}
+
+.video-rank.badge-1 {
+  background: linear-gradient(135deg, #ff6b6b 0%, #ee5a5a 100%);
+}
+
+.video-rank.badge-2 {
+  background: linear-gradient(135deg, #ffaa00 0%, #ff9500 100%);
+}
+
+.video-rank.badge-3 {
+  background: linear-gradient(135deg, #ffd700 0%, #ffc700 100%);
+}
+
+.video-rank.badge-default {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+}
+
+.ranking-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 0 4px 0;
+  border-top: 1px solid #f0f0f0;
+  margin-top: 8px;
+}
+
+.filter-tag {
+  padding: 6px 16px;
+  font-size: 13px;
+  color: #61666d;
+  background-color: #f5f5f5;
+  border-radius: 16px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.filter-tag:hover {
+  background-color: #e8e8e8;
+}
+
+.filter-tag.active {
+  background-color: #fb7299;
+  color: #fff;
+}

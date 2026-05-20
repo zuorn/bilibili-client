@@ -1,15 +1,20 @@
 // 视频卡片模块
 
-function createVideoCard(video, onAuthorClick) {
+function createVideoCard(video, onAuthorClick, options = {}) {
   const card = document.createElement('div')
   card.className = 'video-card'
   card.dataset.bvid = video.bvid
   card.dataset.cid = video.cid || ''
 
+  const rankBadge = options.showRank && video.rank ? `
+    <span class="video-rank badge-${video.rank <= 3 ? video.rank : 'default'}">${video.rank}</span>
+  ` : ''
+
   card.innerHTML = `
     <div class="video-thumbnail">
       <img src="${video.pic}" alt="${video.title}" loading="lazy">
       <span class="video-duration">${video.duration}</span>
+      ${rankBadge}
     </div>
     <div class="video-info">
       <h3 class="video-title">${video.title}</h3>
@@ -34,17 +39,28 @@ function createVideoCard(video, onAuthorClick) {
   return card
 }
 
-function renderVideos(videos, containerId, onAuthorClick) {
+function renderVideos(videos, containerId, onAuthorClick, options = {}) {
   const container = document.getElementById(containerId)
   if (!container) return
   container.innerHTML = ''
-  videos.filter(v => v.bvid || v.title).forEach(video => container.appendChild(createVideoCard(video, onAuthorClick)))
+  videos.filter(v => v.bvid || v.title).forEach((video, index) => {
+    if (options.showRank && !video.rank) {
+      video.rank = index + 1
+    }
+    container.appendChild(createVideoCard(video, onAuthorClick, options))
+  })
 }
 
-function appendVideos(videos, containerId, onAuthorClick) {
+function appendVideos(videos, containerId, onAuthorClick, options = {}) {
   const container = document.getElementById(containerId)
   if (!container) return
-  videos.filter(v => v.bvid || v.title).forEach(video => container.appendChild(createVideoCard(video, onAuthorClick)))
+  const startRank = options.showRank ? document.querySelectorAll('.video-card').length + 1 : null
+  videos.filter(v => v.bvid || v.title).forEach((video, index) => {
+    if (options.showRank && !video.rank) {
+      video.rank = startRank + index
+    }
+    container.appendChild(createVideoCard(video, onAuthorClick, options))
+  })
 }
 
 function showEmptyMessage(containerId, message) {

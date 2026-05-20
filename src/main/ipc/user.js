@@ -104,6 +104,34 @@ function registerUserHandlers(deps) {
     }
   })
 
+  ipcMain.handle('get-up-followings', async (event, mid) => {
+    log('get-up-followings called, mid:', mid)
+    try {
+      const url = `https://api.bilibili.com/x/relation/followings?vmid=${mid}&ps=30&pn=1&order=desc&web_location=bilibili-electron`
+      log('Request URL:', url)
+      const result = await fetchApi(url)
+      log('UP Followings result code:', result.code)
+
+      if (result.code === 0 && result.data) {
+        const list = result.data.list || []
+        return {
+          success: true,
+          data: list.map(item => ({
+            mid: item.mid,
+            uname: item.uname,
+            face: item.face,
+            sign: item.sign || ''
+          }))
+        }
+      } else {
+        return { success: false, error: '获取UP主关注列表失败' }
+      }
+    } catch (error) {
+      log('Error getting UP followings:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
   ipcMain.handle('get-following-groups', async (event, mid) => {
     log('get-following-groups called, mid:', mid)
     try {

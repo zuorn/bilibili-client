@@ -5,6 +5,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   loadShortcuts()
   initEventListeners()
   if (typeof initViewAllButtons === 'function') initViewAllButtons()
+  if (typeof initPopularTabs === 'function') initPopularTabs()
+  if (typeof initRankingFilters === 'function') initRankingFilters()
   checkLoginStatus()
   loadPageContent('home')
 })
@@ -36,7 +38,10 @@ function initEventListeners() {
     navigateToPage('following')
   })
   document.getElementById('followingCount')?.addEventListener('click', () => {
-    navigateToPage('following')
+    if (pageStates.up?.mid) {
+      pageStates.following.targetMid = pageStates.up.mid
+      navigateToPage('following')
+    }
   })
   const searchInputClearBtn = document.getElementById('searchInputClearBtn')
 
@@ -350,9 +355,19 @@ function initEventListeners() {
       pageStates.popular.pageNum = 1
       pageStates.popular.hasMore = true
       pageStates.popular.videos = []
+      pageStates.popular.currentTab = 'comprehensive'
       const popularGrid = document.getElementById('popularGrid')
       if (popularGrid) popularGrid.innerHTML = ''
-      fetchPopularVideos(1, false)
+      // 重置tab状态
+      const tabsContainer = document.getElementById('popularTabs')
+      if (tabsContainer) {
+        const tabs = tabsContainer.querySelectorAll('.page-tab')
+        tabs.forEach((t, index) => {
+          t.classList.remove('active')
+          if (index === 0) t.classList.add('active')
+        })
+      }
+      fetchPopularVideos('comprehensive', 1, false)
     } else if (currentPage === 'dynamic') {
       if (typeof selectAllDynamic === 'function') {
         selectAllDynamic()
