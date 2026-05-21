@@ -18,6 +18,7 @@
   "dependencies": {
     "axios": "^1.15.2",
     "chalk": "^4.1.2",
+    "ffmpeg-static": "^5.3.0",
     "node-mpv": "^1.5.0",
     "xml2js": "^0.6.2"
   },
@@ -34,7 +35,8 @@
     "compression": "maximum",
     "asar": true,
     "asarUnpack": [
-      "node_modules/node-mpv/**/*"
+      "node_modules/node-mpv/**/*",
+      "node_modules/ffmpeg-static/**/*"
     ],
     "npmRebuild": false,
     "nodeGypRebuild": false,

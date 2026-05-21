@@ -106,12 +106,12 @@ function initPopularTabs() {
   tabs.forEach(tab => {
     tab.addEventListener('click', () => {
       const tabType = tab.getAttribute('data-tab')
-    
+  
       // 显示/隐藏排行榜筛选项
       if (filtersContainer) {
         filtersContainer.style.display = tabType === 'ranking' ? 'flex' : 'none'
       }
-    
+  
       // 重置状态并加载新tab数据
       state.currentTab = tabType
       fetchPopularVideos(tabType, 1, false, state.currentRid)

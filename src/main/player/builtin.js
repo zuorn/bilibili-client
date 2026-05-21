@@ -1,6 +1,8 @@
 // Built-in player window management
 const path = require('path')
 const fs = require('fs')
+const { spawn } = require('child_process')
+const ffmpegPath = require('ffmpeg-static')
 const cookieManager = require('../../../cookieManager')
 
 // 获取视频播放URL（并行尝试多个清晰度，取最优可用者）
@@ -554,6 +556,227 @@ function registerBuiltinPlayerHandlers(deps) {
       }
 
       state.playerWindow.setPosition(newX, newY)
+    }
+  })
+
+  // 下载视频（获取最高画质，合并音视频）
+  ipcMain.handle('download-video', async (event, bvid, cid, title) => {
+    const { dialog } = require('electron')
+    const os = require('os')
+
+    const cookieString = cookieManager.getCookieString()
+    const reqHeaders = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Referer': `https://www.bilibili.com/video/${bvid}`,
+      'Origin': 'https://www.bilibili.com',
+      'Cookie': cookieString
+    }
+
+    // 获取播放URL（fnval=16 为 DASH，fnval=1 为 durl 合并流）
+    async function getPlayUrl(qn, useDurl) {
+      const fnval = useDurl ? 1 : 16
+      const extra = useDurl ? '&fnver=0&fourk=0' : ''
+      const url = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=${qn}&fnval=${fnval}${extra}`
+      const controller = new AbortController()
+      const t = setTimeout(() => controller.abort(), 8000)
+      try {
+        const response = await fetch(url, { headers: reqHeaders, signal: controller.signal })
+        clearTimeout(t)
+        const data = await response.json()
+        if (data.code === 0) return { qn, data, isDurl: !!useDurl }
+        return null
+      } catch (err) {
+        clearTimeout(t)
+        return null
+      }
+    }
+
+    // 从响应中提取视频/音频URL
+    function extractUrls(result) {
+      if (!result) return null
+      const dash = result.data.data?.dash
+      if (dash && dash.video && dash.video.length > 0) {
+        dash.video.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
+        const videoUrl = dash.video[0].baseUrl || dash.video[0].url || dash.video[0].base_url
+        let audioUrl = null
+        if (dash.audio && dash.audio.length > 0) {
+          dash.audio.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
+          audioUrl = dash.audio[0].baseUrl || dash.audio[0].url || dash.audio[0].base_url
+        }
+        return { videoUrl, audioUrl, isDash: true }
+      }
+      const durl = result.data.data?.durl
+      if (durl && durl.length > 0) {
+        return { videoUrl: durl[0].url, audioUrl: null, isDash: false }
+      }
+      return null
+    }
+
+    // fetch 流式下载到文件
+    async function downloadFile(url, filePath, stepLabel) {
+      const dlHeaders = {
+        'User-Agent': reqHeaders['User-Agent'],
+        'Referer': 'https://www.bilibili.com/',
+        'Origin': 'https://www.bilibili.com'
+      }
+
+      const response = await fetch(url, { headers: dlHeaders })
+      if (!response.ok) throw new Error('CDN 返回 ' + response.status)
+
+      const total = parseInt(response.headers.get('content-length') || '0', 10)
+      const reader = response.body.getReader()
+      const file = fs.createWriteStream(filePath)
+
+      let downloaded = 0
+      try {
+        while (true) {
+          const { done, value } = await reader.read()
+          if (done) break
+          downloaded += value.length
+          file.write(value)
+          if (total > 0) {
+            event.sender.send('download-progress', {
+              step: stepLabel,
+              percent: (downloaded / total) * 100
+            })
+          }
+        }
+      } finally {
+        reader.releaseLock()
+      }
+
+      return new Promise((resolve, reject) => {
+        file.end()
+        file.on('finish', resolve)
+        file.on('error', reject)
+      })
+    }
+
+    try {
+      // 1. 并行探测所有清晰度，找到最高可用者
+      event.sender.send('download-progress', { step: '正在获取最高画质下载地址...' })
+
+      const allQualities = [125, 120, 116, 112, 80, 74, 64, 32]
+      const results = await Promise.allSettled(allQualities.map(qn => getPlayUrl(qn)))
+
+      const successful = results
+        .filter(r => r.status === 'fulfilled' && r.value)
+        .map(r => r.value)
+        .sort((a, b) => b.qn - a.qn)
+
+      if (successful.length === 0) {
+        return { success: false, error: '无法获取视频下载地址，请确认已登录' }
+      }
+
+      const bestQn = successful[0].qn
+      const qnNames = { 125: 'HDR1080P60', 120: '4K', 116: '1080P60', 112: '1080P+', 80: '1080P', 74: '720P60', 64: '720P', 32: '480P' }
+      const qualityLabel = qnNames[bestQn] || ('qn=' + bestQn)
+      const hasDash = !!(successful[0].data.data?.dash?.video?.length)
+      const qualityTitle = qualityLabel + (hasDash ? ' (DASH)' : ' (durl)')
+      log('[下载] 最高可用画质:', qualityTitle)
+
+      // 2. 显示保存对话框
+      const safeTitle = (title || 'bilibili_video').replace(/[<>:"/\\|?*]/g, '_').substring(0, 100)
+      const saveResult = await dialog.showSaveDialog(state.playerWindow || undefined, {
+        title: '下载视频 — ' + qualityTitle,
+        defaultPath: safeTitle + '.mp4',
+        filters: [
+          { name: 'MP4 视频', extensions: ['mp4'] },
+          { name: '所有文件', extensions: ['*'] }
+        ]
+      })
+
+      if (saveResult.canceled || !saveResult.filePath) {
+        return { success: false, cancelled: true }
+      }
+
+      const savePath = saveResult.filePath
+
+      // 3. 用户确认后，重新获取最新URL（避免CDN链接在对话框等待期间过期）
+      event.sender.send('download-progress', { step: '正在获取最新下载链接...' })
+
+      // 先尝试 DASH 最高画质
+      const freshResult = await getPlayUrl(bestQn, false)
+      const urls = extractUrls(freshResult)
+
+      if (!urls) {
+        return { success: false, error: '获取下载链接失败，请重试' }
+      }
+
+      log('[下载] 开始下载:', qualityTitle)
+
+      // 下载函数：DASH 合并模式
+      async function downloadDashMerge(videoUrl, audioUrl, label) {
+        const tempDir = os.tmpdir()
+        const videoTemp = path.join(tempDir, `bili_video_${Date.now()}.m4s`)
+        const audioTemp = path.join(tempDir, `bili_audio_${Date.now()}.m4s`)
+
+        try {
+          event.sender.send('download-progress', { step: 'video', percent: 0 })
+          await downloadFile(videoUrl, videoTemp, 'video')
+
+          event.sender.send('download-progress', { step: 'audio', percent: 0 })
+          await downloadFile(audioUrl, audioTemp, 'audio')
+
+          event.sender.send('download-progress', { step: 'merge' })
+          await new Promise((resolve, reject) => {
+            const proc = spawn(ffmpegPath, [
+              '-y', '-i', videoTemp, '-i', audioTemp,
+              '-c', 'copy', '-movflags', '+faststart', savePath
+            ], { stdio: ['ignore', 'ignore', 'pipe'], timeout: 300000 })
+            proc.on('close', code => code === 0 ? resolve() : reject(new Error('ffmpeg exit ' + code)))
+            proc.on('error', reject)
+          })
+          log('[下载] DASH 合并完成:', savePath)
+          return { success: true, fileName: path.basename(savePath), quality: label }
+        } finally {
+          try { fs.unlinkSync(videoTemp) } catch (e) {}
+          try { fs.unlinkSync(audioTemp) } catch (e) {}
+        }
+      }
+
+      // 4. 下载：DASH（需合并）或 durl（已合并）
+      if (urls.isDash && urls.audioUrl) {
+        // DASH 模式：尝试 ffmpeg 合并，失败则回退到 durl
+        try {
+          return await downloadDashMerge(urls.videoUrl, urls.audioUrl, qualityTitle)
+        } catch (mergeErr) {
+          log('[下载] ffmpeg 不可用，回退到 durl 合并流:', mergeErr.message)
+
+          // 删除可能的不完整文件
+          try { fs.unlinkSync(savePath) } catch (e) {}
+
+          // 回退: durl 格式（内置音视频合并），尝试 720P → 480P → 360P
+          const durlQualities = [64, 32, 16]
+          for (const dqn of durlQualities) {
+            event.sender.send('download-progress', { step: '正在获取合并流 ' + (qnNames[dqn] || dqn) + '...' })
+            const durlResult = await getPlayUrl(dqn, true)
+            const durlUrls = extractUrls(durlResult)
+            if (durlUrls && durlUrls.videoUrl && !durlUrls.isDash) {
+              event.sender.send('download-progress', { step: 'video', percent: 0 })
+              await downloadFile(durlUrls.videoUrl, savePath, 'video')
+              const durlLabel = (qnNames[dqn] || ('qn=' + dqn)) + ' (durl)'
+              log('[下载] durl 下载完成:', savePath)
+              return { success: true, fileName: path.basename(savePath), quality: durlLabel }
+            }
+          }
+
+          // durl 也失败，最后回退：保存 DASH 纯视频
+          log('[下载] durl 也失败，保存纯视频')
+          event.sender.send('download-progress', { step: 'video', percent: 0 })
+          await downloadFile(urls.videoUrl, savePath, 'video')
+          return { success: true, fileName: path.basename(savePath), quality: qualityTitle + ' (无音频)' }
+        }
+      } else {
+        // 非 DASH 或没有独立音频：直接下载
+        event.sender.send('download-progress', { step: 'video', percent: 0 })
+        await downloadFile(urls.videoUrl, savePath, 'video')
+        log('[下载] 下载完成:', savePath)
+        return { success: true, fileName: path.basename(savePath), quality: qualityTitle }
+      }
+    } catch (error) {
+      log('[下载] 错误:', error.message)
+      return { success: false, error: error.message }
     }
   })
 }

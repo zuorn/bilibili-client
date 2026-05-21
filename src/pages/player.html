@@ -917,6 +917,7 @@
     <!-- 右键菜单 -->
     <div class="context-menu" id="contextMenu">
       <div class="context-menu-item" id="menuCopyUrl">复制视频地址（精准空降）</div>
+      <div class="context-menu-item" id="menuDownload">下载视频</div>
       <div class="context-menu-item" id="menuColorAdjust">视频色彩调整</div>
       <div class="context-menu-item" id="menuAudioAdjust">视频音效调节</div>
       <div class="context-menu-item" id="menuShortcuts">快捷键说明</div>
@@ -1147,6 +1148,7 @@
     // 右键菜单逻辑
     const contextMenu = document.getElementById('contextMenu')
     const menuCopyUrl = document.getElementById('menuCopyUrl')
+    const menuDownload = document.getElementById('menuDownload')
     const menuColorAdjust = document.getElementById('menuColorAdjust')
     const menuAudioAdjust = document.getElementById('menuAudioAdjust')
     const menuShortcuts = document.getElementById('menuShortcuts')
@@ -1218,6 +1220,60 @@
         })
       }
       contextMenu.classList.remove('show')
+    })
+
+    menuDownload.addEventListener('click', () => {
+      contextMenu.classList.remove('show')
+      startDownload()
+    })
+
+    // 下载视频
+    let downloadToastEl = null
+    function showDownloadToast(msg, isProgress) {
+      if (!downloadToastEl) {
+        downloadToastEl = document.createElement('div')
+        downloadToastEl.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;padding:14px 24px;border-radius:8px;font-size:14px;z-index:10000;min-width:240px;text-align:center;'
+        document.body.appendChild(downloadToastEl)
+      }
+      downloadToastEl.textContent = msg
+      downloadToastEl.style.display = 'block'
+      if (!isProgress) {
+        setTimeout(function() {
+          if (downloadToastEl) downloadToastEl.style.display = 'none'
+        }, 3000)
+      }
+    }
+    function hideDownloadToast() {
+      if (downloadToastEl) downloadToastEl.style.display = 'none'
+    }
+
+    async function startDownload() {
+      if (!currentVideoData?.bvid || !currentVideoData?.cid) {
+        showToast('无法获取视频信息')
+        return
+      }
+      showDownloadToast('正在获取最高画质下载地址...', true)
+      try {
+        var result = await ipcRenderer.invoke('download-video', currentVideoData.bvid, currentVideoData.cid, currentVideoData.title)
+        if (result.success) {
+          showDownloadToast('下载完成: ' + (result.fileName || ''))
+        } else if (result.cancelled) {
+          hideDownloadToast()
+        } else {
+          showDownloadToast('下载失败: ' + (result.error || '未知错误'))
+        }
+      } catch (e) {
+        showDownloadToast('下载失败: ' + e.message)
+      }
+    }
+
+    // 监听下载进度
+    ipcRenderer.on('download-progress', function(event, data) {
+      var pct = data.percent != null ? data.percent.toFixed(0) + '%' : ''
+      var msg = data.step === 'video' ? '正在下载视频 ' + pct :
+                data.step === 'audio' ? '正在下载音频 ' + pct :
+                data.step === 'merge' ? '正在合并音视频...' : data.step
+      showDownloadToast(msg, true)
     })
 
     menuShortcuts.addEventListener('click', () => {
