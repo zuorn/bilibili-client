@@ -55,19 +55,22 @@ let bangumiAllState = {
   page: 1,
   hasMore: true,
   loading: false,
-  filters: {
+  total: 0,
+  currentFilters: {
     area: -1,
     style_id: -1,
-    version: -1,
-    is_finish: -1,
-    copyright: -1,
-    pay_status: -1,
+    season_version: -1,
     season_status: -1,
+    spoken_language_type: -1,
+    copyright: -1,
+    is_finish: -1,
     year: -1,
-    season_month: -1
-  },
-  sort: 0,
-  data: []
+    season_month: -1,
+    type: 2,
+    order: 3,
+    index_type: 1,
+    pub_date: -1
+  }
 }
 
 const sortOptions = [
@@ -82,14 +85,16 @@ let mediaAllState = {
   page: 1,
   hasMore: true,
   loading: false,
-  filters: {
+  total: 0,
+  currentFilters: {
     area: -1,
     style_id: -1,
     release_date: -1,
-    pay_status: -1
-  },
-  sort: 1,
-  data: []
+    season_status: -1,
+    type: 2,
+    order: 1,
+    index_type: 2
+  }
 }
 
 const mediaSortOptions = [

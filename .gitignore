@@ -1,5 +1,6 @@
 # .vscode
 
+/.trae
 
 # 项目依赖
 /node_modules
