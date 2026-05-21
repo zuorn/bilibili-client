@@ -133,6 +133,10 @@ function createDynamicVideoCard(dynamic, onAuthorClick) {
   const pubTs = dynamic.pubTs || dynamic.time || 0
   const pubTime = dynamic.pubTime || ''
   const bvid = dynamic.bvid || ''
+  const cid = dynamic.cid || ''
+
+  card.dataset.bvid = bvid
+  card.dataset.cid = cid
 
   let durationHtml = duration ? '<div class="video-duration">' + duration + '</div>' : ''
   const videoDate = pubTime || formatDynamicTime(pubTs)

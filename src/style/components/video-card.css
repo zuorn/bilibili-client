@@ -188,3 +188,40 @@
   background-color: #fb7299;
   color: #fff;
 }
+
+/* 视频悬停预览 */
+.video-preview-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 5;
+  display: none;
+}
+
+.video-card.preview-active .video-preview-overlay {
+  display: block;
+}
+
+.video-preview-player {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* 预览激活时隐藏封面图和标签 */
+.video-card.preview-active .video-thumbnail > img {
+  opacity: 0;
+}
+
+.video-card.preview-active .video-thumbnail > .video-duration {
+  opacity: 0;
+}
+
+.video-card.preview-active .video-thumbnail > .video-rank {
+  opacity: 0;
+}

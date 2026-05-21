@@ -222,76 +222,148 @@ function registerPlayerHandlers(deps) {
     const cookieString = cookieManager.getCookieString()
 
     const qualityLevels = [
-      { qn: 125, name: 'HDR1080P60', fnval: 16 },
-      { qn: 120, name: '4K', fnval: 16 },
-      { qn: 116, name: '1080P60', fnval: 16 },
-      { qn: 112, name: '1080P+', fnval: 16 },
-      { qn: 80, name: '1080P', fnval: 16 },
-      { qn: 74, name: '720P60', fnval: 16 },
-      { qn: 64, name: '720P', fnval: 16 },
-      { qn: 32, name: '480P', fnval: 16 },
-      { qn: 16, name: '360P', fnval: 16 }
+      { qn: 125, name: 'HDR1080P60' },
+      { qn: 120, name: '4K' },
+      { qn: 116, name: '1080P60' },
+      { qn: 112, name: '1080P+' },
+      { qn: 80, name: '1080P' },
+      { qn: 74, name: '720P60' },
+      { qn: 64, name: '720P' },
+      { qn: 32, name: '480P' },
+      { qn: 16, name: '360P' }
     ]
 
-    for (const level of qualityLevels) {
+    // 并行请求所有清晰度，大幅减少等待时间
+    const results = await Promise.allSettled(
+      qualityLevels.map(level => (async () => {
+        const url = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=${level.qn}&fnval=16`
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 8000)
+
+        try {
+          const response = await fetch(url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+              'Referer': `https://www.bilibili.com/video/${bvid}`,
+              'Cookie': cookieString
+            },
+            signal: controller.signal
+          })
+          clearTimeout(timeout)
+          const data = await response.json()
+          if (data.code === 0) return { qn: level.qn, name: level.name, data }
+          return null
+        } catch (err) {
+          clearTimeout(timeout)
+          return null
+        }
+      })())
+    )
+
+    // 按清晰度从高到低取第一个可用的
+    const successful = results
+      .filter(r => r.status === 'fulfilled' && r.value)
+      .map(r => r.value)
+      .sort((a, b) => b.qn - a.qn)
+
+    for (const r of successful) {
+      const dash = r.data.data?.dash
+      if (dash && dash.video && dash.video.length > 0) {
+        dash.video.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
+        const bestVideo = dash.video[0]
+        const videoUrl = bestVideo.baseUrl || bestVideo.url
+        let audioUrl = null
+        if (dash.audio && dash.audio.length > 0) {
+          dash.audio.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
+          audioUrl = dash.audio[0].baseUrl || dash.audio[0].url
+        }
+        if (videoUrl) {
+          log(`✅ 并行获取 - 使用 ${r.name} (DASH)`)
+          return { success: true, url: videoUrl, audioUrl, quality: r.name + ' (DASH)', isCombined: false }
+        }
+      }
+
+      const durl = r.data.data?.durl || []
+      if (durl.length > 0) {
+        log(`✅ 并行获取 - 使用 ${r.name} (durl)`)
+        return { success: true, url: durl[0].url, quality: r.name + ' (durl)', backupUrl: durl[0].backup_url?.[0], isCombined: true }
+      }
+    }
+
+    return { success: false, error: '所有清晰度均获取失败' }
+  })
+
+  // 获取视频预览URL（低清晰度，用于悬停预览）
+  ipcMain.handle('get-video-preview-url', async (event, bvid, cid) => {
+    const cookieString = cookieManager.getCookieString()
+
+    let targetCid = cid
+    if (!targetCid) {
       try {
-        const url = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=${level.qn}&fnval=${level.fnval}`
-        log(`=== 尝试清晰度: ${level.name} (qn=${level.qn}) ===`)
+        const videoInfo = await getVideoInfo(bvid)
+        if (videoInfo && videoInfo.cid) {
+          targetCid = videoInfo.cid
+        } else {
+          return { success: false, error: '无法获取视频CID' }
+        }
+      } catch (error) {
+        return { success: false, error: error.message }
+      }
+    }
+
+    // 低清晰度优先，360P 体积更小缓冲更快
+    const previewLevels = [
+      { qn: 16, name: '360P', fnval: 1 },
+      { qn: 32, name: '480P', fnval: 1 }
+    ]
+
+    for (const level of previewLevels) {
+      try {
+        const url = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${targetCid}&qn=${level.qn}&fnval=${level.fnval}&fnver=0&fourk=0&platform=html5`
+        log(`[预览] 尝试获取 ${level.name} 视频流...`)
+
+        const controller = new AbortController()
+        const timeout = setTimeout(function() { controller.abort() }, 5000)
 
         const response = await fetch(url, {
           headers: {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
             'Referer': `https://www.bilibili.com/video/${bvid}`,
             'Cookie': cookieString
-          }
+          },
+          signal: controller.signal
         })
+        clearTimeout(timeout)
 
         const data = await response.json()
-
         if (data.code !== 0) {
-          log(`❌ ${level.name} 获取失败: ${data.message}`)
+          log(`[预览] ${level.name} 获取失败: ${data.message}`)
           continue
         }
 
-        const dash = data.data?.dash
-        if (dash && dash.video && dash.video.length > 0 && dash.audio && dash.audio.length > 0) {
-          dash.video.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
-          const bestVideo = dash.video[0]
-          const videoUrl = bestVideo.baseUrl || bestVideo.url
-          dash.audio.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
-          const audioUrl = dash.audio[0].baseUrl || dash.audio[0].url
-          log(`✅ 成功获取 - 使用 ${level.name} (DASH格式)`)
-          log(`   ├─ 视频URL: ${videoUrl?.substring(0, 80)}...`)
-          log(`   ├─ 音频URL: ${audioUrl?.substring(0, 80)}...`)
-          log(`   └─ 视频码率: ${(bestVideo.bandwidth / 1000).toFixed(0)} kbps`)
-          return {
-            success: true,
-            url: videoUrl,
-            audioUrl: audioUrl,
-            quality: level.name + ' (DASH)',
-            isCombined: false
-          }
+        // 优先使用 durl（合并音视频）
+        const durl = data.data?.durl
+        if (durl && durl.length > 0) {
+          log(`[预览] 使用 ${level.name} durl 格式`)
+          return { success: true, url: durl[0].url, quality: level.name, cid: targetCid }
         }
 
-        const durl = data.data?.durl || []
-        if (durl.length > 0) {
-          log(`✅ 成功获取 - 使用 ${level.name} (durl格式 - 音视频合并)`)
-          log(`   └─ 视频URL: ${durl[0].url?.substring(0, 80)}...`)
-          return {
-            success: true,
-            url: durl[0].url,
-            quality: level.name + ' (durl)',
-            backupUrl: durl[0].backup_url?.[0],
-            isCombined: true
+        // 兜底使用 DASH 视频流（预览静音播放，无需音频）
+        const dash = data.data?.dash
+        if (dash && dash.video && dash.video.length > 0) {
+          dash.video.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
+          const videoUrl = dash.video[0].baseUrl || dash.video[0].base_url || dash.video[0].url
+          if (videoUrl) {
+            log(`[预览] 使用 ${level.name} DASH 格式（仅视频）`)
+            return { success: true, url: videoUrl, quality: level.name + ' DASH', cid: targetCid }
           }
         }
-        log(`⚠️ ${level.name} 无可用资源，尝试下一个...`)
       } catch (error) {
-        log(`Quality ${level.name} error: ${error.message}, trying lower...`)
+        log(`[预览] ${level.name} 请求异常: ${error.message}`)
       }
     }
 
-    return { success: false, error: '所有清晰度均获取失败' }
+    return { success: false, error: '无法获取预览视频流' }
   })
 
   ipcMain.handle('get-video-info', async (event, bvid) => {

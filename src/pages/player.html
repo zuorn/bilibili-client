@@ -1720,17 +1720,13 @@
         console.log('Cookies:', Object.keys(data.cookies))
       }
       
-      // 通过API验证登录状态并获取用户信息
-      try {
-        const loginInfo = await ipcRenderer.invoke('get-login-info')
+      // 通过API验证登录状态并获取用户信息（不阻塞视频加载）
+      ipcRenderer.invoke('get-login-info').then(loginInfo => {
         console.log('Login info from API:', loginInfo)
-        
         if (loginInfo.success && loginInfo.isLogin) {
           loginTextEl.textContent = loginInfo.uname || '已登录'
           loginStatusEl.style.background = '#1e8e3e'
           loginStatusEl.style.color = '#fff'
-          
-          // 如果有头像，显示头像
           if (loginInfo.face) {
             const avatar = document.createElement('img')
             avatar.src = loginInfo.face
@@ -1744,12 +1740,12 @@
           loginStatusEl.style.background = '#333'
           loginStatusEl.style.color = '#999'
         }
-      } catch (error) {
+      }).catch(error => {
         console.error('Error getting login info:', error)
         loginTextEl.textContent = isLoggedIn ? '已登录' : '未登录'
         loginStatusEl.style.background = isLoggedIn ? '#1e8e3e' : '#333'
         loginStatusEl.style.color = isLoggedIn ? '#fff' : '#999'
-      }
+      })
 
       if (data.episodeData && data.episodeData.episodes && data.episodeData.episodes.length > 0) {
         renderEpisodeList(data.episodeData)
@@ -1759,10 +1755,25 @@
       }
 
       try {
-        await loadVideo(data.bvid, data.cid, data.progress)
-        await loadVideoInfo(data.bvid)
+        // 优先使用预加载的视频URL，否则 loadVideo 内部会自行请求
+        await loadVideo(data.bvid, data.cid, data.progress, data.preFetchVideoUrl)
+
+        // 视频信息：优先用预加载数据
+        if (data.preFetchVideoInfo && data.preFetchVideoInfo.owner) {
+          authorName.textContent = data.preFetchVideoInfo.owner.name || '未知UP主'
+          authorAvatar.src = data.preFetchVideoInfo.owner.face || ''
+          authorAvatarHeader.src = data.preFetchVideoInfo.owner.face || ''
+          viewCount.textContent = formatNumber(data.preFetchVideoInfo.stat?.view || 0) + '播放'
+          danmakuCount.textContent = formatNumber(data.preFetchVideoInfo.stat?.danmaku || 0) + '弹幕'
+          likeCount.textContent = formatNumber(data.preFetchVideoInfo.stat?.like || 0)
+        } else {
+          // 无预加载数据，不阻塞播放，异步加载
+          loadVideoInfo(data.bvid)
+        }
+
+        // 弹幕也异步加载，不阻塞播放
         if (danmakuEnabled && data.cid) {
-          await loadDanmaku(data.cid)
+          loadDanmaku(data.cid)
         }
       } catch (error) {
         console.error('Error loading video:', error)
@@ -1847,8 +1858,8 @@
       }
     }
 
-    async function loadVideo(bvid, cid, progress = null) {
-      console.log('Loading video, bvid:', bvid, 'cid:', cid, 'progress:', progress)
+    async function loadVideo(bvid, cid, progress = null, preFetchResult = null) {
+      console.log('Loading video, bvid:', bvid, 'cid:', cid, 'progress:', progress, 'preFetch:', !!preFetchResult)
       loadingOverlay.style.display = 'flex'
       errorOverlay.style.display = 'none'
 
@@ -1857,8 +1868,15 @@
           throw new Error('缺少视频cid')
         }
 
-        const result = await ipcRenderer.invoke('get-video-url', bvid, cid)
-        console.log('get-video-url result:', result)
+        // 使用预加载数据，跳过IPC请求
+        let result
+        if (preFetchResult && preFetchResult.success) {
+          console.log('Using pre-fetched video URL:', preFetchResult.quality)
+          result = preFetchResult
+        } else {
+          result = await ipcRenderer.invoke('get-video-url', bvid, cid)
+          console.log('get-video-url result:', result)
+        }
 
         if (!result.success) {
           throw new Error(result.error || '获取视频地址失败')

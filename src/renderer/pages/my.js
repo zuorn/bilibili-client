@@ -135,6 +135,7 @@ async function loadHistory(append = false) {
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
         bvid: item.bvid || '',
+        cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
         pic: fixImageUrl(item.pic || ''),
         duration: formatDuration(item.duration || 0),
@@ -172,6 +173,7 @@ async function searchHistory(keyword) {
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
         bvid: item.bvid || '',
+        cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
         pic: fixImageUrl(item.pic || ''),
         play: '观看过',
@@ -329,6 +331,7 @@ async function loadFavorites(append = false) {
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
         bvid: item.bvid || '',
+        cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
         pic: fixImageUrl(item.pic || ''),
         play: formatPlayCount(item.cnt_info?.play || item.play || 0),
@@ -377,6 +380,7 @@ async function loadToview(append = false) {
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
         bvid: item.bvid || '',
+        cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
         pic: fixImageUrl(item.pic || ''),
         play: formatPlayCount(item.cnt_info?.view || item.play || 0),
@@ -414,6 +418,7 @@ async function searchFavorites(keyword) {
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
         bvid: item.bvid || '',
+        cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
         pic: fixImageUrl(item.pic || ''),
         play: formatPlayCount(item.cnt_info?.play || item.play || 0),
@@ -449,6 +454,7 @@ async function searchToview(keyword) {
 
       const videos = filteredData.map(item => ({
         bvid: item.bvid || '',
+        cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
         pic: fixImageUrl(item.pic || ''),
         play: formatPlayCount(item.cnt_info?.view || item.play || 0),

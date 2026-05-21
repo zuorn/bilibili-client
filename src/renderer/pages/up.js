@@ -179,8 +179,11 @@ async function loadUpVideos(mid, offset = '') {
             play = formatPlayCount(stat.view || 0) + '播放'
           }
 
+          const cid = majorModule.archive?.cid || ''
+
           return {
             bvid: bvid,
+            cid: cid,
             title: title,
             pic: fixImageUrl(pic),
             play: play,

@@ -34,6 +34,7 @@ async function fetchVideos(page = 1, append = false) {
       state.hasMore = items.length >= 30
       const newVideos = items.map(item => ({
         bvid: item.bvid || '',
+        cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
         pic: fixImageUrl(item.pic || item.picture || ''),
         play: formatPlayCount(item.stat?.view || item.play || item.view || 0),

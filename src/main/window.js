@@ -37,6 +37,21 @@ function createWindow(mainWindowRef) {
 
   mainWindow.loadFile('index.html')
 
+  // 拦截视频CDN请求，添加必要的请求头
+  const session = mainWindow.webContents.session
+  session.webRequest.onBeforeSendHeaders((details, callback) => {
+    const url = details.url
+    if (url.includes('bilivideo.com') ||
+        url.includes('bilivideo.cn') ||
+        url.includes('bilibili.com') ||
+        url.includes('hdslb.com')) {
+      details.requestHeaders['User-Agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
+      details.requestHeaders['Referer'] = 'https://www.bilibili.com/'
+      details.requestHeaders['Origin'] = 'https://www.bilibili.com'
+    }
+    callback({ requestHeaders: details.requestHeaders })
+  })
+
   mainWindow.webContents.once('did-finish-load', async () => {
     await cookieManager.syncCookiesToSession(mainWindow.webContents.session)
     try {

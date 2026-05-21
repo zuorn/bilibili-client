@@ -3,6 +3,74 @@ const path = require('path')
 const fs = require('fs')
 const cookieManager = require('../../../cookieManager')
 
+// 获取视频播放URL（并行尝试多个清晰度，取最优可用者）
+async function fetchPlayUrl(bvid, cid, cookieString, log) {
+  const qualities = [
+    { qn: 80, name: '1080P' },
+    { qn: 64, name: '720P' },
+    { qn: 32, name: '480P' }
+  ]
+
+  // 并行请求所有清晰度，用第一个成功的
+  const results = await Promise.allSettled(
+    qualities.map(async (level) => {
+      const url = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=${level.qn}&fnval=16`
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 8000)
+
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': `https://www.bilibili.com/video/${bvid}`,
+            'Cookie': cookieString
+          },
+          signal: controller.signal
+        })
+        clearTimeout(timeout)
+        const data = await response.json()
+        if (data.code === 0) return { qn: level.qn, name: level.name, data }
+        return null
+      } catch (err) {
+        clearTimeout(timeout)
+        return null
+      }
+    })
+  )
+
+  // 按清晰度从高到低取第一个成功的
+  const sorted = results
+    .filter(r => r.status === 'fulfilled' && r.value)
+    .map(r => r.value)
+    .sort((a, b) => b.qn - a.qn)
+
+  for (const r of sorted) {
+    const dash = r.data.dash
+    if (dash && dash.video && dash.video.length > 0) {
+      dash.video.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
+      const bestVideo = dash.video[0]
+      const videoUrl = bestVideo.baseUrl || bestVideo.url || bestVideo.base_url
+      let audioUrl = null
+      if (dash.audio && dash.audio.length > 0) {
+        dash.audio.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
+        audioUrl = dash.audio[0].baseUrl || dash.audio[0].url || dash.audio[0].base_url
+      }
+      if (videoUrl) {
+        log(`[播放器预加载] 并行获取到 ${r.name} (DASH)`)
+        return { success: true, url: videoUrl, audioUrl: audioUrl, quality: r.name + ' (DASH)', isCombined: false }
+      }
+    }
+
+    const durl = r.data.durl
+    if (durl && durl.length > 0) {
+      log(`[播放器预加载] 并行获取到 ${r.name} (durl)`)
+      return { success: true, url: durl[0].url, quality: r.name + ' (durl)', isCombined: true }
+    }
+  }
+
+  return null
+}
+
 async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, episodeData = null) {
   const { log, app, formatProgressTime, reportPlayHistory, startReportTimer, cleanupMpvSocket, getVideoInfo, state } = deps
   const { BrowserWindow } = require('electron')
@@ -18,21 +86,22 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
   let videoDimension = dimension
   let videoAid = null
   let videoDuration = null
+  let firstVideoInfo = null
 
   if (!finalCid || !videoDimension) {
     try {
-      const videoInfo = await getVideoInfo(bvid)
-      if (videoInfo) {
-        if (!finalCid && videoInfo.cid) {
-          finalCid = videoInfo.cid
+      firstVideoInfo = await getVideoInfo(bvid)
+      if (firstVideoInfo) {
+        if (!finalCid && firstVideoInfo.cid) {
+          finalCid = firstVideoInfo.cid
           log('Got cid from video info:', finalCid)
         }
-        if (!videoDimension && videoInfo.dimension) {
-          videoDimension = videoInfo.dimension
+        if (!videoDimension && firstVideoInfo.dimension) {
+          videoDimension = firstVideoInfo.dimension
           log('Got dimension from video info:', videoDimension)
         }
-        videoAid = videoInfo.aid
-        videoDuration = videoInfo.duration
+        videoAid = firstVideoInfo.aid
+        videoDuration = firstVideoInfo.duration
       }
     } catch (error) {
       log('Failed to get video info:', error.message)
@@ -116,6 +185,36 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
 
   state.playerWindow.loadFile('src/pages/player.html')
 
+  // 立即启动预加载：与窗口加载并行获取视频URL和视频信息
+  const cookieString = cookieManager.getCookieString()
+  const preFetchPromise = (async () => {
+    const targetCid = finalCid
+    if (!targetCid) return null
+
+    // 复用第一次 getVideoInfo 的结果（如果有的话），否则重新请求
+    const videoInfoPromise = firstVideoInfo
+      ? Promise.resolve(firstVideoInfo)
+      : getVideoInfo(bvid).catch(() => null)
+
+    const [videoInfoResult, playUrlResult] = await Promise.all([
+      videoInfoPromise,
+      fetchPlayUrl(bvid, targetCid, cookieString, log)
+    ])
+
+    return {
+      videoInfo: videoInfoResult ? {
+        aid: videoInfoResult.aid,
+        cid: videoInfoResult.cid,
+        duration: videoInfoResult.duration,
+        title: videoInfoResult.title,
+        dimension: videoInfoResult.dimension,
+        owner: videoInfoResult.owner,
+        stat: videoInfoResult.stat
+      } : null,
+      videoUrlResult: playUrlResult
+    }
+  })()
+
   // 复制主窗口的cookie到播放器窗口
   const copyCookies = async () => {
     try {
@@ -146,13 +245,26 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
 
   state.playerWindow.webContents.on('did-finish-load', async () => {
     await copyCookies()
+
+    // 等待预加载完成（此时通常已经完成）
+    let preFetchData = null
+    try {
+      preFetchData = await preFetchPromise
+      log('[播放器预加载] 数据获取完成:', preFetchData ? 'success' : 'failed')
+    } catch (e) {
+      log('[播放器预加载] 异常:', e.message)
+    }
+
     state.playerWindow.webContents.send('play-video-data', {
       bvid: bvid,
       cid: finalCid,
       title: title || '哔哩哔哩视频',
       cookies: cookieManager.getSavedCookies(),
       progress: progress,
-      episodeData: episodeData
+      episodeData: episodeData,
+      // 预加载数据，播放器页面可直接使用，无需再次请求API
+      preFetchVideoUrl: preFetchData?.videoUrlResult || null,
+      preFetchVideoInfo: preFetchData?.videoInfo || null
     })
   })
 

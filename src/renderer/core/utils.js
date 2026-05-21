@@ -96,6 +96,7 @@ function mapVideoItem(item, options = {}) {
     pic: fixImageUrl(item.pic || item.picture || ''),
     play: formatPlayCount(item.stat?.view || item.play || item.view || 0) + (showPlaySuffix ? '播放' : ''),
     duration: formatDuration(item.duration || item.length || 0),
+    cid: item.cid || '',
     author: item.owner?.name || item.author || item.uname || authorFallback,
     owner: item.owner?.mid ? item.owner : { mid: item.mid || item.author_mid || item.owner?.id || '', name: item.author || item.uname || authorFallback }
   }
