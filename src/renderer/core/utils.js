@@ -70,6 +70,16 @@ function fixImageUrl(url) {
   return url.startsWith('//') ? 'https:' + url : url
 }
 
+// Bilibili CDN supports appending @widthw_heighth to resize images.
+// Original covers are ~1920x1080 (~200-400KB); resized to 672x378 is ~15-30KB.
+function optimizeCoverUrl(url, width, height) {
+  if (!url) return fixImageUrl(url)
+  if (url.startsWith('data:')) return url
+  const full = fixImageUrl(url)
+  if (full.includes('@')) return full
+  return full + '@' + width + 'w_' + height + 'h'
+}
+
 function formatPlayCount(count) {
   if (!count) return '0'
   if (count >= 100000000) return (count / 100000000).toFixed(1) + '亿'
@@ -93,11 +103,29 @@ function mapVideoItem(item, options = {}) {
   return {
     bvid: item.bvid || '',
     title: (item.title || '').replace(/<[^>]+>/g, ''),
-    pic: fixImageUrl(item.pic || item.picture || ''),
+    pic: optimizeCoverUrl(item.pic || item.picture || '', 672, 378),
     play: formatPlayCount(item.stat?.view || item.play || item.view || 0) + (showPlaySuffix ? '播放' : ''),
     duration: formatDuration(item.duration || item.length || 0),
     cid: item.cid || '',
     author: item.owner?.name || item.author || item.uname || authorFallback,
     owner: item.owner?.mid ? item.owner : { mid: item.mid || item.author_mid || item.owner?.id || '', name: item.author || item.uname || authorFallback }
   }
+}
+
+function showToast(message, duration = 3000) {
+  let container = document.querySelector('.toast-container')
+  if (!container) {
+    container = document.createElement('div')
+    container.className = 'toast-container'
+    document.body.appendChild(container)
+  }
+
+  const toast = document.createElement('div')
+  toast.className = 'toast-item'
+  toast.textContent = message
+  container.appendChild(toast)
+
+  setTimeout(() => {
+    if (toast.parentNode) toast.remove()
+  }, duration)
 }

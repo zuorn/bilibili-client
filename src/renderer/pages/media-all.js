@@ -226,6 +226,8 @@ function renderMediaAllCards(items) {
     card.addEventListener('click', () => {
       playBangumi(items[index])
     })
+    const img = card.querySelector('.bangumi-all-cover img')
+    setupLazyImage(img, index < EAGER_COUNT)
   })
 }
 
@@ -242,12 +244,14 @@ function appendMediaAllCards(items) {
     card.addEventListener('click', () => {
       playBangumi(item)
     })
+    const img = card.querySelector('.bangumi-all-cover img')
+    setupLazyImage(img, false)
   })
 }
 
 // 创建影视全部卡片HTML
 function createMediaAllCard(item) {
-  const coverUrl = item.cover?.startsWith('//') ? 'https:' + item.cover : (item.cover || '')
+  const coverUrl = optimizeCoverUrl(item.cover || '', 672, 378)
 
   let badges = []
 
@@ -276,7 +280,7 @@ function createMediaAllCard(item) {
   return `
     <div class="bangumi-all-card">
       <div class="bangumi-all-cover">
-        <img src="${coverUrl}" alt="${item.title}" loading="lazy">
+        <img src="" alt="${item.title}" data-src="${coverUrl}">
         ${badges.length > 0 ? `<div class="badges-container">${badgesHtml}</div>` : ''}
         ${item.index_show ? `<span style="position: absolute; bottom: 8px; left: 8px; right: auto; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 3px;">${item.index_show}</span>` : ''}
       </div>

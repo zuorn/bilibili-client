@@ -121,7 +121,7 @@ function renderFollowingList(followings) {
   })
 }
 
-function createDynamicVideoCard(dynamic, onAuthorClick) {
+function createDynamicVideoCard(dynamic, onAuthorClick, options = {}) {
   const card = document.createElement('div')
   card.className = 'video-card'
 
@@ -140,8 +140,12 @@ function createDynamicVideoCard(dynamic, onAuthorClick) {
 
   let durationHtml = duration ? '<div class="video-duration">' + duration + '</div>' : ''
   const videoDate = pubTime || formatDynamicTime(pubTs)
+  const coverSrc = optimizeCoverUrl(thumbnail, COVER_WIDTH, COVER_HEIGHT)
 
-  card.innerHTML = '<div class="video-thumbnail"><img src="' + fixImageUrl(thumbnail) + '" alt="' + title + '" loading="lazy">' + durationHtml + '</div><div class="video-info"><div class="video-title">' + title + '</div><div class="video-meta"><span class="video-author" data-mid="' + authorMid + '">' + author + '</span><span class="video-date">' + videoDate + '</span></div></div>'
+  card.innerHTML = '<div class="video-thumbnail"><img src="" alt="' + title + '" data-src="' + coverSrc + '">' + durationHtml + '</div><div class="video-info"><div class="video-title">' + title + '</div><div class="video-meta"><span class="video-author" data-mid="' + authorMid + '">' + author + '</span><span class="video-date">' + videoDate + '</span></div></div>'
+
+  const img = card.querySelector('.video-thumbnail img')
+  setupLazyImage(img, options.eager)
 
   if (bvid) {
     card.addEventListener('click', () => {
@@ -162,9 +166,10 @@ function renderDynamicVideos(dynamics, onAuthorClick) {
   const videoContainer = document.getElementById('videoContainer')
   if (!videoContainer) return
 
-  dynamics.forEach(dynamic => {
+  dynamics.forEach((dynamic, index) => {
     if (dynamic.bvid || dynamic.thumbnail) {
-      videoContainer.appendChild(createDynamicVideoCard(dynamic, onAuthorClick))
+      const eager = index < EAGER_COUNT
+      videoContainer.appendChild(createDynamicVideoCard(dynamic, onAuthorClick, { eager }))
     }
   })
 }

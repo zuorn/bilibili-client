@@ -256,7 +256,6 @@
       object-fit: cover !important;
       background-color: #000;
       z-index: 1;
-      display: none;
     }
 
     :fullscreen .anime4k-canvas,
@@ -969,8 +968,10 @@
         <button class="retry-btn" id="retryBtn">重新加载</button>
       </div>
 
-      <video class="video-player" id="videoPlayer" playsinline webkit-playsinline draggable="false"></video>
-      <canvas class="anime4k-canvas" id="anime4kCanvas"></canvas>
+      <video class="video-player" id="videoPlayer" playsinline webkit-playsinline draggable="false"
+        style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;background:#000"></video>
+      <canvas class="anime4k-canvas" id="anime4kCanvas"
+        style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;background:#000;display:none"></canvas>
 
       <div class="drag-region"></div>
 
@@ -1132,6 +1133,32 @@
     let currentVideoData = null
     let currentEpisodeData = null
     let currentAudioElement = null
+    let pendingPrefetchData = null
+    let loadVideoTimeout = null
+
+    // Named DASH audio sync handlers so we can remove them before re-adding
+    const dashSyncHandlers = {
+      onPlay: () => {
+        if (currentAudioElement && currentAudioElement.paused) {
+          currentAudioElement.play().catch(e => console.log('Audio play error:', e))
+        }
+      },
+      onPause: () => {
+        if (currentAudioElement && !currentAudioElement.paused) {
+          currentAudioElement.pause()
+        }
+      },
+      onVolumeChange: () => {
+        if (currentAudioElement) {
+          currentAudioElement.volume = videoPlayer.volume
+        }
+      },
+      onSeeked: () => {
+        if (currentAudioElement) {
+          currentAudioElement.currentTime = videoPlayer.currentTime
+        }
+      }
+    }
     let danmakuEnabled = localStorage.getItem('showDanmaku') !== 'false'
     let danmakuList = []
     let danmakuIndex = 0
@@ -1315,11 +1342,25 @@
     let anime4kRenderer = null
     let anime4kEnabled = localStorage.getItem('anime4kEnabled') === 'true'
 
-    if (Anime4KRenderer && Anime4KRenderer.Renderer) {
+    if (typeof Anime4KRenderer === 'undefined') {
+      console.error('[Anime4K] Module not loaded')
+    } else if (!Anime4KRenderer.Renderer) {
+      console.error('[Anime4K] Renderer class missing')
+    } else {
       anime4kRenderer = new Anime4KRenderer.Renderer(anime4kCanvas, videoPlayer)
+      console.log('[Anime4K] Renderer created, ready:', anime4kRenderer.ready, 'gl:', !!anime4kRenderer.gl)
+
+      if (!anime4kRenderer.gl) {
+        console.error('[Anime4K] WebGL context creation failed — GPU may be unavailable')
+      } else if (!anime4kRenderer.ready) {
+        console.error('[Anime4K] Shader compilation failed')
+      }
+
       if (anime4kEnabled && anime4kRenderer.ready) {
         anime4kRenderer.start()
         videoPlayer.classList.add('anime4k-active')
+      } else {
+        anime4kCanvas.style.display = 'none'
       }
     }
 
@@ -1330,8 +1371,16 @@
 
     menuAnime4K.addEventListener('click', () => {
       contextMenu.classList.remove('show')
-      if (!anime4kRenderer || !anime4kRenderer.ready) {
-        showToast('Anime4K 初始化失败，WebGL 不可用')
+      if (!anime4kRenderer) {
+        showToast('Anime4K 模块加载失败')
+        return
+      }
+      if (!anime4kRenderer.gl) {
+        showToast('WebGL 不可用，请检查显卡驱动')
+        return
+      }
+      if (!anime4kRenderer.ready) {
+        showToast('Anime4K 着色器编译失败')
         return
       }
 
@@ -1471,7 +1520,8 @@
         { key: '-', desc: '缩小窗口' },
         { key: 'F / Enter', desc: '全屏/退出全屏' },
         { key: 'Q', desc: '关闭窗口' },
-        { key: 'V', desc: '弹幕开关' }
+        { key: 'V', desc: '弹幕开关' },
+        { key: '1', desc: 'Anime4K 画质增强开关' }
       ]
 
       shortcuts.forEach(item => {
@@ -1767,6 +1817,9 @@
           }
         }
       }
+      if (e.key === '1') {
+        menuAnime4K.click()
+      }
       if (e.key === 'F12') {
         e.preventDefault()
         ipcRenderer.invoke('open-player-dev-tools')
@@ -1828,7 +1881,6 @@
       }
       if (videoPlayer) {
         videoPlayer.classList.remove('with-panel')
-        videoPlayer.style.objectFit = ''
       }
       
       // 更新登录状态显示
@@ -1899,6 +1951,15 @@
       } catch (error) {
         console.error('Error loading video:', error)
         showError('加载失败', error.message)
+      }
+    })
+
+    // Receive late-arriving prefetch data from the main process.
+    // If the video hasn't loaded yet, apply it to skip the get-video-url IPC.
+    ipcRenderer.on('prefetch-data', (event, data) => {
+      console.log('Received prefetch-data:', data)
+      if (data.preFetchVideoUrl && pendingPrefetchData === null && videoPlayer.src === '') {
+        pendingPrefetchData = data.preFetchVideoUrl
       }
     })
 
@@ -1989,14 +2050,24 @@
           throw new Error('缺少视频cid')
         }
 
-        // 使用预加载数据，跳过IPC请求
+        // 使用预加载数据，跳过IPC请求；没有则检查背景预加载是否已到达
         let result
         if (preFetchResult && preFetchResult.success) {
           console.log('Using pre-fetched video URL:', preFetchResult.quality)
           result = preFetchResult
         } else {
-          result = await ipcRenderer.invoke('get-video-url', bvid, cid)
-          console.log('get-video-url result:', result)
+          // Give the background prefetch a brief window to arrive
+          for (let i = 0; i < 10 && !pendingPrefetchData; i++) {
+            await new Promise(r => setTimeout(r, 50))
+          }
+          if (pendingPrefetchData && pendingPrefetchData.success) {
+            console.log('Using background prefetch data:', pendingPrefetchData.quality)
+            result = pendingPrefetchData
+            pendingPrefetchData = null
+          } else {
+            result = await ipcRenderer.invoke('get-video-url', bvid, cid)
+            console.log('get-video-url result:', result)
+          }
         }
 
         if (!result.success) {
@@ -2007,16 +2078,19 @@
         console.log('Audio URL:', result.audioUrl)
         console.log('Is combined format:', result.isCombined)
 
-        // 清理旧音频元素
+        // 清理旧音频元素和 DASH 同步监听器
         if (currentAudioElement) {
           currentAudioElement.pause()
           currentAudioElement.remove()
           currentAudioElement = null
         }
+        videoPlayer.removeEventListener('play', dashSyncHandlers.onPlay)
+        videoPlayer.removeEventListener('pause', dashSyncHandlers.onPause)
+        videoPlayer.removeEventListener('volumechange', dashSyncHandlers.onVolumeChange)
+        videoPlayer.removeEventListener('seeked', dashSyncHandlers.onSeeked)
 
-        // 创建video元素并设置属性
-        videoPlayer.src = result.url
         videoPlayer.crossOrigin = 'anonymous'
+        videoPlayer.src = result.url
 
         // 应用保存的音量
         const savedVol = localStorage.getItem('playerVolume')
@@ -2034,41 +2108,21 @@
             currentAudioElement.volume = parseFloat(savedVol)
           }
 
-          videoPlayer.addEventListener('play', () => {
-            if (currentAudioElement && currentAudioElement.paused) {
-              currentAudioElement.play().catch(e => console.log('Audio play error:', e))
-            }
-          })
-
-          videoPlayer.addEventListener('pause', () => {
-            if (currentAudioElement && !currentAudioElement.paused) {
-              currentAudioElement.pause()
-            }
-          })
-
-          videoPlayer.addEventListener('volumechange', () => {
-            if (currentAudioElement) {
-              currentAudioElement.volume = videoPlayer.volume
-            }
-          })
-
-          videoPlayer.addEventListener('seeked', () => {
-            if (currentAudioElement) {
-              currentAudioElement.currentTime = videoPlayer.currentTime
-            }
-          })
+          videoPlayer.addEventListener('play', dashSyncHandlers.onPlay)
+          videoPlayer.addEventListener('pause', dashSyncHandlers.onPause)
+          videoPlayer.addEventListener('volumechange', dashSyncHandlers.onVolumeChange)
+          videoPlayer.addEventListener('seeked', dashSyncHandlers.onSeeked)
         }
 
         videoPlayer.load()
-        
+
         let hasLoaded = false
         let hasError = false
         let initialProgressSet = false
-        
-        videoPlayer.addEventListener('loadedmetadata', () => {
+
+        videoPlayer.addEventListener('loadedmetadata', function onMeta() {
           console.log('Video metadata loaded')
           if (!hasLoaded && !hasError) {
-            // 设置初始播放进度
             if (progress !== null && progress !== undefined && !initialProgressSet) {
               videoPlayer.currentTime = progress
               initialProgressSet = true
@@ -2078,12 +2132,11 @@
             loadingOverlay.style.display = 'none'
             videoPlayer.play()
           }
-        })
+        }, { once: true })
 
-        videoPlayer.addEventListener('canplay', () => {
+        videoPlayer.addEventListener('canplay', function onCanPlay() {
           console.log('Video can play')
           if (!hasLoaded && !hasError) {
-            // 设置初始播放进度
             if (progress !== null && progress !== undefined && !initialProgressSet) {
               videoPlayer.currentTime = progress
               initialProgressSet = true
@@ -2093,9 +2146,9 @@
             loadingOverlay.style.display = 'none'
             videoPlayer.play()
           }
-        })
+        }, { once: true })
 
-        videoPlayer.addEventListener('error', (e) => {
+        videoPlayer.addEventListener('error', function onErr(e) {
           console.error('Video player error:', videoPlayer.error)
           console.error('Error code:', videoPlayer.error?.code)
           console.error('Error message:', videoPlayer.error?.message)
@@ -2103,14 +2156,24 @@
             hasError = true
             showError('播放失败', '无法加载视频资源 (code: ' + (videoPlayer.error?.code || 'unknown') + ')')
           }
-        })
-        
-        // 设置超时
-        setTimeout(() => {
+        }, { once: true })
+
+        // 清除上一次的超时定时器，避免干扰当前加载
+        if (loadVideoTimeout) {
+          clearTimeout(loadVideoTimeout)
+          loadVideoTimeout = null
+        }
+
+        // 超时后显示错误并允许重试
+        loadVideoTimeout = setTimeout(() => {
           if (!hasLoaded && !hasError) {
-            console.log('Video loading timeout')
+            console.log('Video loading timeout, showing error')
+            hasError = true
+            videoPlayer.removeAttribute('src')
+            showError('加载超时', '视频加载时间过长，请检查网络后重试')
           }
-        }, 10000)
+          loadVideoTimeout = null
+        }, 15000)
       } catch (error) {
         console.error('Error in loadVideo:', error)
         showError('加载失败', error.message)
@@ -2379,17 +2442,17 @@
           canvas.style.objectFit = 'contain'
         }
       } else {
-        videoPlayer.style.width = ''
-        videoPlayer.style.height = ''
+        videoPlayer.style.width = '100vw'
+        videoPlayer.style.height = '100vh'
         videoPlayer.style.maxWidth = ''
         videoPlayer.style.maxHeight = ''
-        videoPlayer.style.objectFit = ''
+        videoPlayer.style.objectFit = 'cover'
         if (canvas) {
-          canvas.style.width = ''
-          canvas.style.height = ''
+          canvas.style.width = '100vw'
+          canvas.style.height = '100vh'
           canvas.style.maxWidth = ''
           canvas.style.maxHeight = ''
-          canvas.style.objectFit = ''
+          canvas.style.objectFit = 'cover'
         }
       }
     })

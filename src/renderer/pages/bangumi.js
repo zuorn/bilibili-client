@@ -91,8 +91,8 @@ function renderFollowingSection(section) {
   const items = section.items || []
   listEl.innerHTML = ''
 
-  items.forEach(item => {
-    const card = createFollowingCard(item)
+  items.forEach((item, index) => {
+    const card = createFollowingCard(item, { eager: index < EAGER_COUNT })
     listEl.appendChild(card)
   })
 }
@@ -107,8 +107,8 @@ function renderAnimeRecommend(section) {
   const items = section.items || []
   gridEl.innerHTML = ''
 
-  items.forEach(item => {
-    const card = createBangumiCard(item)
+  items.forEach((item, index) => {
+    const card = createBangumiCard(item, { eager: index < EAGER_COUNT })
     gridEl.appendChild(card)
   })
 }
@@ -123,8 +123,8 @@ function renderChineseRecommend(section) {
   const items = section.items || []
   gridEl.innerHTML = ''
 
-  items.forEach(item => {
-    const card = createBangumiCard(item)
+  items.forEach((item, index) => {
+    const card = createBangumiCard(item, { eager: index < EAGER_COUNT })
     gridEl.appendChild(card)
   })
 }
@@ -138,17 +138,17 @@ function renderGuessSection(section) {
 
   const items = section.items || []
 
-  items.forEach(item => {
-    const card = createWaterfallCard(item)
+  items.forEach((item, index) => {
+    const card = createWaterfallCard(item, { eager: index < EAGER_COUNT })
     waterfallEl.appendChild(card)
   })
 }
 
-function createFollowingCard(item) {
+function createFollowingCard(item, options = {}) {
   const card = document.createElement('div')
   card.className = 'following-card'
 
-  const coverUrl = fixImageUrl(item.cover || item.pic || '')
+  const coverUrl = optimizeCoverUrl(item.cover || item.pic || '', 672, 378)
   const title = item.title || item.name || ''
   const badgeText = item.badge_info?.text || item.badge || ''
   const isMember = badgeText === '会员' || badgeText === '大会员'
@@ -179,7 +179,7 @@ function createFollowingCard(item) {
 
   card.innerHTML = `
     <div class="following-cover">
-      <img src="${coverUrl}" alt="${title}" loading="lazy">
+      <img src="" alt="${title}" data-src="${coverUrl}">
       ${badgeText ? `<span class="following-badge" style="${colorStyle} position: absolute; top: 8px; right: 8px;">${badgeText}</span>` : ''}
       ${bottomBadge}
       ${newEp ? `<span class="following-new-ep" style="position: absolute; bottom: 8px; left: 8px; right: auto;">${newEp}</span>` : ''}
@@ -190,6 +190,9 @@ function createFollowingCard(item) {
     </div>
   `
 
+  const img = card.querySelector('.following-cover img')
+  setupLazyImage(img, options.eager)
+
   card.addEventListener('click', () => {
     playBangumi(item)
   })
@@ -197,11 +200,11 @@ function createFollowingCard(item) {
   return card
 }
 
-function createBangumiCard(item) {
+function createBangumiCard(item, options = {}) {
   const card = document.createElement('div')
   card.className = 'bangumi-card'
 
-  const coverUrl = fixImageUrl(item.cover || item.pic || '')
+  const coverUrl = optimizeCoverUrl(item.cover || item.pic || '', 672, 378)
   const title = item.title || item.name || ''
   const badgeText = item.badge_info?.text || item.badge || ''
   const isMember = badgeText === '会员' || badgeText === '大会员'
@@ -222,7 +225,7 @@ function createBangumiCard(item) {
 
   card.innerHTML = `
     <div class="bangumi-cover">
-      <img src="${coverUrl}" alt="${title}" loading="lazy">
+      <img src="" alt="${title}" data-src="${coverUrl}">
       ${badgeText ? `<span class="following-badge" style="${colorStyle} position: absolute; top: 8px; right: 8px;">${badgeText}</span>` : ''}
       ${bottomBadge}
       ${newEp ? `<span class="following-new-ep" style="position: absolute; bottom: 8px; left: 8px; right: auto;">${newEp}</span>` : ''}
@@ -233,6 +236,9 @@ function createBangumiCard(item) {
     </div>
   `
 
+  const img = card.querySelector('.bangumi-cover img')
+  setupLazyImage(img, options.eager)
+
   card.addEventListener('click', () => {
     playBangumi(item)
   })
@@ -240,11 +246,11 @@ function createBangumiCard(item) {
   return card
 }
 
-function createWaterfallCard(item) {
+function createWaterfallCard(item, options = {}) {
   const card = document.createElement('div')
   card.className = 'waterfall-item'
 
-  const coverUrl = fixImageUrl(item.cover || item.pic || '')
+  const coverUrl = optimizeCoverUrl(item.cover || item.pic || '', 672, 378)
   const title = item.title || item.name || ''
   const badgeText = item.badge_info?.text || ''
   const isMember = badgeText === '会员'
@@ -255,7 +261,7 @@ function createWaterfallCard(item) {
 
   card.innerHTML = `
     <div class="following-cover">
-      <img src="${coverUrl}" alt="${title}" loading="lazy">
+      <img src="" alt="${title}" data-src="${coverUrl}">
       ${badgeText ? `<span class="${badgeClass}">${badgeText}</span>` : ''}
       ${newEp ? `<span class="following-new-ep">${newEp}</span>` : ''}
     </div>
@@ -264,6 +270,9 @@ function createWaterfallCard(item) {
       <div class="following-status">${desc}</div>
     </div>
   `
+
+  const img = card.querySelector('.following-cover img')
+  setupLazyImage(img, options.eager)
 
   card.addEventListener('click', () => {
     playBangumi(item)
@@ -295,7 +304,7 @@ async function loadMoreGuessItems() {
       if (guessModule && guessModule.items && guessModule.items.length > 0) {
         const waterfallEl = document.getElementById('guess-waterfall')
         guessModule.items.forEach(item => {
-          const card = createWaterfallCard(item)
+          const card = createWaterfallCard(item, { eager: false })
           waterfallEl.appendChild(card)
         })
 

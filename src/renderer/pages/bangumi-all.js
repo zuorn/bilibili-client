@@ -392,11 +392,13 @@ function renderBangumiAllCards(items) {
 
   gridEl.innerHTML = items.map(item => createBangumiAllCard(item)).join('')
 
-  // 添加点击事件
+  // 添加点击事件和懒加载
   gridEl.querySelectorAll('.bangumi-all-card').forEach((card, index) => {
     card.addEventListener('click', () => {
       playBangumi(items[index])
     })
+    const img = card.querySelector('.bangumi-all-cover img')
+    setupLazyImage(img, index < EAGER_COUNT)
   })
 }
 
@@ -413,12 +415,14 @@ function appendBangumiAllCards(items) {
     card.addEventListener('click', () => {
       playBangumi(item)
     })
+    const img = card.querySelector('.bangumi-all-cover img')
+    setupLazyImage(img, false)
   })
 }
 
 // 创建追番全部卡片HTML
 function createBangumiAllCard(item) {
-  const coverUrl = item.cover?.startsWith('//') ? 'https:' + item.cover : (item.cover || '')
+  const coverUrl = optimizeCoverUrl(item.cover || '', 672, 378)
 
   let badges = []
 
@@ -447,7 +451,7 @@ function createBangumiAllCard(item) {
   return `
     <div class="bangumi-all-card">
       <div class="bangumi-all-cover">
-        <img src="${coverUrl}" alt="${item.title}" loading="lazy">
+        <img src="" alt="${item.title}" data-src="${coverUrl}">
         ${badges.length > 0 ? `<div class="badges-container">${badgesHtml}</div>` : ''}
         ${item.index_show ? `<span style="position: absolute; bottom: 8px; left: 8px; right: auto; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 3px;">${item.index_show}</span>` : ''}
       </div>

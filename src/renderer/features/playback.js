@@ -1,5 +1,7 @@
 // 播放模块
 
+let playerOpening = false
+
 function getMpvPath() {
   return localStorage.getItem('mpvPath') || ''
 }
@@ -8,11 +10,33 @@ function useBuiltinPlayer() {
   return localStorage.getItem('useBuiltinPlayer') === 'true'
 }
 
-function playVideo(bvid, cid, title, progress, episodeData = null) {
-  const mpvPath = getMpvPath()
-  const showDanmaku = localStorage.getItem('showDanmaku') !== 'false'
+async function playVideo(bvid, cid, title, progress, episodeData = null) {
+  if (playerOpening) {
+    console.log('Player is already opening, ignoring duplicate click')
+    return
+  }
+
   const useBuiltin = useBuiltinPlayer()
-  ipcRenderer.invoke('play-video', bvid, cid, title, mpvPath, showDanmaku, useBuiltin, progress, episodeData)
+  const mpvPath = getMpvPath()
+
+  // Neither player is configured — tell the user to set one up
+  if (!useBuiltin && !mpvPath) {
+    showToast('请先在设置中开启内置播放器或配置 MPV 路径')
+    return
+  }
+
+  playerOpening = true
+  try {
+    const showDanmaku = localStorage.getItem('showDanmaku') !== 'false'
+    const result = await ipcRenderer.invoke('play-video', bvid, cid, title, mpvPath, showDanmaku, useBuiltin, progress, episodeData)
+    if (!result.success) {
+      showToast(result.error || '播放失败')
+    }
+  } finally {
+    // Hold the guard for at least 3 seconds to prevent rapid re-clicks
+    // from triggering a second window before the first one loads.
+    setTimeout(() => { playerOpening = false }, 3000)
+  }
 }
 
 function extractSeasonId(item) {

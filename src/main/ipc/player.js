@@ -73,6 +73,9 @@ function registerPlayerHandlers(deps) {
       const videoUrl = `https://www.bilibili.com/video/${bvid}`
       const videoTitle = title || '哔哩哔哩视频'
       const mpvExecutable = findMpvExecutable(mpvPath)
+      if (!mpvExecutable) {
+        return { success: false, error: '未找到 MPV 播放器，请在设置中配置 MPV 路径或开启内置播放器' }
+      }
       log(`[启动计时] 步骤1: 获取mpv可执行文件, 耗时: ${Date.now() - startTime}ms`)
 
       let targetCid = cid
@@ -269,8 +272,13 @@ function registerPlayerHandlers(deps) {
     for (const r of successful) {
       const dash = r.data.data?.dash
       if (dash && dash.video && dash.video.length > 0) {
-        dash.video.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
-        const bestVideo = dash.video[0]
+        // 优先选 AVC (codecid=7)，Chromium 不支持 HEVC (codecid=12)
+        const sorted = [...dash.video].sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
+        const avc = sorted.filter(v => (v.codecid || v.codec_id) === 7)
+        const av1 = sorted.filter(v => (v.codecid || v.codec_id) === 13)
+        const hevc = sorted.filter(v => (v.codecid || v.codec_id) === 12)
+        const bestVideo = avc[0] || av1[0] || hevc[0]
+        if (!bestVideo) continue
         const videoUrl = bestVideo.baseUrl || bestVideo.url
         let audioUrl = null
         if (dash.audio && dash.audio.length > 0) {
@@ -278,7 +286,8 @@ function registerPlayerHandlers(deps) {
           audioUrl = dash.audio[0].baseUrl || dash.audio[0].url
         }
         if (videoUrl) {
-          log(`✅ 并行获取 - 使用 ${r.name} (DASH)`)
+          const codecLabel = (bestVideo.codecid || bestVideo.codec_id) === 13 ? 'AV1' : ''
+          log(`✅ 并行获取 - 使用 ${r.name}${codecLabel ? ' ' + codecLabel : ''} (DASH)`)
           return { success: true, url: videoUrl, audioUrl, quality: r.name + ' (DASH)', isCombined: false }
         }
       }

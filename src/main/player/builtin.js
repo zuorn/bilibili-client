@@ -5,6 +5,16 @@ const { spawn } = require('child_process')
 const ffmpegPath = require('ffmpeg-static')
 const cookieManager = require('../../../cookieManager')
 
+// 从 DASH 视频流中选出浏览器可播放的最佳流。
+// Chromium 不支持 HEVC (codecid=12)，优先选 AVC (codecid=7)，其次 AV1 (codecid=13)，最后 HEVC。
+function pickBestPlayableDashVideo(dashVideo) {
+  const sorted = [...dashVideo].sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
+  const avc = sorted.filter(v => (v.codecid || v.codec_id) === 7)
+  const av1 = sorted.filter(v => (v.codecid || v.codec_id) === 13)
+  const hevc = sorted.filter(v => (v.codecid || v.codec_id) === 12)
+  return avc[0] || av1[0] || hevc[0]
+}
+
 // 获取视频播放URL（并行尝试多个清晰度，取最优可用者）
 async function fetchPlayUrl(bvid, cid, cookieString, log) {
   const qualities = [
@@ -49,8 +59,8 @@ async function fetchPlayUrl(bvid, cid, cookieString, log) {
   for (const r of sorted) {
     const dash = r.data.dash
     if (dash && dash.video && dash.video.length > 0) {
-      dash.video.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
-      const bestVideo = dash.video[0]
+      const bestVideo = pickBestPlayableDashVideo(dash.video)
+      if (!bestVideo) continue
       const videoUrl = bestVideo.baseUrl || bestVideo.url || bestVideo.base_url
       let audioUrl = null
       if (dash.audio && dash.audio.length > 0) {
@@ -58,14 +68,15 @@ async function fetchPlayUrl(bvid, cid, cookieString, log) {
         audioUrl = dash.audio[0].baseUrl || dash.audio[0].url || dash.audio[0].base_url
       }
       if (videoUrl) {
-        log(`[播放器预加载] 并行获取到 ${r.name} (DASH)`)
+        const codecLabel = (bestVideo.codecid || bestVideo.codec_id) === 13 ? 'AV1' : ''
+        log(`[播放器预加载] 获取到 ${r.name}${codecLabel ? ' ' + codecLabel : ''} (DASH)`)
         return { success: true, url: videoUrl, audioUrl: audioUrl, quality: r.name + ' (DASH)', isCombined: false }
       }
     }
 
     const durl = r.data.durl
     if (durl && durl.length > 0) {
-      log(`[播放器预加载] 并行获取到 ${r.name} (durl)`)
+      log(`[播放器预加载] 获取到 ${r.name} (durl)`)
       return { success: true, url: durl[0].url, quality: r.name + ' (durl)', isCombined: true }
     }
   }
@@ -185,7 +196,26 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
     callback({ requestHeaders: details.requestHeaders })
   })
 
+  // Add CORS headers to video CDN responses (required for WebGL texImage2D)
+  session.webRequest.onHeadersReceived((details, callback) => {
+    const url = details.url
+    if (url.includes('bilivideo.com') || url.includes('bilivideo.cn') ||
+        url.includes('mcdn.bilivideo.cn') || url.includes('hdslb.com')) {
+      const headers = details.responseHeaders || {}
+      headers['Access-Control-Allow-Origin'] = ['*']
+      headers['Access-Control-Allow-Methods'] = ['GET, OPTIONS']
+      headers['Access-Control-Allow-Credentials'] = ['true']
+      callback({ responseHeaders: headers })
+    } else {
+      callback({ responseHeaders: details.responseHeaders })
+    }
+  })
+
   state.playerWindow.loadFile('src/pages/player.html')
+
+  // Capture window reference locally to prevent stale closures from sending
+  // data to the wrong window after rapid re-opens.
+  const playerWindow = state.playerWindow
 
   // 立即启动预加载：与窗口加载并行获取视频URL和视频信息
   const cookieString = cookieManager.getCookieString()
@@ -193,7 +223,6 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
     const targetCid = finalCid
     if (!targetCid) return null
 
-    // 复用第一次 getVideoInfo 的结果（如果有的话），否则重新请求
     const videoInfoPromise = firstVideoInfo
       ? Promise.resolve(firstVideoInfo)
       : getVideoInfo(bvid).catch(() => null)
@@ -222,8 +251,7 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
     try {
       const mainCookies = await deps.mainWindow.webContents.session.cookies.get({})
       log('Copying', mainCookies.length, 'cookies to player window')
-
-      const playerSession = state.playerWindow.webContents.session
+      const playerSession = playerWindow.webContents.session
       for (const cookie of mainCookies) {
         try {
           await playerSession.cookies.set({
@@ -245,29 +273,56 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
     }
   }
 
-  state.playerWindow.webContents.on('did-finish-load', async () => {
-    await copyCookies()
-
-    // 等待预加载完成（此时通常已经完成）
+  // Send play-video-data when the page finishes loading.
+  // Wait briefly (up to 500ms) for the prefetch to complete so we can
+  // include its result directly. If it's not ready, the player page will
+  // receive it via a follow-up 'prefetch-data' event.
+  playerWindow.webContents.once('did-finish-load', async () => {
     let preFetchData = null
     try {
-      preFetchData = await preFetchPromise
-      log('[播放器预加载] 数据获取完成:', preFetchData ? 'success' : 'failed')
+      preFetchData = await Promise.race([
+        preFetchPromise,
+        new Promise(r => setTimeout(() => r(null), 500))
+      ])
     } catch (e) {
-      log('[播放器预加载] 异常:', e.message)
+      log('[播放器预加载] 等待异常:', e.message)
     }
 
-    state.playerWindow.webContents.send('play-video-data', {
+    const hasPrefetch = preFetchData && preFetchData.videoUrlResult
+
+    playerWindow.webContents.send('play-video-data', {
       bvid: bvid,
       cid: finalCid,
       title: title || '哔哩哔哩视频',
       cookies: cookieManager.getSavedCookies(),
       progress: progress,
       episodeData: episodeData,
-      // 预加载数据，播放器页面可直接使用，无需再次请求API
-      preFetchVideoUrl: preFetchData?.videoUrlResult || null,
-      preFetchVideoInfo: preFetchData?.videoInfo || null
+      preFetchVideoUrl: hasPrefetch ? preFetchData.videoUrlResult : null,
+      preFetchVideoInfo: hasPrefetch ? preFetchData.videoInfo : null
     })
+
+    if (hasPrefetch) {
+      log('[播放器预加载] 数据已随 play-video-data 发送')
+    }
+
+    // Do slow operations in background
+    copyCookies().catch(e => log('copyCookies error:', e.message))
+
+    // If prefetch wasn't ready within the window, send when it completes
+    if (!hasPrefetch) {
+      try {
+        const lateData = preFetchData || await preFetchPromise
+        if (lateData && lateData.videoUrlResult && !playerWindow.isDestroyed()) {
+          log('[播放器预加载] 数据补发至播放器')
+          playerWindow.webContents.send('prefetch-data', {
+            preFetchVideoUrl: lateData.videoUrlResult,
+            preFetchVideoInfo: lateData.videoInfo || null
+          })
+        }
+      } catch (e) {
+        log('[播放器预加载] 补发异常:', e.message)
+      }
+    }
   })
 
   // 设置当前播放视频信息用于历史上报
@@ -290,7 +345,7 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
   // 启动定时上报
   startReportTimer()
 
-  state.playerWindow.on('closed', () => {
+  playerWindow.on('closed', () => {
     log('[播放器窗口关闭]')
     // 上报最终播放进度
     if (state.currentVideoInfo && state.currentVideoInfo.aid && state.currentVideoInfo.cid) {
@@ -301,7 +356,9 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
       reportPlayHistory(state.currentVideoInfo.aid, state.currentVideoInfo.cid, estimatedProgress)
     }
     cleanupMpvSocket()
-    state.playerWindow = null
+    if (state.playerWindow === playerWindow) {
+      state.playerWindow = null
+    }
   })
 
   return { success: true, hasDanmaku: false, playerOpened: true }

@@ -3,6 +3,11 @@ process.env.LANG = 'zh_CN.UTF-8'
 process.stdout.write('[3J[H[2J')
 
 const { app, BrowserWindow, ipcMain, screen, dialog, Menu } = require('electron')
+
+// 绕过 Chromium GPU 黑名单，确保 WebGL 可用（Anime4K 依赖）
+app.commandLine.appendSwitch('ignore-gpu-blacklist')
+app.commandLine.appendSwitch('enable-gpu-rasterization')
+app.commandLine.appendSwitch('enable-zero-copy')
 const path = require('path')
 const cookieManager = require('./cookieManager')
 

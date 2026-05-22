@@ -19,7 +19,7 @@ function formatHistoryTime(timestamp) {
   }
 }
 
-function createHistoryCard(video, onAuthorClick) {
+function createHistoryCard(video, onAuthorClick, options = {}) {
   const card = document.createElement('div')
   card.className = 'video-card'
   card.dataset.bvid = video.bvid
@@ -27,7 +27,7 @@ function createHistoryCard(video, onAuthorClick) {
 
   card.innerHTML = `
     <div class="video-thumbnail">
-      <img src="${video.pic}" alt="${video.title}" loading="lazy">
+      <img src="" alt="${video.title}" data-src="${video.pic}">
       ${video.progress !== undefined && video.progress !== null && video.durationSeconds ? `
         <span class="video-progress">${formatDuration(video.progress)} / ${video.duration}</span>
       ` : ''}
@@ -100,6 +100,9 @@ function createHistoryCard(video, onAuthorClick) {
     }
   })
 
+  const img = card.querySelector('.video-thumbnail img')
+  setupLazyImage(img, options.eager)
+
   return card
 }
 
@@ -107,7 +110,9 @@ function renderHistoryVideos(videos, containerId) {
   const container = document.getElementById(containerId)
   if (!container) return
   container.innerHTML = ''
-  videos.filter(v => v.bvid || v.title).forEach(video => container.appendChild(createHistoryCard(video, navigateToUP)))
+  videos.filter(v => v.bvid || v.title).forEach((video, index) => {
+    container.appendChild(createHistoryCard(video, navigateToUP, { eager: index < EAGER_COUNT }))
+  })
 }
 
 function appendHistoryVideos(videos, containerId) {
@@ -137,7 +142,7 @@ async function loadHistory(append = false) {
         bvid: item.bvid || '',
         cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
-        pic: fixImageUrl(item.pic || ''),
+        pic: optimizeCoverUrl(item.pic || '', 672, 378),
         duration: formatDuration(item.duration || 0),
         durationSeconds: item.duration || 0,
         progress: item.progress || null,
@@ -175,7 +180,7 @@ async function searchHistory(keyword) {
         bvid: item.bvid || '',
         cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
-        pic: fixImageUrl(item.pic || ''),
+        pic: optimizeCoverUrl(item.pic || '', 672, 378),
         play: '观看过',
         duration: formatDuration(item.duration || 0),
         author: item.author || '未知UP主',
@@ -219,15 +224,15 @@ async function loadBangumi(type = 1) {
       return
     }
 
-    result.data.forEach(item => {
+    result.data.forEach((item, index) => {
       const card = document.createElement('div')
       card.className = 'my-anime-card'
 
-      const coverUrl = item.cover?.startsWith('//') ? 'https:' + item.cover : (item.cover || '')
+      const coverUrl = optimizeCoverUrl(item.cover || '', 672, 378)
 
       card.innerHTML = `
         <div class="my-anime-cover">
-          <img src="${coverUrl}" alt="${item.title}" loading="lazy">
+          <img src="" alt="${item.title}" data-src="${coverUrl}">
           ${item.badge ? `<span style="position: absolute; top: 8px; left: 8px; background: #fb7299; color: #fff; font-size: 12px; padding: 2px 8px; border-radius: 4px; z-index: 1;">${item.badge}</span>` : ''}
           ${item.new_ep?.index ? `<span style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 3px; z-index: 1;">第${item.new_ep.index}话</span>` : ''}
         </div>
@@ -239,6 +244,9 @@ async function loadBangumi(type = 1) {
           </div>
         </div>
       `
+
+      const img = card.querySelector('.my-anime-cover img')
+      setupLazyImage(img, index < EAGER_COUNT)
 
       card.addEventListener('click', () => {
         playBangumi(item)
@@ -277,15 +285,15 @@ async function loadDrama() {
       return
     }
 
-    result.data.forEach(item => {
+    result.data.forEach((item, index) => {
       const card = document.createElement('div')
       card.className = 'my-anime-card'
 
-      const coverUrl = item.cover?.startsWith('//') ? 'https:' + item.cover : (item.cover || '')
+      const coverUrl = optimizeCoverUrl(item.cover || '', 672, 378)
 
       card.innerHTML = `
         <div class="my-anime-cover">
-          <img src="${coverUrl}" alt="${item.title}" loading="lazy">
+          <img src="" alt="${item.title}" data-src="${coverUrl}">
           ${item.badge ? `<span style="position: absolute; top: 8px; left: 8px; background: #fb7299; color: #fff; font-size: 12px; padding: 2px 8px; border-radius: 4px; z-index: 1;">${item.badge}</span>` : ''}
           ${item.new_ep?.index ? `<span style="position: absolute; bottom: 8px; right: 8px; background: rgba(0,0,0,0.7); color: #fff; font-size: 12px; padding: 2px 6px; border-radius: 3px; z-index: 1;">第${item.new_ep.index}集</span>` : ''}
         </div>
@@ -297,6 +305,9 @@ async function loadDrama() {
           </div>
         </div>
       `
+
+      const img = card.querySelector('.my-anime-cover img')
+      setupLazyImage(img, index < EAGER_COUNT)
 
       card.addEventListener('click', () => {
         playBangumi(item)
@@ -333,7 +344,7 @@ async function loadFavorites(append = false) {
         bvid: item.bvid || '',
         cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
-        pic: fixImageUrl(item.pic || ''),
+        pic: optimizeCoverUrl(item.pic || '', 672, 378),
         play: formatPlayCount(item.cnt_info?.play || item.play || 0),
         duration: formatDuration(item.duration || 0),
         author: item.upper?.name || item.author || '未知UP主',
@@ -382,7 +393,7 @@ async function loadToview(append = false) {
         bvid: item.bvid || '',
         cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
-        pic: fixImageUrl(item.pic || ''),
+        pic: optimizeCoverUrl(item.pic || '', 672, 378),
         play: formatPlayCount(item.cnt_info?.view || item.play || 0),
         duration: formatDuration(item.duration || 0),
         author: item.upper?.name || item.author || '未知UP主',
@@ -420,7 +431,7 @@ async function searchFavorites(keyword) {
         bvid: item.bvid || '',
         cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
-        pic: fixImageUrl(item.pic || ''),
+        pic: optimizeCoverUrl(item.pic || '', 672, 378),
         play: formatPlayCount(item.cnt_info?.play || item.play || 0),
         duration: formatDuration(item.duration || 0),
         author: item.upper?.name || item.author || '未知UP主',
@@ -456,7 +467,7 @@ async function searchToview(keyword) {
         bvid: item.bvid || '',
         cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
-        pic: fixImageUrl(item.pic || ''),
+        pic: optimizeCoverUrl(item.pic || '', 672, 378),
         play: formatPlayCount(item.cnt_info?.view || item.play || 0),
         duration: formatDuration(item.duration || 0),
         author: item.upper?.name || item.author || '未知UP主',
