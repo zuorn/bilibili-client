@@ -242,6 +242,32 @@
       z-index: 0;
     }
 
+    .video-player.anime4k-active {
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .anime4k-canvas {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw !important;
+      height: 100vh !important;
+      object-fit: cover !important;
+      background-color: #000;
+      z-index: 1;
+      display: none;
+    }
+
+    :fullscreen .anime4k-canvas,
+    :-webkit-full-screen .anime4k-canvas {
+      width: auto !important;
+      height: auto !important;
+      max-width: 100vw !important;
+      max-height: 100vh !important;
+      object-fit: contain !important;
+    }
+
     .video-player.with-panel {
       width: 100vw !important;
     }
@@ -331,6 +357,7 @@
       bottom: 0;
       overflow: hidden;
       pointer-events: none;
+      z-index: 5;
     }
 
     .danmaku-control {
@@ -918,7 +945,7 @@
     <div class="context-menu" id="contextMenu">
       <div class="context-menu-item" id="menuCopyUrl">复制视频地址（精准空降）</div>
       <div class="context-menu-item" id="menuDownload">下载视频</div>
-      <div class="context-menu-item" id="menuColorAdjust">视频色彩调整</div>
+      <div class="context-menu-item" id="menuAnime4K">Anime4K 画质增强</div>
       <div class="context-menu-item" id="menuAudioAdjust">视频音效调节</div>
       <div class="context-menu-item" id="menuShortcuts">快捷键说明</div>
       <div class="context-menu-item" id="menuUpdateHistory">更新历史</div>
@@ -943,6 +970,7 @@
       </div>
 
       <video class="video-player" id="videoPlayer" playsinline webkit-playsinline draggable="false"></video>
+      <canvas class="anime4k-canvas" id="anime4kCanvas"></canvas>
 
       <div class="drag-region"></div>
 
@@ -1063,6 +1091,7 @@
     </div>
   </div>
 
+  <script src="anime4k.js"></script>
   <script>
     const { ipcRenderer } = require('electron')
     
@@ -1149,7 +1178,7 @@
     const contextMenu = document.getElementById('contextMenu')
     const menuCopyUrl = document.getElementById('menuCopyUrl')
     const menuDownload = document.getElementById('menuDownload')
-    const menuColorAdjust = document.getElementById('menuColorAdjust')
+    const menuAnime4K = document.getElementById('menuAnime4K')
     const menuAudioAdjust = document.getElementById('menuAudioAdjust')
     const menuShortcuts = document.getElementById('menuShortcuts')
     const menuUpdateHistory = document.getElementById('menuUpdateHistory')
@@ -1281,9 +1310,45 @@
       contextMenu.classList.remove('show')
     })
 
-    menuColorAdjust.addEventListener('click', () => {
-      showToast('视频色彩调整功能开发中')
+    // Anime4K 渲染器初始化
+    const anime4kCanvas = document.getElementById('anime4kCanvas')
+    let anime4kRenderer = null
+    let anime4kEnabled = localStorage.getItem('anime4kEnabled') === 'true'
+
+    if (Anime4KRenderer && Anime4KRenderer.Renderer) {
+      anime4kRenderer = new Anime4KRenderer.Renderer(anime4kCanvas, videoPlayer)
+      if (anime4kEnabled && anime4kRenderer.ready) {
+        anime4kRenderer.start()
+        videoPlayer.classList.add('anime4k-active')
+      }
+    }
+
+    const updateAnime4KMenu = () => {
+      menuAnime4K.textContent = anime4kEnabled ? 'Anime4K 画质增强 ✓' : 'Anime4K 画质增强'
+    }
+    updateAnime4KMenu()
+
+    menuAnime4K.addEventListener('click', () => {
       contextMenu.classList.remove('show')
+      if (!anime4kRenderer || !anime4kRenderer.ready) {
+        showToast('Anime4K 初始化失败，WebGL 不可用')
+        return
+      }
+
+      anime4kEnabled = !anime4kEnabled
+      localStorage.setItem('anime4kEnabled', anime4kEnabled.toString())
+
+      if (anime4kEnabled) {
+        anime4kRenderer.start()
+        videoPlayer.classList.add('anime4k-active')
+        showToast('Anime4K 画质增强已开启')
+      } else {
+        anime4kRenderer.stop()
+        videoPlayer.classList.remove('anime4k-active')
+        showToast('Anime4K 画质增强已关闭')
+      }
+
+      updateAnime4KMenu()
     })
 
     menuAudioAdjust.addEventListener('click', () => {
@@ -2299,18 +2364,33 @@
 
     document.addEventListener('fullscreenchange', () => {
       const videoPlayer = document.getElementById('videoPlayer')
+      const canvas = document.getElementById('anime4kCanvas')
       if (document.fullscreenElement) {
         videoPlayer.style.width = '100vw'
         videoPlayer.style.height = '100vh'
         videoPlayer.style.maxWidth = '100vw'
         videoPlayer.style.maxHeight = '100vh'
         videoPlayer.style.objectFit = 'contain'
+        if (canvas) {
+          canvas.style.width = '100vw'
+          canvas.style.height = '100vh'
+          canvas.style.maxWidth = '100vw'
+          canvas.style.maxHeight = '100vh'
+          canvas.style.objectFit = 'contain'
+        }
       } else {
         videoPlayer.style.width = ''
         videoPlayer.style.height = ''
         videoPlayer.style.maxWidth = ''
         videoPlayer.style.maxHeight = ''
         videoPlayer.style.objectFit = ''
+        if (canvas) {
+          canvas.style.width = ''
+          canvas.style.height = ''
+          canvas.style.maxWidth = ''
+          canvas.style.maxHeight = ''
+          canvas.style.objectFit = ''
+        }
       }
     })
   </script>
