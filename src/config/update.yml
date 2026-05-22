@@ -66,4 +66,4 @@ autoCheck: true
 # false — 发现新版本后显示更新按钮，用户点击才下载
 # true  — 发现新版本后立即静默下载
 # ------------------------------------------------------------
-autoDownload: false
+autoDownload: true

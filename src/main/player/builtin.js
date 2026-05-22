@@ -572,6 +572,15 @@ function registerBuiltinPlayerHandlers(deps) {
       'Cookie': cookieString
     }
 
+    // 安全推送进度（播放窗口关闭后不再推送，但不影响下载继续）
+    function sendProgress(data) {
+      try {
+        if (event.sender && !event.sender.isDestroyed()) {
+          event.sender.send('download-progress', data)
+        }
+      } catch (e) {}
+    }
+
     // 获取播放URL（fnval=16 为 DASH，fnval=1 为 durl 合并流）
     async function getPlayUrl(qn, useDurl) {
       const fnval = useDurl ? 1 : 16
@@ -635,7 +644,7 @@ function registerBuiltinPlayerHandlers(deps) {
           downloaded += value.length
           file.write(value)
           if (total > 0) {
-            event.sender.send('download-progress', {
+            sendProgress({
               step: stepLabel,
               percent: (downloaded / total) * 100
             })
@@ -654,7 +663,7 @@ function registerBuiltinPlayerHandlers(deps) {
 
     try {
       // 1. 并行探测所有清晰度，找到最高可用者
-      event.sender.send('download-progress', { step: '正在获取最高画质下载地址...' })
+      sendProgress({ step: '正在获取最高画质下载地址...' })
 
       const allQualities = [125, 120, 116, 112, 80, 74, 64, 32]
       const results = await Promise.allSettled(allQualities.map(qn => getPlayUrl(qn)))
@@ -693,7 +702,7 @@ function registerBuiltinPlayerHandlers(deps) {
       const savePath = saveResult.filePath
 
       // 3. 用户确认后，重新获取最新URL（避免CDN链接在对话框等待期间过期）
-      event.sender.send('download-progress', { step: '正在获取最新下载链接...' })
+      sendProgress({ step: '正在获取最新下载链接...' })
 
       // 先尝试 DASH 最高画质
       const freshResult = await getPlayUrl(bestQn, false)
@@ -712,13 +721,13 @@ function registerBuiltinPlayerHandlers(deps) {
         const audioTemp = path.join(tempDir, `bili_audio_${Date.now()}.m4s`)
 
         try {
-          event.sender.send('download-progress', { step: 'video', percent: 0 })
+          sendProgress({ step: 'video', percent: 0 })
           await downloadFile(videoUrl, videoTemp, 'video')
 
-          event.sender.send('download-progress', { step: 'audio', percent: 0 })
+          sendProgress({ step: 'audio', percent: 0 })
           await downloadFile(audioUrl, audioTemp, 'audio')
 
-          event.sender.send('download-progress', { step: 'merge' })
+          sendProgress({ step: 'merge' })
           await new Promise((resolve, reject) => {
             const proc = spawn(ffmpegPath, [
               '-y', '-i', videoTemp, '-i', audioTemp,
@@ -749,11 +758,11 @@ function registerBuiltinPlayerHandlers(deps) {
           // 回退: durl 格式（内置音视频合并），尝试 720P → 480P → 360P
           const durlQualities = [64, 32, 16]
           for (const dqn of durlQualities) {
-            event.sender.send('download-progress', { step: '正在获取合并流 ' + (qnNames[dqn] || dqn) + '...' })
+            sendProgress({ step: '正在获取合并流 ' + (qnNames[dqn] || dqn) + '...' })
             const durlResult = await getPlayUrl(dqn, true)
             const durlUrls = extractUrls(durlResult)
             if (durlUrls && durlUrls.videoUrl && !durlUrls.isDash) {
-              event.sender.send('download-progress', { step: 'video', percent: 0 })
+              sendProgress({ step: 'video', percent: 0 })
               await downloadFile(durlUrls.videoUrl, savePath, 'video')
               const durlLabel = (qnNames[dqn] || ('qn=' + dqn)) + ' (durl)'
               log('[下载] durl 下载完成:', savePath)
@@ -763,13 +772,13 @@ function registerBuiltinPlayerHandlers(deps) {
 
           // durl 也失败，最后回退：保存 DASH 纯视频
           log('[下载] durl 也失败，保存纯视频')
-          event.sender.send('download-progress', { step: 'video', percent: 0 })
+          sendProgress({ step: 'video', percent: 0 })
           await downloadFile(urls.videoUrl, savePath, 'video')
           return { success: true, fileName: path.basename(savePath), quality: qualityTitle + ' (无音频)' }
         }
       } else {
         // 非 DASH 或没有独立音频：直接下载
-        event.sender.send('download-progress', { step: 'video', percent: 0 })
+        sendProgress({ step: 'video', percent: 0 })
         await downloadFile(urls.videoUrl, savePath, 'video')
         log('[下载] 下载完成:', savePath)
         return { success: true, fileName: path.basename(savePath), quality: qualityTitle }
