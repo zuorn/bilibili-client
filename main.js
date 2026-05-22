@@ -31,6 +31,7 @@ const { registerDynamicsHandlers } = require('./src/main/ipc/dynamics')
 const { registerLoginHandlers, tryImportCookiesOnStartup } = require('./src/main/ipc/login')
 const { registerPlayerHandlers, getVideoInfo } = require('./src/main/ipc/player')
 const { registerPageNavHandlers } = require('./src/main/page-nav')
+const { registerUpdaterHandlers, checkForUpdates } = require('./src/main/updater')
 
 // 弹幕工具
 const { getDanmakuXml, getCidByBvid } = require('./src/utils/getDanmaku')
@@ -93,6 +94,9 @@ function registerAllHandlers() {
     mainWindow: mw
   })
   registerBuiltinPlayerHandlers({ ipcMain, log, state: sharedState })
+
+  // 自动更新
+  registerUpdaterHandlers({ ipcMain, log, mainWindow: mw })
 }
 
 // ==================== 应用生命周期 ====================
@@ -115,6 +119,9 @@ app.whenReady().then(async () => {
 
   // 注册所有 IPC 处理器（窗口创建后注册，确保 mainWindow 引用有效）
   registerAllHandlers()
+
+  // 启动后自动检查更新（延迟 3 秒，等首页加载完成）
+  setTimeout(() => checkForUpdates(), 3000)
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
