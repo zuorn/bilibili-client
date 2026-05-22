@@ -5,11 +5,12 @@
   "scripts": {
     "start": "chcp 65001 >nul && electron .",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "electron-builder",
-    "build:win": "electron-builder --win",
-    "build:mac": "electron-builder --mac",
-    "build:linux": "electron-builder --linux",
-    "clean": "rimraf dist"
+    "build": "electron-builder && npm run clean:dist",
+    "build:win": "electron-builder --win && npm run clean:dist",
+    "build:mac": "electron-builder --mac && npm run clean:dist",
+    "build:linux": "electron-builder --linux && npm run clean:dist",
+    "clean": "rimraf dist",
+    "clean:dist": "rimraf dist/win-unpacked dist/win-ia32-unpacked dist/mac dist/mac-arm64 dist/linux-unpacked dist/builder-debug.yml dist/builder-effective-config.yaml"
   },
   "keywords": [],
   "author": "Zuorn",

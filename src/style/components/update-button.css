@@ -1,70 +1,61 @@
 /* 更新按钮 */
 .update-btn {
-  width: 36px;
-  height: 36px;
+  height: 30px;
+  padding: 0 14px;
   border: none;
   background: transparent;
-  border-radius: 8px;
+  border-radius: 6px;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   color: #9499a0;
-  margin-left: 8px;
+  font-size: 13px;
+  margin-right: 8px;
   transition: all 0.2s;
   flex-shrink: 0;
+  white-space: nowrap;
 }
 .update-btn:hover {
   background: rgba(0, 0, 0, 0.06);
   color: #333;
 }
 
-/* 发现新版本 — 呼吸动画 */
+/* 发现新版本（自动下载中）— 蓝色 */
 .update-btn.update-available {
   color: #00a1d6;
-  animation: update-pulse 2s ease-in-out infinite;
+  background: rgba(0, 161, 214, 0.08);
 }
 .update-btn.update-available:hover {
+  background: rgba(0, 161, 214, 0.15);
   color: #00b5e5;
-  background: rgba(0, 161, 214, 0.1);
-}
-@keyframes update-pulse {
-  0%, 100% { transform: scale(1); }
-  50% { transform: scale(1.1); }
 }
 
-/* 下载中 — 旋转 */
+/* 下载中 — 蓝色 + 文字显示进度百分比 */
 .update-btn.update-downloading {
   color: #00a1d6;
-}
-.update-btn.update-downloading svg {
-  animation: update-spin 1s linear infinite;
-}
-@keyframes update-spin {
-  to { transform: rotate(360deg); }
+  background: rgba(0, 161, 214, 0.08);
 }
 
-/* 下载完成 — 绿色闪烁 */
+/* 下载完成 — 绿色 */
 .update-btn.update-downloaded {
   color: #1e8e3e;
-  animation: update-ready 1s ease-in-out infinite;
+  background: rgba(30, 142, 62, 0.1);
+  cursor: pointer;
 }
 .update-btn.update-downloaded:hover {
-  color: #27ae60;
-  background: rgba(30, 142, 62, 0.1);
-}
-@keyframes update-ready {
-  0%, 100% { box-shadow: none; }
-  50% { box-shadow: 0 0 8px rgba(30, 142, 62, 0.4); }
+  background: #1e8e3e;
+  color: #fff;
 }
 
 /* 错误 — 红色 */
 .update-btn.update-error {
   color: #e74c3c;
+  background: rgba(231, 76, 60, 0.08);
 }
 .update-btn.update-error:hover {
+  background: rgba(231, 76, 60, 0.15);
   color: #c0392b;
-  background: rgba(231, 76, 60, 0.1);
 }
 
 /* 暗色主题 */
@@ -77,22 +68,27 @@ body.dark-theme .update-btn:hover {
 }
 body.dark-theme .update-btn.update-available {
   color: #00a1d6;
+  background: rgba(0, 161, 214, 0.12);
 }
 body.dark-theme .update-btn.update-available:hover {
-  background: rgba(0, 161, 214, 0.15);
+  background: rgba(0, 161, 214, 0.2);
 }
 body.dark-theme .update-btn.update-downloading {
   color: #00a1d6;
+  background: rgba(0, 161, 214, 0.12);
 }
 body.dark-theme .update-btn.update-downloaded {
   color: #1e8e3e;
+  background: rgba(30, 142, 62, 0.15);
 }
 body.dark-theme .update-btn.update-downloaded:hover {
-  background: rgba(30, 142, 62, 0.15);
+  background: #1e8e3e;
+  color: #fff;
 }
 body.dark-theme .update-btn.update-error {
   color: #e74c3c;
+  background: rgba(231, 76, 60, 0.12);
 }
 body.dark-theme .update-btn.update-error:hover {
-  background: rgba(231, 76, 60, 0.15);
+  background: rgba(231, 76, 60, 0.2);
 }
