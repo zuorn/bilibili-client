@@ -1,5 +1,5 @@
 // IPC handlers for video playback and player operations
-const cookieManager = require('../../../cookieManager')
+const cookieManager = require('../cookieManager')
 const path = require('path')
 const fs = require('fs')
 
@@ -25,6 +25,84 @@ async function getVideoInfo(bvid) {
     log('获取视频信息失败:', error)
   }
   return null
+}
+
+// 获取最佳播放URL（并行尝试所有清晰度，返回最高可用者）
+// 用于 MPV 直接播放和内置播放器 get-video-url
+async function fetchBestPlayUrl(bvid, cid, cookieString, log) {
+  const qualityLevels = [
+    { qn: 125, name: 'HDR1080P60' },
+    { qn: 120, name: '4K' },
+    { qn: 116, name: '1080P60' },
+    { qn: 112, name: '1080P+' },
+    { qn: 80, name: '1080P' },
+    { qn: 74, name: '720P60' },
+    { qn: 64, name: '720P' },
+    { qn: 32, name: '480P' },
+    { qn: 16, name: '360P' }
+  ]
+
+  const results = await Promise.allSettled(
+    qualityLevels.map(level => (async () => {
+      const url = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=${level.qn}&fnval=16`
+      const controller = new AbortController()
+      const timeout = setTimeout(() => controller.abort(), 8000)
+
+      try {
+        const response = await fetch(url, {
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': `https://www.bilibili.com/video/${bvid}`,
+            'Cookie': cookieString
+          },
+          signal: controller.signal
+        })
+        clearTimeout(timeout)
+        const data = await response.json()
+        if (data.code === 0) return { qn: level.qn, name: level.name, data }
+        return null
+      } catch (err) {
+        clearTimeout(timeout)
+        return null
+      }
+    })())
+  )
+
+  const successful = results
+    .filter(r => r.status === 'fulfilled' && r.value)
+    .map(r => r.value)
+    .sort((a, b) => b.qn - a.qn)
+
+  for (const r of successful) {
+    const dash = r.data.data?.dash
+    if (dash && dash.video && dash.video.length > 0) {
+      const sorted = [...dash.video].sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
+      const avc = sorted.filter(v => (v.codecid || v.codec_id) === 7)
+      const av1 = sorted.filter(v => (v.codecid || v.codec_id) === 13)
+      const hevc = sorted.filter(v => (v.codecid || v.codec_id) === 12)
+      const bestVideo = avc[0] || av1[0] || hevc[0]
+      if (!bestVideo) continue
+      const videoUrl = bestVideo.baseUrl || bestVideo.url
+      let audioUrl = null
+      if (dash.audio && dash.audio.length > 0) {
+        dash.audio.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
+        audioUrl = dash.audio[0].baseUrl || dash.audio[0].url
+      }
+      if (videoUrl) {
+        const codecLabel = (bestVideo.codecid || bestVideo.codec_id) === 13 ? 'AV1' : ''
+        log(`✅ 并行获取 - 使用 ${r.name}${codecLabel ? ' ' + codecLabel : ''} (DASH)`)
+        return { success: true, url: videoUrl, audioUrl, quality: r.name + ' (DASH)', isCombined: false }
+      }
+    }
+
+    const durl = r.data.data?.durl || []
+    if (durl.length > 0) {
+      log(`✅ 并行获取 - 使用 ${r.name} (durl)`)
+      return { success: true, url: durl[0].url, quality: r.name + ' (durl)', backupUrl: durl[0].backup_url?.[0], isCombined: true }
+    }
+  }
+
+  return { success: false, error: '所有清晰度均获取失败' }
 }
 
 function registerPlayerHandlers(deps) {
@@ -70,7 +148,7 @@ function registerPlayerHandlers(deps) {
     }
 
     try {
-      const videoUrl = `https://www.bilibili.com/video/${bvid}`
+      const pageUrl = `https://www.bilibili.com/video/${bvid}`
       const videoTitle = title || '哔哩哔哩视频'
       const mpvExecutable = findMpvExecutable(mpvPath)
       if (!mpvExecutable) {
@@ -79,10 +157,11 @@ function registerPlayerHandlers(deps) {
       log(`[启动计时] 步骤1: 获取mpv可执行文件, 耗时: ${Date.now() - startTime}ms`)
 
       let targetCid = cid
+      let videoInfo = null
 
       if (!cid) {
         try {
-          const videoInfo = await getVideoInfo(bvid)
+          videoInfo = await getVideoInfo(bvid)
           if (videoInfo) {
             targetCid = videoInfo.cid
           }
@@ -94,9 +173,9 @@ function registerPlayerHandlers(deps) {
 
       state.currentVideoInfo = {
         bvid: bvid,
-        aid: null,
+        aid: videoInfo ? videoInfo.aid : null,
         cid: targetCid || null,
-        duration: null,
+        duration: videoInfo ? videoInfo.duration : null,
         title: title,
         startTime: Date.now(),
         lastReportProgress: 0
@@ -111,53 +190,74 @@ function registerPlayerHandlers(deps) {
         '--sub-auto=fuzzy',
         '--sub-ass-override=yes'
       ]
+
+      // 合并所有 HTTP 请求头为一个 --http-header-fields（多次设置会互相覆盖）
+      // B站 CDN 必须带 Referer 否则返回 403
+      const headerFields = [
+        `Referer: https://www.bilibili.com/`,
+        `Origin: https://www.bilibili.com`,
+        `User-Agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36`
+      ]
       const savedCookies = cookieManager.getSavedCookies()
       if (savedCookies.SESSDATA) {
-        const minimalCookie = `SESSDATA=${savedCookies.SESSDATA}; DedeUserID=${savedCookies.DedeUserID}; bili_jct=${savedCookies.bili_jct}`
-        mpvArgs.push(`--http-header-fields="Cookie: ${minimalCookie}"`)
+        const cookieStr = `SESSDATA=${savedCookies.SESSDATA}; DedeUserID=${savedCookies.DedeUserID}; bili_jct=${savedCookies.bili_jct}`
+        // mpv key-value list 用逗号分隔，Cookie 值中的逗号需转义
+        headerFields.push(`Cookie: ${cookieStr.replace(/,/g, '\\,')}`)
       }
+      mpvArgs.push(`--http-header-fields=${headerFields.join(',')}`)
       log(`[启动计时] 步骤3: 准备mpv参数, 耗时: ${Date.now() - startTime}ms`)
 
+      // 并行获取最佳清晰度直链和弹幕，大幅减少等待时间
+      const cookieString = cookieManager.getCookieString()
       let danmakuAssPath = null
 
-      if (targetCid && showDanmaku) {
-        try {
-          log('Fetching danmaku for cid:', targetCid)
-          const xml = await getDanmakuXml(targetCid)
-          log('Danmaku XML length:', xml.length)
-          log(`[启动计时] 步骤4a: 获取弹幕XML, 耗时: ${Date.now() - startTime}ms`)
+      const [playUrlResult, danmakuResult] = await Promise.all([
+        targetCid ? fetchBestPlayUrl(bvid, targetCid, cookieString, log) : Promise.resolve(null),
+        (targetCid && showDanmaku) ? (async () => {
+          try {
+            log('Fetching danmaku for cid:', targetCid)
+            const xml = await getDanmakuXml(targetCid)
+            log(`[启动计时] 步骤4a: 获取弹幕XML(${xml.length}字节), 耗时: ${Date.now() - startTime}ms`)
 
-          const ass = await xml2ass(xml)
-          log('Danmaku ASS length:', ass.length)
-          log(`[启动计时] 步骤4b: 转换ASS字幕, 耗时: ${Date.now() - startTime}ms`)
+            const ass = await xml2ass(xml)
+            log(`[启动计时] 步骤4b: 转换ASS字幕(${ass.length}字节), 耗时: ${Date.now() - startTime}ms`)
 
-          if (ass.length > 0) {
-            const lines = ass.split('\n')
-            log('ASS lines count:', lines.length)
-            if (lines.length > 25) {
-              log('First 5 dialogue lines:')
-              for (let i = 21; i < Math.min(26, lines.length); i++) {
-                log(`Line ${i}: ${lines[i]}`)
-              }
+            if (ass.length > 0) {
+              const assPath = path.join(app.getPath('temp'), `danmaku_${targetCid}.ass`)
+              fs.writeFileSync(assPath, ass, 'utf8')
+              log(`[启动计时] 步骤4c: 写入ASS文件, 耗时: ${Date.now() - startTime}ms`)
+              return { assPath }
             }
+            return null
+          } catch (error) {
+            log('Failed to fetch danmaku:', error.message)
+            return null
           }
+        })() : Promise.resolve(null)
+      ])
 
-          danmakuAssPath = path.join(app.getPath('temp'), `danmaku_${targetCid}.ass`)
-          fs.writeFileSync(danmakuAssPath, ass, 'utf8')
-          log('Danmaku ASS saved to:', danmakuAssPath)
-          log(`[启动计时] 步骤4c: 写入ASS文件, 耗时: ${Date.now() - startTime}ms`)
-
-          mpvArgs.push(`--sub-file=${danmakuAssPath}`)
-        } catch (error) {
-          log('Failed to fetch danmaku:', error.message)
+      // 使用直接视频 URL（跳过 MPV/yt-dlp 解析 B 站页面，大幅提升启动速度）
+      // URL 必须加引号，避免 cmd.exe 将 & 解释为命令分隔符
+      if (playUrlResult && playUrlResult.success) {
+        log(`[启动计时] 使用直接视频URL: ${playUrlResult.quality}`)
+        mpvArgs.push(`"${playUrlResult.url}"`)
+        if (playUrlResult.audioUrl) {
+          mpvArgs.push(`--audio-file="${playUrlResult.audioUrl}"`)
         }
-      } else if (!showDanmaku) {
-        log('[启动计时] 步骤4: 弹幕已禁用, 跳过弹幕获取')
       } else {
-        log('[启动计时] 步骤4: 无CID, 跳过弹幕获取')
+        log('[启动计时] 回退到页面URL')
+        mpvArgs.push(`"${pageUrl}"`)
       }
 
-      mpvArgs.push(videoUrl)
+      // 添加弹幕字幕（已并行准备好）
+      if (danmakuResult && danmakuResult.assPath) {
+        danmakuAssPath = danmakuResult.assPath
+        mpvArgs.push(`--sub-file=${danmakuAssPath}`)
+      } else if (!showDanmaku) {
+        log('[启动计时] 步骤4: 弹幕已禁用, 跳过弹幕获取')
+      } else if (!targetCid) {
+        log('[启动计时] 步骤4: 无CID, 跳过弹幕获取')
+      }
 
       log('Starting mpv with command:', mpvExecutable, mpvArgs.join(' '))
 
@@ -174,19 +274,21 @@ function registerPlayerHandlers(deps) {
       log(`[启动计时] 视频启动总耗时: ${totalTime}ms (${(totalTime / 1000).toFixed(2)}秒)`)
       log('========================================')
 
-      if (!cid) {
-        getVideoInfo(bvid).then(videoInfo => {
-          if (videoInfo && state.currentVideoInfo) {
-            state.currentVideoInfo.aid = videoInfo.aid
-            state.currentVideoInfo.cid = videoInfo.cid
-            state.currentVideoInfo.duration = videoInfo.duration
-            log(`[初始上报] MPV开始播放, aid=${videoInfo.aid}, cid=${videoInfo.cid}, 初始进度=0:10`)
-            reportPlayHistory(videoInfo.aid, videoInfo.cid, 10)
+      // 异步获取完整视频信息用于历史上报
+      if (!videoInfo && targetCid) {
+        getVideoInfo(bvid).then(info => {
+          if (info && state.currentVideoInfo) {
+            state.currentVideoInfo.aid = info.aid
+            state.currentVideoInfo.duration = info.duration
+            log(`[初始上报] MPV开始播放, aid=${info.aid}, cid=${targetCid}, 初始进度=0:10`)
+            reportPlayHistory(info.aid, targetCid, 10)
           }
         })
       } else if (state.currentVideoInfo && state.currentVideoInfo.cid) {
-        log(`[初始上报] MPV开始播放, aid=${state.currentVideoInfo.aid}, cid=${state.currentVideoInfo.cid}, 初始进度=0:10`)
-        reportPlayHistory(state.currentVideoInfo.aid, state.currentVideoInfo.cid, 10)
+        const aid = state.currentVideoInfo.aid
+        const cidForReport = state.currentVideoInfo.cid
+        log(`[初始上报] MPV开始播放, aid=${aid}, cid=${cidForReport}, 初始进度=0:10`)
+        reportPlayHistory(aid, cidForReport, 10)
       }
 
       state.mpvProcess.on('error', (err) => {
@@ -223,83 +325,7 @@ function registerPlayerHandlers(deps) {
 
   ipcMain.handle('get-video-url', async (event, bvid, cid) => {
     const cookieString = cookieManager.getCookieString()
-
-    const qualityLevels = [
-      { qn: 125, name: 'HDR1080P60' },
-      { qn: 120, name: '4K' },
-      { qn: 116, name: '1080P60' },
-      { qn: 112, name: '1080P+' },
-      { qn: 80, name: '1080P' },
-      { qn: 74, name: '720P60' },
-      { qn: 64, name: '720P' },
-      { qn: 32, name: '480P' },
-      { qn: 16, name: '360P' }
-    ]
-
-    // 并行请求所有清晰度，大幅减少等待时间
-    const results = await Promise.allSettled(
-      qualityLevels.map(level => (async () => {
-        const url = `https://api.bilibili.com/x/player/playurl?bvid=${bvid}&cid=${cid}&qn=${level.qn}&fnval=16`
-        const controller = new AbortController()
-        const timeout = setTimeout(() => controller.abort(), 8000)
-
-        try {
-          const response = await fetch(url, {
-            headers: {
-              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-              'Referer': `https://www.bilibili.com/video/${bvid}`,
-              'Cookie': cookieString
-            },
-            signal: controller.signal
-          })
-          clearTimeout(timeout)
-          const data = await response.json()
-          if (data.code === 0) return { qn: level.qn, name: level.name, data }
-          return null
-        } catch (err) {
-          clearTimeout(timeout)
-          return null
-        }
-      })())
-    )
-
-    // 按清晰度从高到低取第一个可用的
-    const successful = results
-      .filter(r => r.status === 'fulfilled' && r.value)
-      .map(r => r.value)
-      .sort((a, b) => b.qn - a.qn)
-
-    for (const r of successful) {
-      const dash = r.data.data?.dash
-      if (dash && dash.video && dash.video.length > 0) {
-        // 优先选 AVC (codecid=7)，Chromium 不支持 HEVC (codecid=12)
-        const sorted = [...dash.video].sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
-        const avc = sorted.filter(v => (v.codecid || v.codec_id) === 7)
-        const av1 = sorted.filter(v => (v.codecid || v.codec_id) === 13)
-        const hevc = sorted.filter(v => (v.codecid || v.codec_id) === 12)
-        const bestVideo = avc[0] || av1[0] || hevc[0]
-        if (!bestVideo) continue
-        const videoUrl = bestVideo.baseUrl || bestVideo.url
-        let audioUrl = null
-        if (dash.audio && dash.audio.length > 0) {
-          dash.audio.sort((a, b) => (b.bandwidth || 0) - (a.bandwidth || 0))
-          audioUrl = dash.audio[0].baseUrl || dash.audio[0].url
-        }
-        if (videoUrl) {
-          const codecLabel = (bestVideo.codecid || bestVideo.codec_id) === 13 ? 'AV1' : ''
-          log(`✅ 并行获取 - 使用 ${r.name}${codecLabel ? ' ' + codecLabel : ''} (DASH)`)
-          return { success: true, url: videoUrl, audioUrl, quality: r.name + ' (DASH)', isCombined: false }
-        }
-      }
-
-      const durl = r.data.data?.durl || []
-      if (durl.length > 0) {
-        log(`✅ 并行获取 - 使用 ${r.name} (durl)`)
-        return { success: true, url: durl[0].url, quality: r.name + ' (durl)', backupUrl: durl[0].backup_url?.[0], isCombined: true }
-      }
-    }
-
-    return { success: false, error: '所有清晰度均获取失败' }
+    return await fetchBestPlayUrl(bvid, cid, cookieString, log)
   })
 
   // 获取视频预览URL（低清晰度，用于悬停预览）

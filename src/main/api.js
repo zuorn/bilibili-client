@@ -2,7 +2,7 @@ const https = require('https')
 const zlib = require('zlib')
 const crypto = require('crypto')
 const { URL } = require('url')
-const cookieManager = require('../../cookieManager')
+const cookieManager = require('./cookieManager')
 const { log } = require('./log')
 
 let _mainWindow = null
@@ -129,9 +129,6 @@ function fetchApi(url) {
     const savedCookies = cookieManager.getSavedCookies()
     if (Object.keys(savedCookies).length > 0) {
       headers['Cookie'] = cookieManager.getCookieString()
-      if (savedCookies['SESSDATA']) {
-        const sessdataParts = savedCookies['SESSDATA'].split(',')
-      }
     }
 
     const options = {
@@ -244,8 +241,8 @@ async function fetchApiWithHeaders(url, customHeaders = {}) {
           const cookiePairs = sessionCookies
             .filter(c => c && c.name && c.value)
             .map(c => {
-              const v = c.name === 'SESSDATA' ? encodeURIComponent(cookieManager.safeDecode(c.value)) : c.value
-              return `${c.name}=${v}`
+              const cleanValue = typeof c.value === 'string' ? c.value : String(c.value || '')
+              return `${c.name}=${encodeURIComponent(cleanValue)}`
             })
           const cookieString = cookiePairs.join('; ')
           headers['Cookie'] = cookieString

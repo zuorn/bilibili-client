@@ -45,8 +45,7 @@
       align-items: center;
       justify-content: space-between;
       padding: 12px 16px;
-      background: linear-gradient(to bottom, rgba(0,0,0,0.75), rgba(0,0,0,0.75));
-      border-bottom: 1px solid #2a2a2a;
+      background: linear-gradient(to bottom, rgba(0,0,0,0.3), rgba(0,0,0,0));
       position: absolute;
       top: 0;
       left: 0;
@@ -130,16 +129,16 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      background: transparent;
-      border: none;
-      color: #999;
+      background: rgba(0,0,0,0.5);
+      border: 1px solid rgba(255,255,255,0.2);
+      color: #fff;
       cursor: pointer;
       border-radius: 4px;
       transition: all 0.2s;
     }
 
     .window-control-btn:hover {
-      background-color: #2a2a2a;
+      background-color: rgba(255,255,255,0.2);
       color: #fff;
     }
 
@@ -160,6 +159,8 @@
       display: none;
       overflow: hidden;
       -webkit-app-region: no-drag;
+      user-select: none;
+      -webkit-user-select: none;
     }
 
     .context-menu.show {
@@ -362,16 +363,19 @@
     .danmaku-control {
       display: flex;
       align-items: center;
+      justify-content: center;
       gap: 6px;
       padding: 6px 12px;
+      background: transparent;
       border-radius: 20px;
-      background: rgba(255, 255, 255, 0.1);
       transition: all 0.3s ease;
+      width: auto;
     }
 
     .danmaku-control:hover {
-      background: rgba(255, 255, 255, 0.15);
       transform: scale(1.02);
+      background-color: rgba(255,255,255,0.1);
+      padding: 6px 16px;
     }
 
     .danmaku-icon {
@@ -428,7 +432,7 @@
       display: flex;
       align-items: center;
       padding: 12px 16px;
-      background: linear-gradient(to top, rgba(0,0,0,0.75), rgba(0,0,0,0.75));
+      background: linear-gradient(to top, rgba(0,0,0,0.3), rgba(0,0,0,0));
       gap: 12px;
       position: absolute;
       bottom: 0;
@@ -504,9 +508,10 @@
 
     .time-display {
       font-size: 12px;
-      color: #999;
+      color: #fff;
       min-width: 80px;
       text-align: center;
+      text-shadow: 0 0 4px rgba(0,0,0,0.8);
     }
 
     .volume-control {
@@ -595,7 +600,7 @@
       top: 0;
       bottom: 0;
       width: 320px;
-      background: rgba(0,0,0,0.92);
+      background: rgba(0,0,0,0.7);
       padding: 20px;
       color: #fff;
       transform: translateX(100%);
@@ -916,9 +921,6 @@
         <span class="player-title" id="videoTitle">哔哩哔哩视频</span>
       </div>
       <div class="header-middle">
-        <div id="loginStatus" style="display: flex; align-items: center; gap: 8px; font-size: 12px; padding: 4px 12px; border-radius: 12px; background: #333; color: #999;">
-          <span id="loginText">未登录</span>
-        </div>
       </div>
       <div class="header-right">
         <button class="window-control-btn" id="minBtn">
@@ -947,7 +949,6 @@
       <div class="context-menu-item" id="menuAnime4K">Anime4K 画质增强</div>
       <div class="context-menu-item" id="menuAudioAdjust">视频音效调节</div>
       <div class="context-menu-item" id="menuShortcuts">快捷键说明</div>
-      <div class="context-menu-item" id="menuUpdateHistory">更新历史</div>
       <div class="context-menu-item" id="menuVideoStats">视频统计信息</div>
     </div>
 
@@ -1077,7 +1078,7 @@
         <svg class="danmaku-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
         </svg>
-        <span class="danmaku-label">弹幕</span>
+        <span class="danmaku-label">弹</span>
         <span class="danmaku-status on" id="danmakuStatus">开</span>
       </button>
 
@@ -1208,7 +1209,6 @@
     const menuAnime4K = document.getElementById('menuAnime4K')
     const menuAudioAdjust = document.getElementById('menuAudioAdjust')
     const menuShortcuts = document.getElementById('menuShortcuts')
-    const menuUpdateHistory = document.getElementById('menuUpdateHistory')
     const menuVideoStats = document.getElementById('menuVideoStats')
 
     document.addEventListener('contextmenu', (e) => {
@@ -1402,11 +1402,6 @@
 
     menuAudioAdjust.addEventListener('click', () => {
       showToast('视频音效调节功能开发中')
-      contextMenu.classList.remove('show')
-    })
-
-    menuUpdateHistory.addEventListener('click', () => {
-      showToast('更新历史功能开发中')
       contextMenu.classList.remove('show')
     })
 
@@ -1723,7 +1718,7 @@
     })
 
     videoPlayer.addEventListener('play', () => {
-      scheduleHideControls()
+      hideControls()
       const videoArea = document.querySelector('.video-area')
       if (videoArea) {
         const rect = videoArea.getBoundingClientRect()
@@ -1883,42 +1878,9 @@
         videoPlayer.classList.remove('with-panel')
       }
       
-      // 更新登录状态显示
-      const loginStatusEl = document.getElementById('loginStatus')
-      const loginTextEl = document.getElementById('loginText')
-      const isLoggedIn = data.cookies && data.cookies.SESSDATA
-      console.log('Login status from cookies:', isLoggedIn)
-      
       if (data.cookies) {
         console.log('Cookies:', Object.keys(data.cookies))
       }
-      
-      // 通过API验证登录状态并获取用户信息（不阻塞视频加载）
-      ipcRenderer.invoke('get-login-info').then(loginInfo => {
-        console.log('Login info from API:', loginInfo)
-        if (loginInfo.success && loginInfo.isLogin) {
-          loginTextEl.textContent = loginInfo.uname || '已登录'
-          loginStatusEl.style.background = '#1e8e3e'
-          loginStatusEl.style.color = '#fff'
-          if (loginInfo.face) {
-            const avatar = document.createElement('img')
-            avatar.src = loginInfo.face
-            avatar.style.width = '20px'
-            avatar.style.height = '20px'
-            avatar.style.borderRadius = '50%'
-            loginStatusEl.insertBefore(avatar, loginTextEl)
-          }
-        } else {
-          loginTextEl.textContent = '未登录'
-          loginStatusEl.style.background = '#333'
-          loginStatusEl.style.color = '#999'
-        }
-      }).catch(error => {
-        console.error('Error getting login info:', error)
-        loginTextEl.textContent = isLoggedIn ? '已登录' : '未登录'
-        loginStatusEl.style.background = isLoggedIn ? '#1e8e3e' : '#333'
-        loginStatusEl.style.color = isLoggedIn ? '#fff' : '#999'
-      })
 
       if (data.episodeData && data.episodeData.episodes && data.episodeData.episodes.length > 0) {
         renderEpisodeList(data.episodeData)

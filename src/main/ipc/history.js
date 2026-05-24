@@ -1,5 +1,5 @@
 // IPC handlers and utilities for history-related operations
-const cookieManager = require('../../../cookieManager')
+const cookieManager = require('../cookieManager')
 const https = require('https')
 const { URL } = require('url')
 

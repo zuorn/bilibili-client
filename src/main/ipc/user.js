@@ -1,5 +1,5 @@
 // IPC handlers for user-related operations
-const cookieManager = require('../../../cookieManager')
+const cookieManager = require('../cookieManager')
 
 function registerUserHandlers(deps) {
   const { ipcMain, fetchApi, log } = deps

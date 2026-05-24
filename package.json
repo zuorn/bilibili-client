@@ -56,8 +56,7 @@
       "index.html",
       "src/**/*",
       "icon.png",
-      "package.json",
-      "cookieManager.js"
+      "package.json"
     ],
     "win": {
       "target": {

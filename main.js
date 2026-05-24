@@ -9,7 +9,7 @@ app.commandLine.appendSwitch('ignore-gpu-blacklist')
 app.commandLine.appendSwitch('enable-gpu-rasterization')
 app.commandLine.appendSwitch('enable-zero-copy')
 const path = require('path')
-const cookieManager = require('./cookieManager')
+const cookieManager = require('./src/main/cookieManager')
 
 // 日志模块
 const { log, setLogFile } = require('./src/main/log')

@@ -43,6 +43,10 @@ function log(...args) {
 
 function setLogFile(path) {
   logFile = path
+  // 每次设置日志文件时清空日志，实现重启时清空日志
+  if (logFile) {
+    fs.writeFileSync(logFile, '', { encoding: 'utf8' })
+  }
 }
 
 module.exports = { log, setLogFile }

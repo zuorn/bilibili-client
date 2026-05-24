@@ -1,7 +1,7 @@
 const { app, BrowserWindow, ipcMain, Menu } = require('electron')
 const path = require('path')
 const fs = require('fs')
-const cookieManager = require('../../cookieManager')
+const cookieManager = require('./cookieManager')
 const { log } = require('./log')
 
 let mainWindow = null

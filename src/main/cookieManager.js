@@ -34,10 +34,20 @@ function loadCookies(filePath) {
       const data = fs.readFileSync(cookieFile, 'utf8')
       savedCookies = JSON.parse(data)
       log('Loaded cookies from file:', Object.keys(savedCookies))
-        // 如果文件中已有 SESSDATA，尝试恢复原始未编码形式
-        if (savedCookies && savedCookies.SESSDATA) {
-          savedCookies.SESSDATA = safeDecode(savedCookies.SESSDATA)
+      // 清理包含控制字符的 cookie 值，防止污染 HTTP 请求头
+      const cleaned = {}
+      for (const [key, value] of Object.entries(savedCookies)) {
+        if (typeof value !== 'string' || !/[\x00-\x08\x0A-\x1F\x7F]/.test(value)) {
+          cleaned[key] = value
+        } else {
+          log(`Dropped cookie with control chars on load: ${key}`)
         }
+      }
+      savedCookies = cleaned
+      // 如果文件中已有 SESSDATA，尝试恢复原始未编码形式
+      if (savedCookies && savedCookies.SESSDATA) {
+        savedCookies.SESSDATA = safeDecode(savedCookies.SESSDATA)
+      }
     }
     // 确保存在必需的默认 cookie
     for (const [k, v] of Object.entries(defaultCookies)) {
@@ -126,7 +136,11 @@ function parseSetCookieHeaders(setCookieHeaders) {
     if (match) {
       const name = match[1].trim()
       let value = match[2].trim()
-      // 如果是 SESSDATA，尝试反复解码，直到回到原始未编码形式，防止多重 %25 编码
+      // 过滤包含控制字符的值，防止保存后污染后续 HTTP 请求头
+      if (/[\x00-\x08\x0A-\x1F\x7F]/.test(value)) {
+        log(`Parse skip cookie with control chars: ${name}`)
+        continue
+      }
       if (name === 'SESSDATA') {
         value = safeDecode(value)
       }
@@ -150,8 +164,8 @@ function getCookieString() {
   if (Object.keys(savedCookies).length > 0) {
     return Object.entries(savedCookies)
       .map(([key, value]) => {
-        // 导出到单个 Cookie header 时，确保对原始 SESSDATA 编码一次（防止多重 %25 编码）
-        const v = key === 'SESSDATA' ? encodeURIComponent(safeDecode(value)) : value
+        const safeValue = typeof value === 'string' ? value : String(value || '')
+        const v = encodeURIComponent(safeValue)
         return `${key}=${v}`
       })
       .join('; ')
@@ -164,16 +178,20 @@ async function exportCookiesFromSession(session) {
   try {
     const cookies = await session.cookies.get({ domain: '.bilibili.com' })
     for (const c of cookies) {
-      // 只保存有值的 cookie
       if (c.value === undefined || c.value === null || c.value === '') {
         log(`Export skip empty cookie from session: ${c.name}`)
         continue
       }
-      // 对于 SESSDATA，从 session 获取到的值可能已经被编码，使用 safeDecode 将其恢复为原始形式保存
+      const rawValue = typeof c.value === 'string' ? c.value : String(c.value)
+      // 过滤包含控制字符（换行等）的值，防止污染后续 HTTP 请求头
+      if (/[\x00-\x08\x0A-\x1F\x7F]/.test(rawValue)) {
+        log(`Export skip cookie with control chars: ${c.name}`)
+        continue
+      }
       if (c.name === 'SESSDATA') {
-        savedCookies[c.name] = safeDecode(c.value)
+        savedCookies[c.name] = safeDecode(rawValue)
       } else {
-        savedCookies[c.name] = c.value
+        savedCookies[c.name] = rawValue
       }
       log(`Exported cookie from session: ${c.name}`)
     }

@@ -3,7 +3,7 @@ const path = require('path')
 const fs = require('fs')
 const { spawn } = require('child_process')
 const ffmpegPath = require('ffmpeg-static')
-const cookieManager = require('../../../cookieManager')
+const cookieManager = require('../cookieManager')
 
 // 从 DASH 视频流中选出浏览器可播放的最佳流。
 // Chromium 不支持 HEVC (codecid=12)，优先选 AVC (codecid=7)，其次 AV1 (codecid=13)，最后 HEVC。

@@ -1,5 +1,5 @@
 // IPC handlers and utilities for login/cookie operations
-const cookieManager = require('../../../cookieManager')
+const cookieManager = require('../cookieManager')
 const path = require('path')
 const fs = require('fs')
 const { URL } = require('url')
@@ -33,6 +33,7 @@ async function importCookieStringFromText(cookieString) {
     let value = p.substring(idx + 1).trim()
     try { value = decodeURIComponent(value) } catch (e) {}
     if (value === '' || value === undefined || value === null) continue
+    if (/[\x00-\x08\x0A-\x1F\x7F]/.test(value)) continue
     parsed[name] = value
   }
 
