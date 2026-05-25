@@ -933,6 +933,41 @@
       gap: 8px;
     }
 
+    /* Back to top button */
+    .panel-backtop-btn {
+      position: sticky;
+      bottom: 12px;
+      align-self: flex-end;
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: rgba(255,255,255,0.12);
+      border: none;
+      color: #ccc;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      flex-shrink: 0;
+      margin-top: 8px;
+      z-index: 5;
+    }
+
+    .panel-backtop-btn:hover {
+      background: rgba(255,255,255,0.22);
+      color: #fff;
+    }
+
+    .panel-backtop-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .panel-backtop-btn.hidden {
+      display: none;
+    }
+
     /* Season / Collection section */
     .panel-season {
       border-top: 1px solid rgba(255,255,255,0.08);
@@ -1326,6 +1361,12 @@
               <div class="panel-related-title">相关推荐</div>
               <div class="panel-related-list" id="panelRelatedList"></div>
             </div>
+            <button class="panel-backtop-btn hidden" id="panelBackTopBtn" title="回到顶部">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M12 19V5"/>
+                <path d="M5 12l7-7 7 7"/>
+              </svg>
+            </button>
           </div>
         </div>
       </div>
@@ -1423,6 +1464,7 @@
     const panelDescToggle = document.getElementById('panelDescToggle')
     const panelRelatedList = document.getElementById('panelRelatedList')
     const panelSeason = document.getElementById('panelSeason')
+    const panelBackTopBtn = document.getElementById('panelBackTopBtn')
     const panelTags = document.getElementById('panelTags')
     const playPauseBtn = document.getElementById('playPauseBtn')
     const progressBar = document.getElementById('progressBar')
@@ -2028,21 +2070,26 @@
     document.addEventListener('mousemove', (e) => {
       showCursor()
 
+      // 光标在侧边栏时不触发控制栏/标题栏显示
+      const isOnPanel = e.target.closest('.video-info-panel')
+
       const windowHeight = window.innerHeight
       const bottomThreshold = windowHeight * 0.8
       const topThreshold = windowHeight * 0.2
       const isInVideoArea = e.clientY >= topThreshold && e.clientY <= bottomThreshold
-      
-      if (e.clientY > bottomThreshold) {
-        showControls()
-      } else if (!isMouseInControlArea) {
-        hideControls()
-      }
-      
-      if (e.clientY < topThreshold) {
-        showHeader()
-      } else if (!isMouseInHeaderArea) {
-        hideHeader()
+
+      if (!isOnPanel) {
+        if (e.clientY > bottomThreshold) {
+          showControls()
+        } else if (!isMouseInControlArea) {
+          hideControls()
+        }
+
+        if (e.clientY < topThreshold) {
+          showHeader()
+        } else if (!isMouseInHeaderArea) {
+          hideHeader()
+        }
       }
 
       if (isInVideoArea && !videoPlayer.paused) {
@@ -2126,7 +2173,44 @@
       ipcRenderer.invoke('zoom-player-window', delta)
     }
 
+    let lastGKeyTime = 0
+
     document.addEventListener('keydown', (e) => {
+      // gg: 回到顶部（侧边栏优先，否则主页面）
+      if (e.key === 'g' || e.key === 'G') {
+        if (e.ctrlKey || e.altKey || e.metaKey) return
+        const now = Date.now()
+        if (now - lastGKeyTime < 400) {
+          e.preventDefault()
+          const panel = document.getElementById('videoInfoPanel')
+          if (panel && panel.classList.contains('visible') && panel.scrollTop > 0) {
+            panel.scrollTo({ top: 0, behavior: 'smooth' })
+          }
+        }
+        lastGKeyTime = now
+        return
+      }
+
+      // e: 侧边栏向上翻半页
+      if (e.key === 'e' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        const panel = document.getElementById('videoInfoPanel')
+        if (panel && panel.classList.contains('visible')) {
+          e.preventDefault()
+          panel.scrollBy({ top: -panel.clientHeight * 0.5, behavior: 'smooth' })
+        }
+        return
+      }
+
+      // d: 侧边栏向下翻半页
+      if (e.key === 'd' && !e.ctrlKey && !e.altKey && !e.metaKey) {
+        const panel = document.getElementById('videoInfoPanel')
+        if (panel && panel.classList.contains('visible')) {
+          e.preventDefault()
+          panel.scrollBy({ top: panel.clientHeight * 0.5, behavior: 'smooth' })
+        }
+        return
+      }
+
       if (e.key === 'q' || e.key === 'Q') {
         e.preventDefault()
         const finalProgress = Math.floor(videoPlayer.currentTime)
@@ -2693,6 +2777,19 @@
         panelFollowBtn.classList.add('followed')
         panelFollowBtn.textContent = '已关注'
       }
+    })
+
+    const videoInfoPanel = document.getElementById('videoInfoPanel')
+    videoInfoPanel.addEventListener('scroll', () => {
+      if (videoInfoPanel.scrollTop > 400) {
+        panelBackTopBtn.classList.remove('hidden')
+      } else {
+        panelBackTopBtn.classList.add('hidden')
+      }
+    })
+
+    panelBackTopBtn.addEventListener('click', () => {
+      videoInfoPanel.scrollTo({ top: 0, behavior: 'smooth' })
     })
 
     async function loadVideoInfo(bvid) {
