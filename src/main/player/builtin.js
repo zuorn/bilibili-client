@@ -217,6 +217,13 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
   // data to the wrong window after rapid re-opens.
   const playerWindow = state.playerWindow
 
+  playerWindow.on('enter-full-screen', () => {
+    playerWindow.webContents.send('fullscreen-changed', true)
+  })
+  playerWindow.on('leave-full-screen', () => {
+    playerWindow.webContents.send('fullscreen-changed', false)
+  })
+
   // 立即启动预加载：与窗口加载并行获取视频URL和视频信息
   const cookieString = cookieManager.getCookieString()
   const preFetchPromise = (async () => {

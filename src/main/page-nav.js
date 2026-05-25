@@ -4,10 +4,10 @@ function registerPageNavHandlers(deps) {
   const { ipcMain, log, mainWindow } = deps
 
   ipcMain.on('open-up-profile', (event, mid) => {
-    console.log('Opening UP profile for mid:', mid)
-    mainWindow.loadFile('src/pages/up-profile.html').then(() => {
-      mainWindow.webContents.send('up-profile-mid', mid)
-    })
+    log('Opening UP profile for mid:', mid)
+    mainWindow.webContents.send('navigate-to-up', mid)
+    if (mainWindow.isMinimized()) mainWindow.restore()
+    mainWindow.focus()
   })
 
   ipcMain.on('go-home', () => {

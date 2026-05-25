@@ -31,6 +31,10 @@ function initEventListeners() {
     })
   })
 
+  ipcRenderer.on('navigate-to-up', (event, mid) => {
+    if (typeof navigateToUP === 'function') navigateToUP(mid)
+  })
+
   document.getElementById('sidebarUserAvatar').addEventListener('click', () => navigateToPage('my'))
   document.getElementById('sidebarBackBtn').addEventListener('click', goBack)
 

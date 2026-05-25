@@ -248,6 +248,12 @@
       pointer-events: none;
     }
 
+    .video-player.fullscreen-mode {
+      width: 100vw !important;
+      height: 100vh !important;
+      object-fit: contain !important;
+    }
+
     .anime4k-canvas {
       position: fixed;
       top: 0;
@@ -259,82 +265,14 @@
       z-index: 1;
     }
 
-    :fullscreen .anime4k-canvas,
-    :-webkit-full-screen .anime4k-canvas {
-      width: auto !important;
-      height: auto !important;
-      max-width: 100vw !important;
-      max-height: 100vh !important;
+    .anime4k-canvas.fullscreen-mode {
+      width: 100vw !important;
+      height: 100vh !important;
       object-fit: contain !important;
     }
 
     .video-player.with-panel {
-      width: 100vw !important;
-    }
-
-    :fullscreen,
-    :-webkit-full-screen,
-    :-moz-full-screen,
-    :-ms-fullscreen {
-      background-color: #000;
-      width: 100vw !important;
-      height: 100vh !important;
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      right: 0 !important;
-      bottom: 0 !important;
-      z-index: 9999 !important;
-      overflow: hidden !important;
-      margin: 0 !important;
-      padding: 0 !important;
-    }
-
-    :fullscreen .video-area,
-    :-webkit-full-screen .video-area,
-    :-moz-full-screen .video-area,
-    :-ms-fullscreen .video-area {
-      position: fixed !important;
-      top: 0 !important;
-      left: 0 !important;
-      right: 0 !important;
-      bottom: 0 !important;
-      width: 100vw !important;
-      height: 100vh !important;
-      z-index: 9999 !important;
-      overflow: hidden !important;
-      background-color: #000 !important;
-      display: flex !important;
-      align-items: center !important;
-      justify-content: center !important;
-      flex-direction: column !important;
-      margin: 0 !important;
-      padding: 0 !important;
-    }
-
-    :fullscreen .video-player,
-    :-webkit-full-screen .video-player,
-    :-moz-full-screen .video-player,
-    :-ms-fullscreen .video-player,
-    :fullscreen video,
-    :-webkit-full-screen video,
-    :-moz-full-screen video,
-    :-ms-fullscreen video {
-      width: auto !important;
-      height: auto !important;
-      max-width: 100vw !important;
-      max-height: 100vh !important;
-      object-fit: contain !important;
-      background-color: #000 !important;
-      flex-shrink: 0 !important;
-      margin: auto !important;
-    }
-
-    :fullscreen .video-player.with-panel,
-    :-webkit-full-screen .video-player.with-panel,
-    :-moz-full-screen .video-player.with-panel,
-    :-ms-fullscreen .video-player.with-panel {
-      max-width: 100vw !important;
+      width: 100vw;
     }
 
     .video-overlay {
@@ -624,6 +562,59 @@
       transform: translateX(0);
       opacity: 1;
       pointer-events: auto;
+    }
+
+    .panel-toggle-btn {
+      position: fixed;
+      top: 50%;
+      right: 0;
+      width: 32px;
+      height: 64px;
+      background: rgba(0, 0, 0, 0.6);
+      border: 0;
+      border-radius: 8px 0 0 8px;
+      color: #fff;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 51;
+      -webkit-app-region: no-drag;
+      opacity: 0;
+      pointer-events: none;
+      outline: none;
+      box-shadow: none;
+      -webkit-tap-highlight-color: transparent;
+      transform: translateY(-50%) translateX(0);
+      transition: transform 0.3s ease-out, opacity 0.3s ease-out;
+    }
+
+    .panel-toggle-btn:hover {
+      background: rgba(0, 0, 0, 0.8);
+    }
+
+    .panel-toggle-btn.visible {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .panel-toggle-btn.visible.expand {
+      transform: translateY(-50%) translateX(0);
+    }
+
+    .panel-toggle-btn.visible.collapse {
+      transform: translateY(-50%) translateX(-320px);
+    }
+
+    .panel-toggle-btn svg {
+      width: 20px;
+      height: 20px;
+      stroke-width: 3;
+      transition: transform 0.3s ease;
+    }
+
+    .panel-toggle-btn.collapse svg {
+      transform: rotate(180deg);
     }
 
     .episode-section {
@@ -979,6 +970,11 @@
       <div class="danmaku-container" id="danmakuContainer"></div>
       
       <div class="video-overlay">
+        <button class="panel-toggle-btn" id="panelToggleBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+        </button>
         <div class="video-info-panel" id="videoInfoPanel">
           <div class="video-info-title" id="infoTitle">视频标题</div>
           <div class="video-info-author">
@@ -1126,6 +1122,7 @@
     const errorMessage = document.getElementById('errorMessage')
     const retryBtn = document.getElementById('retryBtn')
     const danmakuContainer = document.getElementById('danmakuContainer')
+    const panelToggleBtn = document.getElementById('panelToggleBtn')
     
     const minBtn = document.getElementById('minBtn')
     const maxBtn = document.getElementById('maxBtn')
@@ -1136,6 +1133,7 @@
     let currentAudioElement = null
     let pendingPrefetchData = null
     let loadVideoTimeout = null
+    let currentOwnerMid = null
 
     // Named DASH audio sync handlers so we can remove them before re-adding
     const dashSyncHandlers = {
@@ -1268,6 +1266,13 @@
       dragBounds = null
     })
 
+    // 双击视频区域切换全屏
+    videoArea.addEventListener('dblclick', (e) => {
+      const ignore = e.target.closest('.player-controls, .video-info-panel, .episode-section, .episode-item, .window-control-btn, .speed-selector, .speed-option, .action-btn, .control-btn, .context-menu, .video-overlay, .danmaku-container, .progress-bar, .volume-bar, .volume-control, .playback-speed, .time-display')
+      if (ignore) return
+      ipcRenderer.invoke('toggle-fullscreen')
+    })
+
     menuCopyUrl.addEventListener('click', () => {
       if (currentVideoData?.bvid) {
         const url = `https://www.bilibili.com/video/${currentVideoData.bvid}`
@@ -1282,6 +1287,21 @@
       contextMenu.classList.remove('show')
       startDownload()
     })
+
+    // 点击标题栏头像和侧边栏头像跳转至UP主页面
+    authorAvatarHeader.addEventListener('click', () => {
+      if (currentOwnerMid) {
+        ipcRenderer.send('open-up-profile', currentOwnerMid)
+      }
+    })
+    authorAvatarHeader.style.cursor = 'pointer'
+
+    authorAvatar.addEventListener('click', () => {
+      if (currentOwnerMid) {
+        ipcRenderer.send('open-up-profile', currentOwnerMid)
+      }
+    })
+    authorAvatar.style.cursor = 'pointer'
 
     // 下载视频
     let downloadToastEl = null
@@ -1647,7 +1667,7 @@
     })
 
     let cursorHideTimer = null
-    const cursorHideDelay = 2000
+    const cursorHideDelay = 1000
 
     const getVideoPlayer = () => {
       return videoPlayer || document.querySelector('.video-player')
@@ -1705,6 +1725,54 @@
 
       if (isInVideoArea && !videoPlayer.paused) {
         scheduleHideCursor()
+      }
+
+      // 鼠标移动时显示侧边栏切换按钮
+      const videoInfoPanel = document.getElementById('videoInfoPanel')
+      const isPanelVisible = videoInfoPanel?.classList.contains('visible')
+      
+      updatePanelToggleBtn(isPanelVisible)
+      scheduleHidePanelToggleBtn()
+    })
+
+    let panelToggleHideTimer = null
+
+    function scheduleHidePanelToggleBtn() {
+      if (panelToggleHideTimer) {
+        clearTimeout(panelToggleHideTimer)
+      }
+      panelToggleHideTimer = setTimeout(() => {
+        const videoInfoPanel = document.getElementById('videoInfoPanel')
+        if (!videoInfoPanel?.classList.contains('visible')) {
+          panelToggleBtn.classList.remove('visible')
+        }
+      }, 1000)
+    }
+
+    // 更新侧边栏切换按钮的状态和位置
+    function updatePanelToggleBtn(isPanelVisible) {
+      // 移除之前的状态类
+      panelToggleBtn.classList.remove('expand', 'collapse')
+      
+      if (isPanelVisible) {
+        // 侧边栏展开时，显示收缩按钮在侧边栏左侧
+        panelToggleBtn.classList.add('visible', 'collapse')
+      } else {
+        // 侧边栏收起时，显示展开按钮在右侧边缘
+        panelToggleBtn.classList.add('visible', 'expand')
+      }
+    }
+
+    // 侧边栏切换按钮点击事件
+    panelToggleBtn.addEventListener('click', () => {
+      const videoInfoPanel = document.getElementById('videoInfoPanel')
+      const videoPlayer = document.querySelector('.video-player')
+      if (videoInfoPanel && videoPlayer) {
+        const isVisible = videoInfoPanel.classList.toggle('visible')
+        videoPlayer.classList.toggle('with-panel', isVisible)
+        
+        // 更新按钮状态和位置
+        updatePanelToggleBtn(isVisible)
       }
     })
 
@@ -1809,6 +1877,7 @@
           if (videoInfoPanel && videoPlayer) {
             const isVisible = videoInfoPanel.classList.toggle('visible')
             videoPlayer.classList.toggle('with-panel', isVisible)
+            updatePanelToggleBtn(isVisible)
           }
         }
       }
@@ -1898,6 +1967,7 @@
           authorName.textContent = data.preFetchVideoInfo.owner.name || '未知UP主'
           authorAvatar.src = data.preFetchVideoInfo.owner.face || ''
           authorAvatarHeader.src = data.preFetchVideoInfo.owner.face || ''
+          currentOwnerMid = data.preFetchVideoInfo.owner.mid || null
           viewCount.textContent = formatNumber(data.preFetchVideoInfo.stat?.view || 0) + '播放'
           danmakuCount.textContent = formatNumber(data.preFetchVideoInfo.stat?.danmaku || 0) + '弹幕'
           likeCount.textContent = formatNumber(data.preFetchVideoInfo.stat?.like || 0)
@@ -2150,6 +2220,7 @@
           authorName.textContent = video.owner?.name || '未知UP主'
           authorAvatar.src = video.owner?.face || ''
           authorAvatarHeader.src = video.owner?.face || ''
+          currentOwnerMid = video.owner?.mid || null
           viewCount.textContent = formatNumber(video.stat?.view || 0) + '播放'
           danmakuCount.textContent = formatNumber(video.stat?.danmaku || 0) + '弹幕'
           likeCount.textContent = formatNumber(video.stat?.like || 0)
@@ -2387,35 +2458,15 @@
       ipcRenderer.invoke('toggle-fullscreen')
     })
 
-    document.addEventListener('fullscreenchange', () => {
+    ipcRenderer.on('fullscreen-changed', (event, isFullscreen) => {
       const videoPlayer = document.getElementById('videoPlayer')
       const canvas = document.getElementById('anime4kCanvas')
-      if (document.fullscreenElement) {
-        videoPlayer.style.width = '100vw'
-        videoPlayer.style.height = '100vh'
-        videoPlayer.style.maxWidth = '100vw'
-        videoPlayer.style.maxHeight = '100vh'
-        videoPlayer.style.objectFit = 'contain'
-        if (canvas) {
-          canvas.style.width = '100vw'
-          canvas.style.height = '100vh'
-          canvas.style.maxWidth = '100vw'
-          canvas.style.maxHeight = '100vh'
-          canvas.style.objectFit = 'contain'
-        }
+      if (isFullscreen) {
+        videoPlayer.classList.add('fullscreen-mode')
+        if (canvas) canvas.classList.add('fullscreen-mode')
       } else {
-        videoPlayer.style.width = '100vw'
-        videoPlayer.style.height = '100vh'
-        videoPlayer.style.maxWidth = ''
-        videoPlayer.style.maxHeight = ''
-        videoPlayer.style.objectFit = 'cover'
-        if (canvas) {
-          canvas.style.width = '100vw'
-          canvas.style.height = '100vh'
-          canvas.style.maxWidth = ''
-          canvas.style.maxHeight = ''
-          canvas.style.objectFit = 'cover'
-        }
+        videoPlayer.classList.remove('fullscreen-mode')
+        if (canvas) canvas.classList.remove('fullscreen-mode')
       }
     })
   </script>
