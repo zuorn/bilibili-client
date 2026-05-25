@@ -247,7 +247,13 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
         title: videoInfoResult.title,
         dimension: videoInfoResult.dimension,
         owner: videoInfoResult.owner,
-        stat: videoInfoResult.stat
+        stat: videoInfoResult.stat,
+        desc: videoInfoResult.desc,
+        pic: videoInfoResult.pic,
+        pubdate: videoInfoResult.pubdate,
+        bvid: videoInfoResult.bvid,
+        ugc_season: videoInfoResult.ugc_season,
+        related: videoInfoResult.related
       } : null,
       videoUrlResult: playUrlResult
     }

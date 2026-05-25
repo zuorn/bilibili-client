@@ -85,6 +85,7 @@ function registerAllHandlers() {
   registerPageNavHandlers({ ipcMain, log, mainWindow: mw })
 
   // 播放器相关处理器
+  const { fetchWbiKeys, getMixKey, signParams } = api
   registerPlayerHandlers({
     ipcMain, log, fetchApi, app, screen, dialog,
     state: sharedState,
@@ -96,6 +97,9 @@ function registerAllHandlers() {
     findMpvExecutable: mpv.findMpvExecutable,
     cookieManager,
     getVideoInfo,
+    fetchWbiKeys,
+    getMixKey,
+    signParams,
     mainWindow: mw
   })
   registerBuiltinPlayerHandlers({ ipcMain, log, state: sharedState })

@@ -6,19 +6,47 @@ const fs = require('fs')
 // Module-level deps reference, set by registerPlayerHandlers
 let _deps = null
 
-// 获取视频信息（aid, cid） - standalone helper
+// 获取视频信息（aid, cid, owner, stat 等） - standalone helper
 async function getVideoInfo(bvid) {
   if (!_deps) return null
-  const { fetchApi, log } = _deps
+  const { fetchWbiKeys, getMixKey, signParams, log } = _deps
   try {
-    const result = await fetchApi(`https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`)
-    if (result && result.code === 0 && result.data) {
+    const keys = await fetchWbiKeys()
+    if (!keys || !keys.imgKey || !keys.subKey) {
+      log('获取WBI密钥失败，回退到基础API')
+      return null
+    }
+    const mixKey = getMixKey(keys.imgKey, keys.subKey)
+    const params = {
+      bvid,
+      need_operation_card: 1,
+      web_rm_repeat: 1,
+      need_elec: 1,
+      out_referer: '',
+      platform: 'pc',
+      web_location: 'bilibili-electron'
+    }
+    const signed = signParams(params, mixKey)
+    const query = Object.entries({ ...params, w_rid: signed.w_rid, wts: signed.wts })
+      .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+      .join('&')
+    const result = await _deps.fetchApi(`https://api.bilibili.com/x/web-interface/wbi/view/detail?${query}`)
+    if (result && result.code === 0 && result.data && result.data.View) {
+      const v = result.data.View
       return {
-        aid: result.data.aid,
-        cid: result.data.cid,
-        duration: result.data.duration,
-        title: result.data.title,
-        dimension: result.data.dimension || null
+        aid: v.aid,
+        cid: v.cid,
+        duration: v.duration,
+        title: v.title,
+        dimension: v.dimension || null,
+        owner: v.owner || null,
+        stat: v.stat || null,
+        desc: v.desc || '',
+        pic: v.pic || '',
+        pubdate: v.pubdate || 0,
+        bvid: v.bvid,
+        ugc_season: v.ugc_season || null,
+        related: result.data.Related || []
       }
     }
   } catch (error) {
@@ -107,7 +135,7 @@ async function fetchBestPlayUrl(bvid, cid, cookieString, log) {
 
 function registerPlayerHandlers(deps) {
   _deps = deps
-  const { ipcMain, log, fetchApi, app, dialog, state } = deps
+  const { ipcMain, log, fetchApi, app, dialog, state, fetchWbiKeys, getMixKey, signParams } = deps
 
   ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmaku = true, useBuiltin = false, progress = null, episodeData = null) => {
     const { getDanmakuXml, xml2ass, formatProgressTime, reportPlayHistory, openBuiltinPlayer, startReportTimer, cleanupMpvSocket, stopVideo, findMpvExecutable } = deps
@@ -403,7 +431,25 @@ function registerPlayerHandlers(deps) {
 
   ipcMain.handle('get-video-info', async (event, bvid) => {
     try {
-      const url = `https://api.bilibili.com/x/web-interface/view?bvid=${bvid}`
+      const keys = await fetchWbiKeys()
+      if (!keys || !keys.imgKey || !keys.subKey) {
+        throw new Error('获取WBI密钥失败')
+      }
+      const mixKey = getMixKey(keys.imgKey, keys.subKey)
+      const params = {
+        bvid,
+        need_operation_card: 1,
+        web_rm_repeat: 1,
+        need_elec: 1,
+        out_referer: '',
+        platform: 'pc',
+        web_location: 'bilibili-electron'
+      }
+      const signed = signParams(params, mixKey)
+      const query = Object.entries({ ...params, w_rid: signed.w_rid, wts: signed.wts })
+        .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+        .join('&')
+      const url = `https://api.bilibili.com/x/web-interface/wbi/view/detail?${query}`
       log('Getting video info from:', url)
 
       const response = await fetch(url, {
@@ -414,15 +460,57 @@ function registerPlayerHandlers(deps) {
       })
 
       const data = await response.json()
-      log('Video info response:', data.code)
+      log('Video info response code:', data.code)
 
       if (data.code !== 0) {
         throw new Error(data.message || '获取视频信息失败')
       }
 
-      return { success: true, data: data.data }
+      return { success: true, data: data.data.View, related: data.data.Related || [] }
     } catch (error) {
       log('Error getting video info:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('get-relation-stat', async (event, vmid) => {
+    try {
+      const url = `https://api.bilibili.com/x/relation/stat?vmid=${vmid}&web_location=bilibili-electron`
+      log('Getting relation stat from:', url)
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': 'https://www.bilibili.com/'
+        }
+      })
+      const data = await response.json()
+      if (data.code === 0) {
+        return { success: true, data: data.data }
+      }
+      throw new Error(data.message || '获取关注信息失败')
+    } catch (error) {
+      log('Error getting relation stat:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('get-related-videos', async (event, bvid) => {
+    try {
+      const url = `https://api.bilibili.com/x/web-interface/archive/related?bvid=${bvid}`
+      log('Getting related videos from:', url)
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': `https://www.bilibili.com/video/${bvid}`
+        }
+      })
+      const data = await response.json()
+      if (data.code === 0) {
+        return { success: true, data: data.data }
+      }
+      throw new Error(data.message || '获取相关视频失败')
+    } catch (error) {
+      log('Error getting related videos:', error.message)
       return { success: false, error: error.message }
     }
   })

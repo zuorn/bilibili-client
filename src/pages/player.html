@@ -537,16 +537,21 @@
       right: 0;
       top: 0;
       bottom: 0;
-      width: 320px;
-      background: rgba(0,0,0,0.7);
-      padding: 20px;
+      width: 360px;
+      background: rgba(20, 20, 20, 0.92);
+      backdrop-filter: blur(20px);
       color: #fff;
       transform: translateX(100%);
       opacity: 0;
       pointer-events: none;
       transition: transform 0.3s ease-out, opacity 0.3s ease-out;
       overflow-y: auto;
+      overflow-x: hidden;
       z-index: 50;
+      display: flex;
+      flex-direction: column;
+      user-select: none;
+      -webkit-user-select: none;
     }
 
     .video-info-panel::-webkit-scrollbar {
@@ -554,7 +559,7 @@
     }
 
     .video-info-panel::-webkit-scrollbar-thumb {
-      background: rgba(255,255,255,0.2);
+      background: rgba(255,255,255,0.15);
       border-radius: 2px;
     }
 
@@ -562,6 +567,11 @@
       transform: translateX(0);
       opacity: 1;
       pointer-events: auto;
+    }
+
+    .video-info-panel *:focus,
+    .video-info-panel *:focus-visible {
+      outline: none !important;
     }
 
     .panel-toggle-btn {
@@ -603,7 +613,7 @@
     }
 
     .panel-toggle-btn.visible.collapse {
-      transform: translateY(-50%) translateX(-320px);
+      transform: translateY(-50%) translateX(-360px);
     }
 
     .panel-toggle-btn svg {
@@ -617,85 +627,436 @@
       transform: rotate(180deg);
     }
 
-    .episode-section {
-      margin-top: 16px;
-      border-top: 1px solid rgba(255,255,255,0.1);
-      padding-top: 16px;
-    }
-
-    .episode-section-title {
-      font-size: 13px;
-      color: #999;
-      margin-bottom: 12px;
-    }
-
-    .episode-list {
+    /* Panel inner content area */
+    .panel-inner {
+      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 2px;
-      max-height: calc(100vh - 340px);
-      overflow-y: auto;
+      gap: 14px;
+      flex: 1;
     }
 
-    .episode-list::-webkit-scrollbar {
-      width: 4px;
+    /* Title */
+    .video-info-title {
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1.45;
+      color: #fff;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      padding: 0;
+      margin: 0;
     }
 
-    .episode-list::-webkit-scrollbar-thumb {
-      background: rgba(255,255,255,0.15);
-      border-radius: 2px;
-    }
-
-    .episode-item {
+    /* Stats row */
+    .video-info-stats {
       display: flex;
       align-items: center;
-      padding: 8px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      transition: background 0.15s;
-      font-size: 13px;
-      color: #ccc;
+      gap: 8px;
+      font-size: 12px;
+      color: #999;
+      flex-wrap: wrap;
+    }
+
+    .stat-sep {
+      width: 1px;
+      height: 10px;
+      background: rgba(255,255,255,0.2);
       flex-shrink: 0;
     }
 
-    .episode-item:hover {
-      background: rgba(255,255,255,0.08);
-      color: #fff;
+    /* Author section */
+    .video-info-author {
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
-    .episode-item.active {
-      background: rgba(0,161,214,0.2);
-      color: #00a1d6;
+    .author-avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background-color: #333;
+      cursor: pointer;
+      flex-shrink: 0;
+      object-fit: cover;
     }
 
-    .episode-item .ep-index {
-      margin-right: 10px;
-      min-width: 28px;
-      text-align: center;
-      font-size: 12px;
-      color: #999;
-    }
-
-    .episode-item.active .ep-index {
-      color: #00a1d6;
-    }
-
-    .episode-item .ep-title {
+    .author-info {
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
       flex: 1;
+      min-width: 0;
+    }
+
+    .author-name {
+      font-size: 14px;
+      font-weight: 500;
+      color: #fff;
+      cursor: pointer;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
 
-    .video-info-title {
-      font-size: 14px;
+    .author-name:hover {
+      color: #00a1d6;
+    }
+
+    .author-fans {
+      font-size: 11px;
+      color: #999;
+    }
+
+    .follow-btn {
+      background: rgba(0, 161, 214, 0.15);
+      border: 1px solid #00a1d6;
+      color: #00a1d6;
+      padding: 5px 14px;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s;
+      flex-shrink: 0;
+    }
+
+    .follow-btn:hover {
+      background: #00a1d6;
+      color: #fff;
+    }
+
+    .follow-btn.followed {
+      background: rgba(255,255,255,0.1);
+      border-color: rgba(255,255,255,0.2);
+      color: #999;
+    }
+
+    /* Action buttons */
+    .video-info-actions {
+      display: flex;
+      gap: 8px;
+    }
+
+    .action-btn {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 4px;
+      padding: 10px 6px;
+      background: rgba(255,255,255,0.06);
+      border: none;
+      border-radius: 8px;
+      color: #ccc;
+      font-size: 11px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .action-count {
+      font-size: 12px;
       font-weight: 500;
-      margin-bottom: 12px;
-      line-height: 1.4;
+    }
+
+    .action-btn:hover {
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+    }
+
+    .action-btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .action-btn.like:hover {
+      color: #fb7299;
+    }
+
+    .action-btn.collect:hover {
+      color: #ff9f1c;
+    }
+
+    .action-btn.share:hover {
+      color: #00a1d6;
+    }
+
+    .action-btn.coin:hover {
+      color: #f2d600;
+    }
+
+    /* Description */
+    .panel-desc {
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 12px;
+    }
+
+    .panel-desc-text {
+      font-size: 12px;
+      color: #999;
+      line-height: 1.6;
+      white-space: pre-wrap;
+      word-break: break-all;
+      overflow: hidden;
+      display: -webkit-box;
+      -webkit-line-clamp: 3;
+      -webkit-box-orient: vertical;
+    }
+
+    .panel-desc-text.expanded {
+      display: block;
+    }
+
+    .panel-desc-toggle {
+      background: none;
+      border: none;
+      color: #00a1d6;
+      font-size: 12px;
+      cursor: pointer;
+      padding: 4px 0 0;
+      display: block;
+    }
+
+    .panel-desc-toggle:hover {
+      color: #00b5e5;
+    }
+
+    /* Tags */
+    .panel-tags {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+    }
+
+    .panel-tag {
+      background: rgba(255,255,255,0.08);
+      color: #aaa;
+      font-size: 11px;
+      padding: 3px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .panel-tag:hover {
+      background: rgba(255,255,255,0.15);
+      color: #fff;
+    }
+
+    /* Related videos section */
+    .panel-related {
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 12px;
+    }
+
+    .panel-related-title {
+      font-size: 13px;
+      color: #ccc;
+      margin-bottom: 10px;
+      font-weight: 500;
+    }
+
+    .panel-related-list {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .related-video-item {
+      display: flex;
+      gap: 10px;
+      cursor: pointer;
+      padding: 4px;
+      border-radius: 6px;
+      transition: background 0.15s;
+    }
+
+    .related-video-item:hover {
+      background: rgba(255,255,255,0.06);
+    }
+
+    .related-video-cover {
+      width: 120px;
+      height: 68px;
+      border-radius: 4px;
+      background: #222;
+      flex-shrink: 0;
+      object-fit: cover;
+      position: relative;
+    }
+
+    .related-video-duration {
+      position: absolute;
+      bottom: 4px;
+      right: 4px;
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 2px;
+    }
+
+    .related-video-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .related-video-title {
+      font-size: 12px;
+      color: #ddd;
+      line-height: 1.35;
       display: -webkit-box;
       -webkit-line-clamp: 2;
       -webkit-box-orient: vertical;
       overflow: hidden;
+    }
+
+    .related-video-author {
+      font-size: 11px;
+      color: #888;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .related-video-stats {
+      font-size: 11px;
+      color: #888;
+      display: flex;
+      gap: 8px;
+    }
+
+    /* Season / Collection section */
+    .panel-season {
+      border-top: 1px solid rgba(255,255,255,0.08);
+      padding-top: 12px;
+    }
+
+    .panel-season-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .panel-season-cover {
+      width: 64px;
+      height: 40px;
+      border-radius: 4px;
+      background: #222;
+      object-fit: cover;
+      flex-shrink: 0;
+    }
+
+    .panel-season-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .panel-season-title {
+      font-size: 13px;
+      color: #ccc;
+      font-weight: 500;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .panel-season-count {
+      font-size: 11px;
+      color: #888;
+    }
+
+    .panel-season-list {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      max-height: 420px;
+      overflow-y: auto;
+    }
+
+    .panel-season-list::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .panel-season-list::-webkit-scrollbar-thumb {
+      background: rgba(255,255,255,0.15);
+      border-radius: 2px;
+    }
+
+    .season-ep-item {
+      display: flex;
+      gap: 10px;
+      padding: 6px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background 0.15s;
+      align-items: center;
+    }
+
+    .season-ep-item:hover {
+      background: rgba(255,255,255,0.06);
+    }
+
+    .season-ep-item.active {
+      background: rgba(0,161,214,0.15);
+    }
+
+    .season-ep-cover {
+      width: 100px;
+      height: 56px;
+      border-radius: 4px;
+      background: #222;
+      flex-shrink: 0;
+      object-fit: cover;
+    }
+
+    .season-ep-cover-wrap {
+      position: relative;
+      flex-shrink: 0;
+    }
+
+    .season-ep-duration {
+      position: absolute;
+      bottom: 3px;
+      right: 3px;
+      background: rgba(0,0,0,0.75);
+      color: #fff;
+      font-size: 10px;
+      padding: 1px 5px;
+      border-radius: 2px;
+    }
+
+    .season-ep-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .season-ep-title {
+      font-size: 12px;
+      color: #ddd;
+      line-height: 1.35;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      margin-bottom: 4px;
+    }
+
+    .season-ep-item.active .season-ep-title {
+      color: #00a1d6;
+    }
+
+    .season-ep-meta {
+      font-size: 11px;
+      color: #888;
     }
 
     .video-info-meta {
@@ -704,75 +1065,6 @@
       gap: 12px;
       font-size: 12px;
       color: #999;
-    }
-
-    .video-info-author {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 12px;
-    }
-
-    .author-avatar {
-      width: 32px;
-      height: 32px;
-      border-radius: 50%;
-      background-color: #333;
-    }
-
-    .author-name {
-      font-size: 12px;
-      color: #fff;
-    }
-
-    .video-info-stats {
-      display: flex;
-      gap: 16px;
-      font-size: 12px;
-      color: #999;
-    }
-
-    .video-info-actions {
-      display: flex;
-      gap: 8px;
-      margin-top: 12px;
-    }
-
-    .action-btn {
-      flex: 1;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      padding: 8px;
-      background: rgba(255,255,255,0.1);
-      border: none;
-      border-radius: 4px;
-      color: #999;
-      font-size: 12px;
-      cursor: pointer;
-      transition: all 0.2s;
-    }
-
-    .action-btn:hover {
-      background: rgba(255,255,255,0.2);
-      color: #fff;
-    }
-
-    .action-btn.like {
-      color: #fb7299;
-    }
-
-    .action-btn.collect {
-      color: #ff9f1c;
-    }
-
-    .action-btn.share {
-      color: #00a1d6;
-    }
-
-    .action-btn.coin {
-      color: #f2d600;
     }
 
     .playback-speed {
@@ -976,46 +1268,64 @@
           </svg>
         </button>
         <div class="video-info-panel" id="videoInfoPanel">
-          <div class="video-info-title" id="infoTitle">视频标题</div>
-          <div class="video-info-author">
-            <img class="author-avatar" id="authorAvatar" src="" alt="Avatar">
-            <span class="author-name" id="authorName">UP主</span>
-          </div>
-          <div class="video-info-stats">
-            <span id="viewCount">0</span>
-            <span id="danmakuCount">0</span>
-          </div>
-          <div class="video-info-actions">
-            <button class="action-btn like" id="likeBtn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>
-              </svg>
-              <span id="likeCount">0</span>
-            </button>
-            <button class="action-btn collect" id="collectBtn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                <polyline points="22 4 12 14.01 9 11.01"/>
-              </svg>
-              <span>收藏</span>
-            </button>
-            <button class="action-btn share" id="shareBtn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M18 2h-3a5 5 0 0 0-5 5v3H7v4h3v8h4v-8h3l1-4h-4V7a1 1 0 0 1 1-1h3z"/>
-              </svg>
-              <span>分享</span>
-            </button>
-            <button class="action-btn coin" id="coinBtn">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <circle cx="12" cy="12" r="10"/>
-                <polyline points="12 6 12 12 16 14"/>
-              </svg>
-              <span>投币</span>
-            </button>
-          </div>
-          <div class="episode-section" id="episodeSection" style="display: none;">
-            <div class="episode-section-title" id="episodeSectionTitle">选集</div>
-            <div class="episode-list" id="episodeList"></div>
+          <div class="panel-inner">
+            <div class="video-info-title" id="infoTitle">视频标题</div>
+            <div class="video-info-stats">
+              <span id="viewCount">0播放</span>
+              <span class="stat-sep"></span>
+              <span id="danmakuCount">0弹幕</span>
+              <span class="stat-sep"></span>
+              <span id="publishDate"></span>
+            </div>
+            <div class="video-info-author">
+              <img class="author-avatar" id="authorAvatar" src="" alt="Avatar">
+              <div class="author-info">
+                <span class="author-name" id="authorName">UP主</span>
+                <span class="author-fans" id="authorFans"></span>
+              </div>
+              <button class="follow-btn" id="panelFollowBtn">+ 关注</button>
+            </div>
+            <div class="video-info-actions">
+              <button class="action-btn like" id="likeBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3H14zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/>
+                </svg>
+                                <span class="action-count" id="likeCount">0</span>
+              </button>
+              <button class="action-btn coin" id="coinBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="12" cy="12" r="10"/>
+                  <polyline points="12 6 12 12 16 14"/>
+                </svg>
+                                <span class="action-count" id="coinCount">0</span>
+              </button>
+              <button class="action-btn collect" id="collectBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>
+                </svg>
+                                <span class="action-count" id="collectCount">0</span>
+              </button>
+              <button class="action-btn share" id="shareBtn">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <circle cx="18" cy="5" r="3"/>
+                  <circle cx="6" cy="12" r="3"/>
+                  <circle cx="18" cy="19" r="3"/>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+                  <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+                                <span class="action-count" id="shareCount">0</span>
+              </button>
+            </div>
+            <div class="panel-desc" id="panelDesc" style="display: none;">
+              <div class="panel-desc-text" id="panelDescText"></div>
+              <button class="panel-desc-toggle" id="panelDescToggle">展开</button>
+            </div>
+            <div class="panel-tags" id="panelTags" style="display: none;"></div>
+            <div class="panel-season" id="panelSeason" style="display: none;"></div>
+            <div class="panel-related" id="panelRelated">
+              <div class="panel-related-title">相关推荐</div>
+              <div class="panel-related-list" id="panelRelatedList"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -1099,9 +1409,21 @@
     const authorAvatar = document.getElementById('authorAvatar')
     const authorAvatarHeader = document.getElementById('authorAvatarHeader')
     const authorName = document.getElementById('authorName')
+    const authorFans = document.getElementById('authorFans')
+    const panelFollowBtn = document.getElementById('panelFollowBtn')
+    const publishDate = document.getElementById('publishDate')
     const viewCount = document.getElementById('viewCount')
     const danmakuCount = document.getElementById('danmakuCount')
     const likeCount = document.getElementById('likeCount')
+    const coinCount = document.getElementById('coinCount')
+    const collectCount = document.getElementById('collectCount')
+    const shareCount = document.getElementById('shareCount')
+    const panelDesc = document.getElementById('panelDesc')
+    const panelDescText = document.getElementById('panelDescText')
+    const panelDescToggle = document.getElementById('panelDescToggle')
+    const panelRelatedList = document.getElementById('panelRelatedList')
+    const panelSeason = document.getElementById('panelSeason')
+    const panelTags = document.getElementById('panelTags')
     const playPauseBtn = document.getElementById('playPauseBtn')
     const progressBar = document.getElementById('progressBar')
     const progressFill = document.getElementById('progressFill')
@@ -1908,6 +2230,9 @@
 
     // 鼠标滚轮：直接滚动=音量，Ctrl+滚动=进度，Alt+滚动=窗口缩放
     document.addEventListener('wheel', (e) => {
+      // 光标在侧边栏时不做音量/进度/缩放处理，让面板自然滚动
+      if (e.target.closest('.video-info-panel')) return
+
       if (e.ctrlKey) {
         e.preventDefault()
         const delta = e.deltaY > 0 ? 5 : -5
@@ -1954,8 +2279,7 @@
       if (data.episodeData && data.episodeData.episodes && data.episodeData.episodes.length > 0) {
         renderEpisodeList(data.episodeData)
       } else {
-        const episodeSection = document.getElementById('episodeSection')
-        if (episodeSection) episodeSection.style.display = 'none'
+        panelSeason.style.display = 'none'
       }
 
       try {
@@ -1964,13 +2288,7 @@
 
         // 视频信息：优先用预加载数据
         if (data.preFetchVideoInfo && data.preFetchVideoInfo.owner) {
-          authorName.textContent = data.preFetchVideoInfo.owner.name || '未知UP主'
-          authorAvatar.src = data.preFetchVideoInfo.owner.face || ''
-          authorAvatarHeader.src = data.preFetchVideoInfo.owner.face || ''
-          currentOwnerMid = data.preFetchVideoInfo.owner.mid || null
-          viewCount.textContent = formatNumber(data.preFetchVideoInfo.stat?.view || 0) + '播放'
-          danmakuCount.textContent = formatNumber(data.preFetchVideoInfo.stat?.danmaku || 0) + '弹幕'
-          likeCount.textContent = formatNumber(data.preFetchVideoInfo.stat?.like || 0)
+          populateVideoInfo(data.preFetchVideoInfo, data.preFetchVideoInfo.related)
         } else {
           // 无预加载数据，不阻塞播放，异步加载
           loadVideoInfo(data.bvid)
@@ -1993,41 +2311,68 @@
       if (data.preFetchVideoUrl && pendingPrefetchData === null && videoPlayer.src === '') {
         pendingPrefetchData = data.preFetchVideoUrl
       }
+      if (data.preFetchVideoInfo && data.preFetchVideoInfo.owner) {
+        populateVideoInfo(data.preFetchVideoInfo, data.preFetchVideoInfo.related)
+      }
     })
 
     function renderEpisodeList(episodeData) {
       currentEpisodeData = episodeData
-      const episodeSection = document.getElementById('episodeSection')
-      const episodeList = document.getElementById('episodeList')
-      const episodeSectionTitle = document.getElementById('episodeSectionTitle')
+      if (!panelSeason) return
 
-      if (!episodeSection || !episodeList) return
-
-      episodeSection.style.display = 'block'
-      episodeSectionTitle.textContent = `选集 (共${episodeData.episodes.length}集)`
-
-      episodeList.innerHTML = ''
+      panelSeason.style.display = 'block'
+      panelSeason.innerHTML = `
+        <div class="panel-season-header">
+          <div class="panel-season-info">
+            <div class="panel-season-title">选集 (共${episodeData.episodes.length}集)</div>
+          </div>
+        </div>
+        <div class="panel-season-list" id="panelSeasonList"></div>
+      `
+      const list = document.getElementById('panelSeasonList')
       episodeData.episodes.forEach((ep, index) => {
         const item = document.createElement('div')
-        item.className = 'episode-item'
+        item.className = 'season-ep-item'
         if (index === episodeData.currentIndex) {
           item.classList.add('active')
         }
         item.innerHTML = `
-          <span class="ep-index">${index + 1}</span>
-          <span class="ep-title">${ep.title || `第${index + 1}集`}</span>
+          <div class="season-ep-info">
+            <div class="season-ep-title">${escapeHtml(ep.title || `第${index + 1}集`)}</div>
+          </div>
         `
         item.addEventListener('click', () => {
           if (index === episodeData.currentIndex) return
           switchEpisode(index)
         })
-        episodeList.appendChild(item)
+        list.appendChild(item)
       })
 
-      // 滚动到当前播放的集数
-      const activeItem = episodeList.querySelector('.episode-item.active')
+      const activeItem = list.querySelector('.season-ep-item.active')
       if (activeItem) {
         activeItem.scrollIntoView({ block: 'nearest' })
+      }
+    }
+
+    async function switchToVideo(bvid, cid, title) {
+      videoTitle.textContent = title
+      infoTitle.textContent = title
+
+      if (currentVideoData) {
+        currentVideoData.bvid = bvid
+        currentVideoData.cid = cid
+        currentVideoData.title = title
+      }
+
+      danmakuList = []
+      danmakuIndex = 0
+      const dc = document.getElementById('danmakuContainer')
+      if (dc) dc.innerHTML = ''
+
+      await loadVideo(bvid, cid, null)
+      await loadVideoInfo(bvid)
+      if (danmakuEnabled && cid) {
+        await loadDanmaku(cid)
       }
     }
 
@@ -2036,40 +2381,92 @@
       const episode = currentEpisodeData.episodes[index]
       currentEpisodeData.currentIndex = index
 
-      // 更新选集高亮
-      const episodeList = document.getElementById('episodeList')
-      if (episodeList) {
-        episodeList.querySelectorAll('.episode-item').forEach((item, i) => {
+      const list = document.getElementById('panelSeasonList')
+      if (list) {
+        list.querySelectorAll('.season-ep-item').forEach((item, i) => {
           item.classList.toggle('active', i === index)
         })
       }
 
-      // 更新标题
       const fullTitle = currentEpisodeData.seasonTitle
         ? `${currentEpisodeData.seasonTitle} - ${episode.title}`
         : episode.title
       videoTitle.textContent = fullTitle
       infoTitle.textContent = fullTitle
 
-      // 更新当前播放数据
       if (currentVideoData) {
         currentVideoData.bvid = episode.bvid
         currentVideoData.cid = episode.cid
         currentVideoData.title = fullTitle
       }
 
-      // 清除弹幕
       danmakuList = []
       danmakuIndex = 0
       const danmakuContainer = document.getElementById('danmakuContainer')
       if (danmakuContainer) danmakuContainer.innerHTML = ''
 
-      // 加载新视频
       await loadVideo(episode.bvid, episode.cid, null)
       await loadVideoInfo(episode.bvid)
       if (danmakuEnabled && episode.cid) {
         await loadDanmaku(episode.cid)
       }
+    }
+
+    function renderSeasonSection(ugcSeason, currentBvid) {
+      if (!panelSeason) return
+      panelSeason.style.display = 'block'
+
+      const totalEpisodes = ugcSeason.sections.reduce((sum, s) => sum + (s.episodes || []).length, 0)
+
+      let html = `
+        <div class="panel-season-header">
+          <img class="panel-season-cover" src="${ugcSeason.cover || ''}" alt="" loading="lazy">
+          <div class="panel-season-info">
+            <div class="panel-season-title">${escapeHtml(ugcSeason.title || '')}</div>
+            <div class="panel-season-count">共${totalEpisodes}个视频</div>
+          </div>
+        </div>
+        <div class="panel-season-list" id="panelSeasonList">
+      `
+
+      ugcSeason.sections.forEach(section => {
+        if (section.title && ugcSeason.sections.length > 1) {
+          html += `<div style="font-size:11px;color:#888;padding:4px 0;margin-top:4px;">${escapeHtml(section.title)}</div>`
+        }
+        ;(section.episodes || []).forEach(ep => {
+          const durMin = Math.floor((ep.arc?.duration || 0) / 60)
+          const durSec = (ep.arc?.duration || 0) % 60
+          const durStr = String(durMin).padStart(2, '0') + ':' + String(durSec).padStart(2, '0')
+          const isActive = ep.bvid === currentBvid
+          html += `
+            <div class="season-ep-item${isActive ? ' active' : ''}" data-bvid="${ep.bvid}" data-cid="${ep.cid}" data-title="${escapeHtml(ep.title || '')}">
+              <div class="season-ep-cover-wrap">
+                <img class="season-ep-cover" src="${ep.arc?.pic || ugcSeason.cover || ''}" alt="" loading="lazy">
+                <span class="season-ep-duration">${durStr}</span>
+              </div>
+              <div class="season-ep-info">
+                <div class="season-ep-title">${escapeHtml(ep.title || '')}</div>
+                <div class="season-ep-meta">${formatNumber(ep.arc?.stat?.view || 0)}播放</div>
+              </div>
+            </div>
+          `
+        })
+      })
+
+      html += `</div>`
+      panelSeason.innerHTML = html
+
+      // Bind click events
+      panelSeason.querySelectorAll('.season-ep-item').forEach(item => {
+        item.addEventListener('click', () => {
+          const bvid = item.dataset.bvid
+          const cid = item.dataset.cid
+          const title = item.dataset.title
+          if (bvid && cid) {
+            switchToVideo(bvid, cid, title)
+          }
+        })
+      })
     }
 
     async function loadVideo(bvid, cid, progress = null, preFetchResult = null) {
@@ -2212,22 +2609,147 @@
       }
     }
 
+    function populateVideoInfo(video, relatedVideos) {
+      infoTitle.textContent = video.title || videoTitle.textContent
+      authorName.textContent = video.owner?.name || '未知UP主'
+      authorAvatar.src = video.owner?.face || ''
+      authorAvatarHeader.src = video.owner?.face || ''
+      currentOwnerMid = video.owner?.mid || null
+
+      viewCount.textContent = formatNumber(video.stat?.view || 0) + '播放'
+      danmakuCount.textContent = formatNumber(video.stat?.danmaku || 0) + '弹幕'
+      likeCount.textContent = formatNumber(video.stat?.like || 0)
+      coinCount.textContent = formatNumber(video.stat?.coin || 0)
+      collectCount.textContent = formatNumber(video.stat?.favorite || 0)
+      shareCount.textContent = formatNumber(video.stat?.share || 0)
+
+      if (video.pubdate) {
+        const d = new Date(video.pubdate * 1000)
+        publishDate.textContent = d.getFullYear() + '-' +
+          String(d.getMonth() + 1).padStart(2, '0') + '-' +
+          String(d.getDate()).padStart(2, '0')
+      }
+
+      if (video.desc && video.desc.trim()) {
+        panelDesc.style.display = 'block'
+        panelDescText.textContent = video.desc.trim()
+        panelDescText.classList.remove('expanded')
+        panelDescToggle.textContent = '展开'
+      } else {
+        panelDesc.style.display = 'none'
+      }
+
+      // Render season / collection section
+      if (video.ugc_season && video.ugc_season.sections) {
+        renderSeasonSection(video.ugc_season, video.bvid || '')
+      } else {
+        panelSeason.style.display = 'none'
+      }
+
+      // Author fans — set to N/A as view/detail doesn't include follower count
+      authorFans.textContent = ''
+
+      // Follow button state reset
+      panelFollowBtn.textContent = '+ 关注'
+      panelFollowBtn.classList.remove('followed')
+
+      // Fetch follower count async
+      if (video.owner?.mid) {
+        fetchAuthorFans(video.owner.mid)
+      }
+
+      // Render related videos from API response
+      if (relatedVideos && relatedVideos.length > 0) {
+        renderRelatedVideos(relatedVideos)
+      }
+    }
+
+    async function fetchAuthorFans(mid) {
+      try {
+        const result = await ipcRenderer.invoke('get-relation-stat', mid)
+        if (result.success && result.data) {
+          authorFans.textContent = formatNumber(result.data.follower || 0) + '粉丝'
+        }
+      } catch (e) {
+        console.log('获取粉丝数失败:', e)
+      }
+    }
+
+    panelDescToggle.addEventListener('click', () => {
+      if (panelDescText.classList.contains('expanded')) {
+        panelDescText.classList.remove('expanded')
+        panelDescToggle.textContent = '展开'
+      } else {
+        panelDescText.classList.add('expanded')
+        panelDescToggle.textContent = '收起'
+      }
+    })
+
+    panelFollowBtn.addEventListener('click', () => {
+      if (panelFollowBtn.classList.contains('followed')) {
+        panelFollowBtn.classList.remove('followed')
+        panelFollowBtn.textContent = '+ 关注'
+      } else {
+        panelFollowBtn.classList.add('followed')
+        panelFollowBtn.textContent = '已关注'
+      }
+    })
+
     async function loadVideoInfo(bvid) {
       try {
         const result = await ipcRenderer.invoke('get-video-info', bvid)
         if (result.success && result.data) {
-          const video = result.data
-          authorName.textContent = video.owner?.name || '未知UP主'
-          authorAvatar.src = video.owner?.face || ''
-          authorAvatarHeader.src = video.owner?.face || ''
-          currentOwnerMid = video.owner?.mid || null
-          viewCount.textContent = formatNumber(video.stat?.view || 0) + '播放'
-          danmakuCount.textContent = formatNumber(video.stat?.danmaku || 0) + '弹幕'
-          likeCount.textContent = formatNumber(video.stat?.like || 0)
+          populateVideoInfo(result.data, result.related)
         }
       } catch (error) {
         console.log('加载视频信息失败:', error)
       }
+    }
+
+    async function loadRelatedVideos(bvid) {
+      try {
+        const result = await ipcRenderer.invoke('get-related-videos', bvid)
+        if (result.success && result.data && result.data.length > 0) {
+          renderRelatedVideos(result.data)
+        }
+      } catch (error) {
+        console.log('加载相关视频失败:', error)
+      }
+    }
+
+    function renderRelatedVideos(videos) {
+      panelRelatedList.innerHTML = ''
+      videos.forEach(v => {
+        const item = document.createElement('div')
+        item.className = 'related-video-item'
+        const durationMin = Math.floor((v.duration || 0) / 60)
+        const durationSec = (v.duration || 0) % 60
+        const durationStr = String(durationMin).padStart(2, '0') + ':' + String(durationSec).padStart(2, '0')
+        item.innerHTML = `
+          <div style="position:relative;flex-shrink:0;">
+            <img class="related-video-cover" src="${v.pic || ''}" alt="" loading="lazy">
+            <span class="related-video-duration">${durationStr}</span>
+          </div>
+          <div class="related-video-info">
+            <div class="related-video-title">${escapeHtml(v.title || '')}</div>
+            <div class="related-video-author">${escapeHtml(v.owner?.name || '')}</div>
+            <div class="related-video-stats">
+              <span>${formatNumber(v.stat?.view || 0)}播放</span>
+              <span>${formatNumber(v.stat?.danmaku || 0)}弹幕</span>
+            </div>
+          </div>
+        `
+        item.addEventListener('click', () => {
+          switchToVideo(v.bvid, v.cid, v.title)
+        })
+        panelRelatedList.appendChild(item)
+      })
+    }
+
+    function escapeHtml(text) {
+      const div = document.createElement('div')
+      div.textContent = text
+      return div.innerHTML
     }
 
     async function loadDanmaku(cid) {
