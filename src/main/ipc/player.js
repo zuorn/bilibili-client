@@ -677,6 +677,50 @@ function registerPlayerHandlers(deps) {
       return { success: false, error: error.message }
     }
   })
+
+  ipcMain.handle('get-comments', async (event, oid, mode = 3, paginationStr = '') => {
+    log('get-comments called with oid:', oid, 'mode:', mode, 'paginationStr:', paginationStr)
+    if (!oid) {
+      log('get-comments: missing oid')
+      return { success: false, error: '缺少视频ID' }
+    }
+    try {
+      const keys = await fetchWbiKeys()
+      if (!keys || !keys.imgKey || !keys.subKey) {
+        throw new Error('获取WBI密钥失败')
+      }
+      const mixKey = getMixKey(keys.imgKey, keys.subKey)
+
+      const params = {
+        oid: oid,
+        type: 1,
+        mode: mode,
+        pagination_str: paginationStr,
+        plat: 1,
+        seek_rpid: '',
+        web_location: '1315875'
+      }
+      const signed = signParams(params, mixKey)
+      const query = Object.entries({ ...params, w_rid: signed.w_rid, wts: signed.wts })
+        .map(([k, v]) => `${k}=${encodeURIComponent(v)}`)
+        .join('&')
+      const url = `https://api.bilibili.com/x/v2/reply/wbi/main?${query}`
+
+      log('Getting comments from:', url)
+
+      const data = await fetchApi(url)
+      log('Comments response code:', data ? data.code : 'null')
+
+      if (!data || data.code !== 0) {
+        throw new Error((data && data.message) || '获取评论失败')
+      }
+
+      return { success: true, data: data.data }
+    } catch (error) {
+      log('Error getting comments:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
 }
 
 module.exports = { getVideoInfo, registerPlayerHandlers }
