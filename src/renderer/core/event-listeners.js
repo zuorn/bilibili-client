@@ -153,6 +153,13 @@ function initEventListeners() {
     })
   })
 
+  document.querySelectorAll('.up-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      const tabName = tab.dataset.tab
+      if (tabName) switchUpTab(tabName)
+    })
+  })
+
   document.querySelectorAll('.my-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       document.querySelectorAll('.my-tab').forEach(t => t.classList.remove('active'))

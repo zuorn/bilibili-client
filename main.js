@@ -3,16 +3,35 @@ process.env.LANG = 'zh_CN.UTF-8'
 process.stdout.write('[3J[H[2J')
 
 const { app, BrowserWindow, ipcMain, screen, dialog, Menu } = require('electron')
+const path = require('path')
+
+// 优先设置日志模块（使用缓冲区机制，等 app 准备好后再写入文件）
+const { log, setLogFile } = require('./src/main/log')
+
+log('应用启动开始')
+
+// 全局错误处理 —— 打包后无控制台，必须弹窗告知用户
+process.on('uncaughtException', (error) => {
+  try {
+    log('未捕获的异常:', error)
+    dialog.showErrorBox('应用启动失败', error.stack || error.message)
+  } catch (_) {}
+  app.quit()
+})
+process.on('unhandledRejection', (reason) => {
+  try {
+    log('未处理的 Promise 拒绝:', reason)
+    dialog.showErrorBox('应用启动失败', reason?.stack || reason?.message || String(reason))
+  } catch (_) {}
+  app.quit()
+})
 
 // 绕过 Chromium GPU 黑名单，确保 WebGL 可用（Anime4K 依赖）
 app.commandLine.appendSwitch('ignore-gpu-blacklist')
 app.commandLine.appendSwitch('enable-gpu-rasterization')
 app.commandLine.appendSwitch('enable-zero-copy')
-const path = require('path')
-const cookieManager = require('./src/main/cookieManager')
 
-// 日志模块
-const { log, setLogFile } = require('./src/main/log')
+const cookieManager = require('./src/main/cookieManager')
 
 // API 核心模块
 const api = require('./src/main/api')
@@ -68,7 +87,8 @@ function registerAllHandlers() {
   const { fetchApi, fetchWithRetry, fetchApiWithHeaders, buildRecommendUrl } = api
 
   // 基础 API 处理器
-  const apiDeps = { ipcMain, fetchApi, log }
+  const { fetchWbiKeys, getMixKey, signParams } = api
+  const apiDeps = { ipcMain, fetchApi, log, fetchWbiKeys, getMixKey, signParams }
   registerUpHandlers(apiDeps)
   registerUserHandlers(apiDeps)
   registerFavoritesHandlers(apiDeps)
@@ -85,7 +105,6 @@ function registerAllHandlers() {
   registerPageNavHandlers({ ipcMain, log, mainWindow: mw })
 
   // 播放器相关处理器
-  const { fetchWbiKeys, getMixKey, signParams } = api
   registerPlayerHandlers({
     ipcMain, log, fetchApi, app, screen, dialog,
     state: sharedState,
@@ -110,8 +129,17 @@ function registerAllHandlers() {
 
 // ==================== 应用生命周期 ====================
 app.whenReady().then(async () => {
+  log('app.whenReady() 触发')
   const userDataPath = app.getPath('userData')
-  setLogFile(path.join(__dirname, 'debug.log'))
+  
+  // 调试时将日志文件放在项目根目录
+  const logFilePath = path.join(__dirname, 'debug.log')
+  
+  // 明确记录日志文件位置
+  console.log('日志文件位置:', logFilePath)
+  log('日志文件位置:', logFilePath)
+  
+  setLogFile(logFilePath)
   cookieManager.loadCookies(path.join(userDataPath, 'cookies.json'))
 
   // 设置 onReady 回调（在窗口创建完成后执行 cookie 导入）
@@ -138,6 +166,14 @@ app.whenReady().then(async () => {
       api.setMainWindow(sharedState.mainWindow)
     }
   })
+}).catch((error) => {
+  try {
+    log('应用启动失败:', error)
+    dialog.showErrorBox('应用启动失败', error.stack || error.message)
+  } catch (_) {
+    console.error('Startup error:', error)
+  }
+  app.quit()
 })
 
 app.on('window-all-closed', () => {

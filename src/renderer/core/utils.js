@@ -129,3 +129,10 @@ function showToast(message, duration = 3000) {
     if (toast.parentNode) toast.remove()
   }, duration)
 }
+
+function escapeHtml(str) {
+  if (!str) return ''
+  const div = document.createElement('div')
+  div.textContent = str
+  return div.innerHTML
+}

@@ -117,7 +117,13 @@
         <span>首页</span>
       </div>
       <div class="sidebar-item" data-page="dynamic">
-        <svg t="1779293986314" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="16229" width="200" height="200"><path d="M541.87 55.47l-0.06 296.95c44.59-51.23 110.27-83.62 183.53-83.62 134.32 0 243.2 108.88 243.2 243.2v29.87l-296.95-0.06c51.23 44.59 83.62 110.27 83.62 183.53 0 134.32-108.88 243.2-243.2 243.2h-29.87l0.02-296.91c-44.59 51.21-110.26 83.58-183.49 83.58-134.32 0-243.2-108.88-243.2-243.2v-29.87l296.95 0.06c-51.23-44.59-83.62-110.27-83.62-183.53 0-134.32 108.88-243.2 243.2-243.2h29.87z m0 488.83v362.03l5-0.83c81.83-15.74 144.32-85.85 148.39-171.27l0.21-8.89c0-89.41-63.95-163.87-148.6-180.16l-5-0.88z m-62.17-2.43H117.67l0.83 5c15.74 81.83 85.85 144.32 171.27 148.39l8.89 0.21c89.41 0 163.87-63.95 180.16-148.6l0.88-5z m245.63-213.34c-89.41 0-163.87 63.95-180.16 148.6l-0.88 5h362.03l-0.83-5c-15.74-81.83-85.85-144.32-171.27-148.39l-8.89-0.21z m-243.2-210.9l-5 0.88c-84.65 16.28-148.6 90.75-148.6 180.16l0.21 8.89c4.07 85.42 66.56 155.53 148.39 171.27l5 0.83V117.63z" p-id="16230"></path></svg>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 10 Q19 3 21 8 L13.5 12"/>
+          <path d="M14 12 Q21 19 16 21 L12 13.5"/>
+          <path d="M12 14 Q5 21 3 16 L10.5 12"/>
+          <path d="M10 12 Q3 5 8 3 L12 10.5"/>
+          <circle cx="12" cy="12" r="1.8" fill="currentColor"/>
+        </svg>
         <span>动态</span>
       </div>
       <div class="sidebar-item" data-page="my">
@@ -629,25 +635,38 @@
             </div>
           </div>
 
-          <!-- <div class="up-tabs-wrapper">
+          <div class="up-tabs-wrapper">
             <div class="up-tabs">
-              <div class="tab-item active" data-tab="videos">投稿</div>
-              <div class="tab-item" data-tab="dynamic">动态</div>
+              <div class="up-tab active" data-tab="dynamics">动态</div>
+              <div class="up-tab" data-tab="videos">投稿</div>
+              <div class="up-tab" data-tab="collections-series">合集和系列</div>
             </div>
-          </div> -->
+          </div>
 
           <div class="up-content">
-            <div class="tab-content active" id="videosTab">
-              <!-- <div class="video-sort">
-                <button class="sort-btn active" data-sort="latest">最新发布</button>
-                <button class="sort-btn" data-sort="popular">最多播放</button>
-              </div> -->
+            <div class="up-tab-content active" id="upDynamicsTab">
+              <div class="up-dynamics-list" id="upDynamicsList"></div>
+              <div class="loading-more" id="upDynamicsLoadingMore" style="display: none;">
+                <span>加载中...</span>
+              </div>
+              <div class="no-more" id="upDynamicsNoMore" style="display: none;">
+                <span>— 到底了 —</span>
+              </div>
+            </div>
+
+            <div class="up-tab-content" id="upVideosTab">
               <div class="video-grid" id="upVideoGrid"></div>
               <div class="loading-more" id="upLoadingMore" style="display: none;">
                 <span>加载中...</span>
               </div>
               <div class="no-more" id="upNoMore" style="display: none;">
                 <span>— 到底了 —</span>
+              </div>
+            </div>
+
+            <div class="up-tab-content" id="upCollectionsSeriesTab">
+              <div class="up-placeholder" id="upCollectionsSeriesPlaceholder">
+                <span>合集和系列功能开发中...</span>
               </div>
             </div>
           </div>

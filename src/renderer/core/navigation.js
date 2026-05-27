@@ -83,12 +83,12 @@ function navigateToPage(page) {
   // 切换滚动监听器
   const content = document.querySelector('.content')
   if (content) {
-    content.removeEventListener('scroll', handleScroll)
+    content.removeEventListener('scroll', throttledHandleScroll)
     content.removeEventListener('scroll', handleDynamicScroll)
     if (page === 'dynamic') {
       content.addEventListener('scroll', handleDynamicScroll)
     } else {
-      content.addEventListener('scroll', handleScroll)
+      content.addEventListener('scroll', throttledHandleScroll)
     }
   }
 

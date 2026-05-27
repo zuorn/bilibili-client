@@ -17,9 +17,9 @@ function navigateToMediaAll() {
 
   const content = document.querySelector('.content')
   if (content) {
-    content.removeEventListener('scroll', handleScroll)
+    content.removeEventListener('scroll', throttledHandleScroll)
     content.removeEventListener('scroll', handleDynamicScroll)
-    content.addEventListener('scroll', handleScroll)
+    content.addEventListener('scroll', throttledHandleScroll)
   }
 
   // 重置状态

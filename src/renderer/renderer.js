@@ -95,7 +95,7 @@ let pageStates = {
 
   media: { cursor: '', loading: false, hasMore: true, data: null },
   search: { keyword: '', pageNum: 1, loading: false, hasMore: true },
-  up: { mid: null, name: '', offset: '', loading: false, hasMore: true },
+  up: { mid: null, name: '', offset: '', loading: false, hasMore: true, currentTab: 'videos', dynamicOffset: '', hasMoreDynamics: true, dynamicLoading: false },
   my: { historyCursor: null, hasMoreHistory: true, isHistoryLoading: false, tabsOriginalOffset: null, favoritesPageNum: 1, hasMoreFavorites: true, isFavoritesLoading: false, toviewPageNum: 1, hasMoreToview: true, isToviewLoading: false },
   bangumi: { cursor: '', loading: false, hasMore: true, data: null },
   following: { mid: null, tagid: -1, pageNum: 1, loading: false, hasMore: true, groups: [] }
@@ -429,7 +429,7 @@ function initEventListeners() {
   document.getElementById('logoutBtn')?.addEventListener('click', handleLogout)
   document.getElementById('settingsLogoutBtn')?.addEventListener('click', handleLogout)
 
-  document.querySelector('.content')?.addEventListener('scroll', handleScroll)
+  document.querySelector('.content')?.addEventListener('scroll', throttledHandleScroll)
 
   initTheme()
   document.getElementById('themeSelect')?.addEventListener('change', handleThemeChange)
@@ -592,12 +592,12 @@ function navigateToPage(page) {
   // 切换滚动监听器
   const content = document.querySelector('.content')
   if (content) {
-    content.removeEventListener('scroll', handleScroll)
+    content.removeEventListener('scroll', throttledHandleScroll)
     content.removeEventListener('scroll', handleDynamicScroll)
     if (page === 'dynamic') {
       content.addEventListener('scroll', handleDynamicScroll)
     } else {
-      content.addEventListener('scroll', handleScroll)
+      content.addEventListener('scroll', throttledHandleScroll)
     }
   }
 
@@ -1091,9 +1091,9 @@ async function navigateToUP(mid) {
 
   const content = document.querySelector('.content')
   if (content) {
-    content.removeEventListener('scroll', handleScroll)
+    content.removeEventListener('scroll', throttledHandleScroll)
     content.removeEventListener('scroll', handleDynamicScroll)
-    content.addEventListener('scroll', handleScroll)
+    content.addEventListener('scroll', throttledHandleScroll)
   }
 
   resetUpProfileUI()
@@ -3768,9 +3768,9 @@ function navigateToMediaAll() {
 
   const content = document.querySelector('.content')
   if (content) {
-    content.removeEventListener('scroll', handleScroll)
+    content.removeEventListener('scroll', throttledHandleScroll)
     content.removeEventListener('scroll', handleDynamicScroll)
-    content.addEventListener('scroll', handleScroll)
+    content.addEventListener('scroll', throttledHandleScroll)
   }
 
   // 重置状态
@@ -4069,9 +4069,9 @@ function navigateToBangumiAll(type = 'bangumi') {
 
   const content = document.querySelector('.content')
   if (content) {
-    content.removeEventListener('scroll', handleScroll)
+    content.removeEventListener('scroll', throttledHandleScroll)
     content.removeEventListener('scroll', handleDynamicScroll)
-    content.addEventListener('scroll', handleScroll)
+    content.addEventListener('scroll', throttledHandleScroll)
   }
 
   // 重置状态

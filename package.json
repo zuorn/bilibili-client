@@ -56,6 +56,7 @@
       "index.html",
       "src/**/*",
       "icon.png",
+      "icon.ico",
       "package.json"
     ],
     "win": {
