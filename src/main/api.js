@@ -346,9 +346,77 @@ function buildRecommendUrl(page = 1) {
   return `${RECOMMEND_API}?ps=${ps}&fresh_idx=${fresh_idx}&fresh_type=${fresh_type}&timezone_offset=${timezone_offset}&wts=${wts}&w_rid=${w_rid}`
 }
 
+function fetchApiPost(url, bodyParams) {
+  return new Promise((resolve, reject) => {
+    const urlObj = new URL(url)
+    const body = Object.entries(bodyParams)
+      .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
+      .join('&')
+
+    const headers = {
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+      'Referer': 'https://www.bilibili.com/client',
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+      'Accept-Encoding': 'gzip, deflate, br',
+      'Origin': 'https://www.bilibili.com',
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Content-Length': Buffer.byteLength(body)
+    }
+
+    const savedCookies = cookieManager.getSavedCookies()
+    if (Object.keys(savedCookies).length > 0) {
+      headers['Cookie'] = cookieManager.getCookieString()
+    }
+
+    const options = {
+      hostname: urlObj.hostname,
+      port: 443,
+      path: urlObj.pathname + urlObj.search,
+      method: 'POST',
+      headers,
+      rejectUnauthorized: false
+    }
+
+    const req = https.request(options, (res) => {
+      if (res.headers['set-cookie']) {
+        cookieManager.parseSetCookieHeaders(res.headers['set-cookie'])
+      }
+
+      let data = ''
+      const encoding = res.headers['content-encoding']
+
+      if (encoding === 'gzip' || encoding === 'br') {
+        let decompressor = encoding === 'br' ? zlib.createBrotliDecompress() : zlib.createGunzip()
+        const chunks = []
+        res.pipe(decompressor)
+        decompressor.on('data', (chunk) => { chunks.push(chunk) })
+        decompressor.on('end', () => {
+          try {
+            const buffer = Buffer.concat(chunks)
+            resolve(JSON.parse(buffer.toString('utf8')))
+          } catch (e) { reject(e) }
+        })
+        decompressor.on('error', (err) => { reject(err) })
+      } else {
+        res.on('data', (chunk) => { data += chunk })
+        res.on('end', () => {
+          try { resolve(JSON.parse(data)) } catch (e) { reject(e) }
+        })
+      }
+    })
+
+    req.on('error', (err) => { reject(err) })
+    req.setTimeout(15000, () => { req.destroy(); reject(new Error('请求超时')) })
+    req.write(body)
+    req.end()
+  })
+}
+
 module.exports = {
   buildRecommendUrl,
   fetchApi,
+  fetchApiPost,
   fetchWithRetry,
   fetchApiWithHeaders,
   API_ENDPOINTS,

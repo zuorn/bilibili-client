@@ -287,6 +287,36 @@ function registerHistoryHandlers(deps) {
       await reportPlayHistory(deps.state.currentVideoInfo.aid, deps.state.currentVideoInfo.cid, progress)
     }
   })
+
+  // 根据 bvid 查询播放进度
+  ipcMain.handle('get-video-progress', async (event, bvid) => {
+    try {
+      const url = 'https://api.bilibili.com/x/web-interface/history/cursor?type=all&ps=50&max=0&view_at=0&business=archive'
+      const result = await deps.fetchApi(url)
+
+      if (result.code === 0 && result.data) {
+        const list = result.data.list || []
+        for (const item of list) {
+          let itemBvid = ''
+          if (item.bvid) {
+            itemBvid = item.bvid
+          } else if (item.history?.bvid) {
+            itemBvid = item.history.bvid
+          } else if (item.uri) {
+            const match = item.uri.match(/BV[\w]+/)
+            if (match) itemBvid = match[0]
+          }
+          if (itemBvid === bvid) {
+            return { success: true, progress: item.progress || 0, cid: item.history?.cid || '' }
+          }
+        }
+      }
+      return { success: false, progress: 0, cid: '' }
+    } catch (error) {
+      log('get-video-progress error:', error.message)
+      return { success: false, progress: 0, cid: '' }
+    }
+  })
 }
 
 module.exports = { formatProgressTime, reportPlayHistory, registerHistoryHandlers }

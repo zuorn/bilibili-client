@@ -396,4 +396,14 @@ function initEventListeners() {
       window.scrollTo({ top: 0, behavior: 'smooth' })
     }
   })
+
+  // UP page follow button
+  document.querySelector('.up-actions .follow-btn')?.addEventListener('click', () => {
+    if (typeof toggleFollow !== 'function') return
+    const btn = document.querySelector('.up-actions .follow-btn')
+    const following = btn?.classList.contains('followed')
+    if (!following) {
+      toggleFollow()
+    }
+  })
 }

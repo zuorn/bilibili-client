@@ -1,7 +1,31 @@
 // UP主页面模块
 
+// 动态卡片图片懒加载 Observer，替代 preloadVisibleImages 的滚动轮询
+const dynamicImageObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const img = entry.target
+      if (img.dataset.src) {
+        img.src = img.dataset.src
+        img.removeAttribute('data-src')
+      }
+      dynamicImageObserver.unobserve(img)
+    }
+  })
+}, { rootMargin: '800px' })
+
+function observeDynamicImages(container) {
+  container.querySelectorAll('img[data-src]').forEach(img => {
+    dynamicImageObserver.observe(img)
+  })
+}
+
 function switchUpTab(tabName) {
   pageStates.up.currentTab = tabName
+
+  // 切换 tab 时滚动到顶部
+  const content = document.querySelector('.content')
+  if (content) content.scrollTop = 0
 
   document.querySelectorAll('.up-tab').forEach(t => t.classList.remove('active'))
   const targetTab = document.querySelector(`.up-tab[data-tab="${tabName}"]`)
@@ -30,6 +54,131 @@ function switchUpTab(tabName) {
   }
 }
 
+function updateFollowButton() {
+  const btn = document.querySelector('.up-actions .follow-btn')
+  if (!btn) return
+  const status = pageStates.up.relationStatus || 0
+  const following = (status === 1 || status === 3 || status === 6)
+  if (following) {
+    btn.textContent = '已关注'
+    btn.classList.add('followed')
+  } else {
+    btn.textContent = '+ 关注'
+    btn.classList.remove('followed')
+    hideFollowDropdown()
+  }
+}
+
+function showFollowDropdown() {
+  const dropdown = document.getElementById('followDropdown')
+  const btn = document.querySelector('.up-actions .follow-btn')
+  if (dropdown && btn) {
+    const btnRect = btn.getBoundingClientRect()
+    dropdown.style.left = `${btnRect.left}px`
+    dropdown.style.top = `${btnRect.bottom + 8}px`
+    dropdown.style.display = 'flex'
+  }
+}
+
+function hideFollowDropdown() {
+  const dropdown = document.getElementById('followDropdown')
+  if (dropdown) {
+    dropdown.style.display = 'none'
+  }
+}
+
+function initFollowDropdown() {
+  const btn = document.querySelector('.up-actions .follow-btn')
+  const dropdown = document.getElementById('followDropdown')
+
+  if (btn) {
+    btn.removeEventListener('mouseenter', handleFollowBtnMouseEnter)
+    btn.removeEventListener('mouseleave', handleFollowBtnMouseLeave)
+    btn.addEventListener('mouseenter', handleFollowBtnMouseEnter)
+    btn.addEventListener('mouseleave', handleFollowBtnMouseLeave)
+  }
+
+  if (dropdown) {
+    dropdown.removeEventListener('mouseenter', handleDropdownMouseEnter)
+    dropdown.removeEventListener('mouseleave', handleDropdownMouseLeave)
+    dropdown.removeEventListener('click', handleDropdownItemClick)
+    dropdown.addEventListener('mouseenter', handleDropdownMouseEnter)
+    dropdown.addEventListener('mouseleave', handleDropdownMouseLeave)
+    dropdown.addEventListener('click', handleDropdownItemClick)
+  }
+}
+
+let dropdownTimer = null
+
+function handleFollowBtnMouseEnter() {
+  const btn = document.querySelector('.up-actions .follow-btn')
+  if (btn && btn.classList.contains('followed')) {
+    if (dropdownTimer) {
+      clearTimeout(dropdownTimer)
+      dropdownTimer = null
+    }
+    showFollowDropdown()
+  }
+}
+
+function handleFollowBtnMouseLeave() {
+  dropdownTimer = setTimeout(() => {
+    hideFollowDropdown()
+    dropdownTimer = null
+  }, 200)
+}
+
+function handleDropdownMouseEnter() {
+  if (dropdownTimer) {
+    clearTimeout(dropdownTimer)
+    dropdownTimer = null
+  }
+}
+
+function handleDropdownMouseLeave() {
+  hideFollowDropdown()
+}
+
+function handleDropdownItemClick(e) {
+  const target = e.target.closest('.dropdown-item')
+  if (target) {
+    const action = target.dataset.action
+    if (action === 'set-group') {
+      hideFollowDropdown()
+      showToast('设置分组功能开发中')
+    } else if (action === 'unfollow') {
+      hideFollowDropdown()
+      toggleFollow()
+    }
+  }
+}
+
+async function toggleFollow() {
+  const mid = pageStates.up.mid
+  if (!mid) return
+  const status = pageStates.up.relationStatus || 0
+  const following = (status === 1 || status === 3 || status === 6)
+  const act = following ? 2 : 1
+
+  const btn = document.querySelector('.up-actions .follow-btn')
+  if (btn) btn.disabled = true
+
+  try {
+    const result = await ipcRenderer.invoke('modify-up-relation', mid, act)
+    if (result.success) {
+      pageStates.up.relationStatus = (act === 1) ? 1 : 0
+      updateFollowButton()
+    } else {
+      showToast(following ? '取消关注失败' : '关注失败')
+    }
+  } catch (error) {
+    console.error('toggleFollow error:', error)
+    showToast('操作失败')
+  }
+
+  if (btn) btn.disabled = false
+}
+
 async function navigateToUP(mid) {
   pageStates.up.mid = mid
   pageStates.up.offset = ''
@@ -41,6 +190,7 @@ async function navigateToUP(mid) {
   pageStates.up.dynamicOffset = ''
   pageStates.up.hasMoreDynamics = true
   pageStates.up.dynamicLoading = false
+  pageStates.up.relationStatus = 0
 
   pageHistory.push(currentPage)
   if (pageHistory.length > 50) pageHistory.shift()
@@ -60,6 +210,7 @@ async function navigateToUP(mid) {
   document.getElementById('page-up')?.classList.add('active')
 
   updateNavLinks('up')
+  initFollowDropdown()
   updateBackButton()
 
   const content = document.querySelector('.content')
@@ -70,7 +221,9 @@ async function navigateToUP(mid) {
   }
 
   resetUpProfileUI()
+  console.log('Calling fetchUpInfo...')
   await fetchUpInfo(mid)
+  console.log('fetchUpInfo completed')
   loadUpVideos(mid, '')
   loadUpDynamics(mid, '')
 }
@@ -106,6 +259,10 @@ function resetUpProfileUI() {
   if (dynLoadingMore) dynLoadingMore.style.display = 'none'
   if (dynNoMore) dynNoMore.style.display = 'none'
 
+  // Reset follow button
+  pageStates.up.relationStatus = 0
+  updateFollowButton()
+
   // Reset tabs to dynamics active
   document.querySelectorAll('.up-tab').forEach(t => t.classList.remove('active'))
   const dynTab = document.querySelector('.up-tab[data-tab="dynamics"]')
@@ -116,73 +273,93 @@ function resetUpProfileUI() {
 }
 
 async function fetchUpInfo(mid) {
+  let hasFollowingStatus = false
   try {
     const result = await ipcRenderer.invoke('fetch-up-info', mid)
-    console.log('fetchUpInfo result:', result)
 
-    if (result.success && result.data?.data?.card) {
-      const card = result.data.data.card
-      console.log('UP card data:', card)
+    if (result.success && result.data?.data) {
+      const data = result.data.data
+      const card = data.card
+      
+      // Check if there is a following field directly in the data
+      if (data.following !== undefined) {
+        pageStates.up.relationStatus = data.following ? 1 : 0
+        updateFollowButton()
+        hasFollowingStatus = true
+      }
 
-      const upNameValue = card.name || card.uname || '未知'
-      pageStates.up.name = upNameValue
-      pageStates.up.mid = mid
+      if (card) {
+        const upNameValue = card.name || card.uname || '未知'
+        pageStates.up.name = upNameValue
+        pageStates.up.mid = mid
 
-      const upAvatar = document.getElementById('upAvatar')
-      const upName = document.getElementById('upName')
-      const upSign = document.getElementById('upSign')
-      const upLevel = document.getElementById('upLevel')
-      const upVip = document.getElementById('upVip')
-      const followingCount = document.getElementById('followingCount')
-      const fanCount = document.getElementById('fanCount')
-      const viewCount = document.getElementById('viewCount')
+        const upAvatar = document.getElementById('upAvatar')
+        const upName = document.getElementById('upName')
+        const upSign = document.getElementById('upSign')
+        const upLevel = document.getElementById('upLevel')
+        const upVip = document.getElementById('upVip')
+        const followingCount = document.getElementById('followingCount')
+        const fanCount = document.getElementById('fanCount')
+        const viewCount = document.getElementById('viewCount')
 
-      console.log('DOM elements - upName:', upName, 'upSign:', upSign)
-
-      if (upAvatar) {
-        upAvatar.src = fixImageUrl(card.face) || 'https://i0.hdslb.com/bfs/archive/placeholder.png'
-        upAvatar.onerror = function() {
-          this.src = 'https://i0.hdslb.com/bfs/archive/placeholder.png'
+        if (upAvatar) {
+          upAvatar.src = fixImageUrl(card.face) || 'https://i0.hdslb.com/bfs/archive/placeholder.png'
+          upAvatar.onerror = function() {
+            this.src = 'https://i0.hdslb.com/bfs/archive/placeholder.png'
+          }
         }
-      } else {
-        console.error('upAvatar element not found')
-      }
 
-      if (upName) {
-        upName.textContent = upNameValue
-        console.log('Set upName to:', upNameValue)
-      } else {
-        console.error('upName element not found')
-      }
+        if (upName) {
+          upName.textContent = upNameValue
+        }
 
-      if (upSign) upSign.textContent = card.sign || '这个人很懒，什么都没有写'
-      if (followingCount) followingCount.textContent = formatPlayCount(card.friend || 0)
-      if (fanCount) fanCount.textContent = formatPlayCount(card.fans || 0)
-      if (viewCount) viewCount.textContent = formatPlayCount(card.likes || 0)
+        if (upSign) upSign.textContent = card.sign || '这个人很懒，什么都没有写'
+        if (followingCount) followingCount.textContent = formatPlayCount(card.friend || 0)
+        if (fanCount) fanCount.textContent = formatPlayCount(card.fans || 0)
+        if (viewCount) viewCount.textContent = formatPlayCount(card.likes || 0)
 
-      if (upLevel) {
-        const level = card.level || 0
-        upLevel.textContent = 'Lv' + level
-        upLevel.style.display = level > 0 ? 'inline-block' : 'none'
-      }
+        if (upLevel) {
+          const level = card.level || 0
+          upLevel.textContent = 'Lv' + level
+          upLevel.style.display = level > 0 ? 'inline-block' : 'none'
+        }
 
-      if (upVip) {
-        if (card.vip && card.vip.type === 2) {
-          upVip.innerHTML = `<svg viewBox="0 0 32 32" class="vip-icon">
-            <circle cx="16" cy="16" r="14" fill="#fb7299"/>
-            <text x="16" y="22" text-anchor="middle" fill="white" font-size="10" font-weight="bold">大会员</text>
-          </svg>`
-          upVip.style.display = 'inline-block'
-        } else {
-          upVip.style.display = 'none'
+        if (upVip) {
+          if (card.vip && card.vip.type === 2) {
+            upVip.innerHTML = `<svg viewBox="0 0 32 32" class="vip-icon">
+              <circle cx="16" cy="16" r="14" fill="#fb7299" />
+              <text x="16" y="22" text-anchor="middle" fill="white" font-size="10" font-weight="bold">大会员</text>
+            </svg>`
+            upVip.style.display = 'inline-block'
+          } else {
+            upVip.style.display = 'none'
+          }
         }
       }
-    } else {
-      console.error('fetchUpInfo failed - result:', result)
     }
   } catch (error) {
     console.error('获取UP主信息失败:', error)
   }
+  
+  // Only fetch relation if we didn't get following status from the main API
+  if (!hasFollowingStatus) {
+    await fetchUpRelation(mid)
+  }
+}
+
+async function fetchUpRelation(mid) {
+  try {
+    const result = await ipcRenderer.invoke('fetch-up-relation', mid)
+    if (result.success) {
+      const attr = result.attribute
+      // attribute: 0=none, 1=following, 2=followed, 3=mutual, 6=special
+      const following = (attr === 1 || attr === 3 || attr === 6)
+      pageStates.up.relationStatus = following ? attr : 0
+    }
+  } catch (error) {
+    console.error('获取关注状态失败:', error)
+  }
+  updateFollowButton()
 }
 
 async function loadUpVideos(mid, offset = '') {
@@ -294,7 +471,7 @@ function createDynamicCard(d) {
   // Header: avatar + name + time
   let headerHtml = '<div class="up-dynamic-header">'
   if (d.authorFace) {
-    headerHtml += `<img class="up-dynamic-avatar" src="${fixImageUrl(d.authorFace)}" alt="" onerror="this.style.display='none'">`
+    headerHtml += `<img class="up-dynamic-avatar" src="${optimizeCoverUrl(d.authorFace, 48, 48)}" alt="" onerror="this.style.display='none'">`
   }
   headerHtml += `<span class="up-dynamic-author">${escapeHtml(d.authorName)}</span>`
   headerHtml += `<span class="up-dynamic-time">${d.pubTime || timeAgo(d.pubTs)}</span>`
@@ -317,7 +494,7 @@ function createDynamicCard(d) {
     bodyHtml += `<div class="up-dynamic-video-info"><div class="up-dynamic-video-title">${escapeHtml(d.title || '')}</div>`
     bodyHtml += `<div class="up-dynamic-video-stats"><span>${formatCount(d.play)}播放</span><span>${formatCount(d.danmaku)}弹幕</span></div></div>`
     if (d.cover) {
-      bodyHtml += `<div class="up-dynamic-video-cover-wrap video-thumbnail"><img class="up-dynamic-video-cover" data-src="${fixImageUrl(d.cover)}" alt="" loading="lazy"><span class="up-dynamic-video-duration">${d.duration || ''}</span></div>`
+      bodyHtml += `<div class="up-dynamic-video-cover-wrap video-thumbnail"><img class="up-dynamic-video-cover" data-src="${optimizeCoverUrl(d.cover, 672, 378)}" alt="" loading="lazy" decoding="async"><span class="up-dynamic-video-duration">${d.duration || ''}</span></div>`
     }
     bodyHtml += '</div>'
   }
@@ -328,7 +505,7 @@ function createDynamicCard(d) {
     const drawItemsStr = JSON.stringify(d.drawItems.map(p => fixImageUrl(p.src)))
     bodyHtml += `<div class="up-dynamic-images" data-images='${drawItemsStr}'>`
     d.drawItems.slice(0, 9).forEach((pic, index) => {
-      bodyHtml += `<div class="up-dynamic-image-item" data-index="${index}"><img data-src="${fixImageUrl(pic.src)}" alt="" loading="lazy"></div>`
+      bodyHtml += `<div class="up-dynamic-image-item" data-index="${index}"><img data-src="${optimizeCoverUrl(pic.src, 300, 300)}" alt="" loading="lazy" decoding="async"></div>`
     })
     if (count > 9) {
       bodyHtml += `<div class="up-dynamic-image-more">+${count - 9}</div>`
@@ -340,7 +517,7 @@ function createDynamicCard(d) {
   if (type === 'DYNAMIC_TYPE_ARTICLE' && d.articleId) {
     bodyHtml += '<div class="up-dynamic-article-card">'
     if (d.cover) {
-      bodyHtml += `<div class="up-dynamic-article-cover"><img data-src="${fixImageUrl(d.cover)}" alt="" loading="lazy"></div>`
+      bodyHtml += `<div class="up-dynamic-article-cover"><img data-src="${optimizeCoverUrl(d.cover, 200, 140)}" alt="" loading="lazy" decoding="async"></div>`
     }
     bodyHtml += `<div class="up-dynamic-article-info"><div class="up-dynamic-article-title">${escapeHtml(d.title || '')}</div>`
     bodyHtml += `<div class="up-dynamic-article-desc">${escapeHtml(d.articleDesc || '')}</div></div>`
@@ -355,7 +532,7 @@ function createDynamicCard(d) {
     if (d.orig.bvid) {
       bodyHtml += `<div class="up-dynamic-forward-video video-card" data-bvid="${d.orig.bvid}" data-cid="${d.orig.cid || ''}">`
       if (d.orig.cover) {
-        bodyHtml += `<div class="up-dynamic-forward-cover video-thumbnail"><img class="up-dynamic-video-cover" data-src="${fixImageUrl(d.orig.cover)}" alt="" loading="lazy"><span class="up-dynamic-video-duration">${d.orig.duration || ''}</span></div>`
+        bodyHtml += `<div class="up-dynamic-forward-cover video-thumbnail"><img class="up-dynamic-video-cover" data-src="${optimizeCoverUrl(d.orig.cover, 672, 378)}" alt="" loading="lazy" decoding="async"><span class="up-dynamic-video-duration">${d.orig.duration || ''}</span></div>`
       }
       bodyHtml += `<div class="up-dynamic-video-info"><div class="up-dynamic-video-title">${escapeHtml(d.orig.title || '')}</div>`
       bodyHtml += `<div class="up-dynamic-video-stats"><span>${formatCount(d.orig.play)}播放</span><span>${formatCount(d.orig.danmaku)}弹幕</span></div></div>`
@@ -365,7 +542,7 @@ function createDynamicCard(d) {
       const origDrawItemsStr = JSON.stringify(d.orig.drawItems.map(p => fixImageUrl(p.src)))
       bodyHtml += `<div class="up-dynamic-images" data-images='${origDrawItemsStr}'>`
       d.orig.drawItems.slice(0, 9).forEach((pic, index) => {
-        bodyHtml += `<div class="up-dynamic-image-item" data-index="${index}"><img data-src="${fixImageUrl(pic.src)}" alt="" loading="lazy"></div>`
+        bodyHtml += `<div class="up-dynamic-image-item" data-index="${index}"><img data-src="${optimizeCoverUrl(pic.src, 300, 300)}" alt="" loading="lazy" decoding="async"></div>`
       })
       bodyHtml += '</div>'
     }
@@ -374,7 +551,7 @@ function createDynamicCard(d) {
 
   // Opus / general post with cover
   if ((type === 'DYNAMIC_TYPE_WORD' || type === 'DYNAMIC_TYPE_OPUS') && d.cover) {
-    bodyHtml += `<div class="up-dynamic-cover-img"><img data-src="${fixImageUrl(d.cover)}" alt="" loading="lazy"></div>`
+    bodyHtml += `<div class="up-dynamic-cover-img"><img data-src="${optimizeCoverUrl(d.cover, 500, 300)}" alt="" loading="lazy" decoding="async"></div>`
   }
 
   // Footer with stats
@@ -418,20 +595,23 @@ async function loadUpDynamics(mid, offset = '') {
       if (!list) return
 
       if (items.length > 0) {
-        items.forEach(d => {
+        items.forEach((d, index) => {
           const card = createDynamicCard(d)
           list.appendChild(card)
-          // 预加载图片
-          preloadDynamicImages(d)
-        })
-        
-        // 初始预加载视口内的图片
-        setTimeout(() => {
-          const content = document.querySelector('.content')
-          if (content) {
-            preloadVisibleImages(content.scrollTop, content.clientHeight)
+          // 仅首屏预加载图片，后续批次由 IntersectionObserver 按需加载
+          if (!offset) {
+            preloadDynamicImages(d)
           }
-        }, 100)
+          // 前 10 张卡片立即加载图片，其余交给 IntersectionObserver
+          if (index < 10) {
+            card.querySelectorAll('img[data-src]').forEach(img => {
+              img.src = img.dataset.src
+              img.removeAttribute('data-src')
+            })
+          } else {
+            observeDynamicImages(card)
+          }
+        })
 
         pageStates.up.hasMoreDynamics = result.data.has_more || false
         pageStates.up.dynamicOffset = result.data.offset || ''
@@ -469,9 +649,10 @@ const imagePreloader = {
   loading: false,
   maxConcurrent: 3,
   currentLoading: 0,
-  
+  maxQueue: 30,
+
   add(url) {
-    if (!url || this.queue.includes(url)) return
+    if (!url || this.queue.includes(url) || this.queue.length >= this.maxQueue) return
     this.queue.push(url)
     this.process()
   },
@@ -499,24 +680,24 @@ const imagePreloader = {
 }
 
 function preloadDynamicImages(d) {
-  // 预加载图片类动态的图片
+  // 预加载图片类动态的图片（使用 CDN 裁剪尺寸，与 DOM 中 data-src 保持一致）
   if (d.drawItems && d.drawItems.length > 0) {
-    const urls = d.drawItems.slice(0, 9).map(p => p.src)
+    const urls = d.drawItems.slice(0, 9).map(p => optimizeCoverUrl(p.src, 300, 300))
     imagePreloader.addMultiple(urls)
   }
-  
+
   // 预加载转发内容中的图片
   if (d.orig && d.orig.drawItems && d.orig.drawItems.length > 0) {
-    const urls = d.orig.drawItems.slice(0, 9).map(p => p.src)
+    const urls = d.orig.drawItems.slice(0, 9).map(p => optimizeCoverUrl(p.src, 300, 300))
     imagePreloader.addMultiple(urls)
   }
-  
+
   // 预加载封面图
   if (d.cover) {
-    imagePreloader.add(d.cover)
+    imagePreloader.add(optimizeCoverUrl(d.cover, 672, 378))
   }
   if (d.orig && d.orig.cover) {
-    imagePreloader.add(d.orig.cover)
+    imagePreloader.add(optimizeCoverUrl(d.orig.cover, 672, 378))
   }
 }
 
@@ -698,8 +879,13 @@ function initImagePreviewHandlers() {
 }
 
 // Initialize on page load
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initImagePreviewHandlers)
-} else {
+function initUpPage() {
   initImagePreviewHandlers()
+  initFollowDropdown()
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', initUpPage)
+} else {
+  initUpPage()
 }

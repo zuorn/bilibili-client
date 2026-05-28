@@ -1,5 +1,5 @@
 function registerUpHandlers(deps) {
-  const { ipcMain, fetchApi, log, fetchWbiKeys, getMixKey, signParams } = deps
+  const { ipcMain, fetchApi, fetchApiPost, log, cookieManager, fetchWbiKeys, getMixKey, signParams } = deps
 
   // Helper functions
   function fetchUpInfo(mid) {
@@ -15,13 +15,32 @@ function registerUpHandlers(deps) {
   }
 
   ipcMain.handle('fetch-up-info', async (event, mid) => {
-    console.log('Fetching UP info for mid:', mid)
+    log('Fetching UP info for mid:', mid)
     try {
       const data = await fetchUpInfo(mid)
-      console.log('UP info result code:', data.code)
+      log('UP info result code:', data.code)
       return { success: true, data }
     } catch (error) {
-      console.error('Fetch UP info error:', error)
+      log('Fetch UP info error:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('fetch-up-relation', async (event, mid) => {
+    log('Fetching UP relation for mid:', mid)
+    try {
+      const data = await fetchApi(`https://api.bilibili.com/x/web-interface/relation?mid=${mid}`)
+      log('UP relation result:', JSON.stringify(data))
+      log('UP relation result code:', data.code)
+      if (data.code === 0 && data.data && data.data.relation) {
+        const attribute = data.data.relation.attribute
+        log('UP relation attribute:', attribute)
+        return { success: true, attribute: attribute }
+      }
+      log('UP relation data:', data.data)
+      return { success: false, error: data.message || '获取关注状态失败' }
+    } catch (error) {
+      log('Fetch UP relation error:', error.message)
       return { success: false, error: error.message }
     }
   })
@@ -41,12 +60,11 @@ function registerUpHandlers(deps) {
   ipcMain.handle('fetch-up-dynamics', async (event, mid, offset = '') => {
     log('fetch-up-dynamics called, mid:', mid, 'offset:', offset)
     try {
-      // 使用更简单正确的API端点
       let url = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=${mid}&timezone_offset=-480&platform=web`
       if (offset) {
         url += `&offset=${offset}`
       }
-      
+
       log('Using UP dynamics API:', url)
       const result = await fetchApi(url)
       log('UP dynamics result code:', result.code)
@@ -176,6 +194,40 @@ function registerUpHandlers(deps) {
       }
     } catch (error) {
       log('Error fetching UP dynamics:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('modify-up-relation', async (event, mid, act) => {
+    log('Modifying UP relation, mid:', mid, 'act:', act)
+    try {
+      const keys = await fetchWbiKeys()
+      if (!keys || !keys.imgKey) {
+        return { success: false, error: 'WBI keys not available' }
+      }
+      const mixKey = getMixKey(keys.imgKey, keys.subKey)
+
+      const params = {
+        act,
+        fid: mid,
+        re_src: 11,
+        statistics: '{"appId":112,"platform":4}'
+      }
+
+      const signed = signParams(params, mixKey)
+      const bodyParams = {
+        ...params,
+        w_rid: signed.w_rid,
+        wts: signed.wts,
+        csrf: cookieManager.getSavedCookies().bili_jct || ''
+      }
+
+      const result = await fetchApiPost('https://api.bilibili.com/x/relation/modify', bodyParams)
+      log('relation.modify result code:', result.code, 'message:', result.message)
+      const ok = result.code === 0 || result.code === 22014
+      return { success: ok, data: result, already: result.code === 22014 }
+    } catch (error) {
+      log('Error modifying UP relation:', error.message)
       return { success: false, error: error.message }
     }
   })

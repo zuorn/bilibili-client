@@ -87,8 +87,8 @@ function registerAllHandlers() {
   const { fetchApi, fetchWithRetry, fetchApiWithHeaders, buildRecommendUrl } = api
 
   // 基础 API 处理器
-  const { fetchWbiKeys, getMixKey, signParams } = api
-  const apiDeps = { ipcMain, fetchApi, log, fetchWbiKeys, getMixKey, signParams }
+  const { fetchWbiKeys, getMixKey, signParams, fetchApiPost } = api
+  const apiDeps = { ipcMain, fetchApi, fetchApiPost, log, cookieManager, fetchWbiKeys, getMixKey, signParams }
   registerUpHandlers(apiDeps)
   registerUserHandlers(apiDeps)
   registerFavoritesHandlers(apiDeps)

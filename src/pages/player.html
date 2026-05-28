@@ -1665,6 +1665,7 @@
       </div>
 
       <video class="video-player" id="videoPlayer" playsinline webkit-playsinline draggable="false"
+        preload="metadata"
         style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;background:#000"></video>
       <canvas class="anime4k-canvas" id="anime4kCanvas"
         style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;background:#000;display:none"></canvas>
@@ -3682,17 +3683,38 @@
       videoPlayer.currentTime = percent * videoPlayer.duration
     })
 
+    let timeUpdatePending = false
+    let lastAudioSync = 0
     videoPlayer.addEventListener('timeupdate', () => {
-      const percent = videoPlayer.currentTime / videoPlayer.duration
-      progressFill.style.width = `${percent * 100}%`
-      
-      const buffered = videoPlayer.buffered
-      if (buffered.length > 0) {
-        const bufferedEnd = buffered.end(buffered.length - 1)
-        progressBuffered.style.width = `${(bufferedEnd / videoPlayer.duration) * 100}%`
-      }
-      
-      timeDisplay.textContent = formatTime(videoPlayer.currentTime) + ' / ' + formatTime(videoPlayer.duration)
+      if (timeUpdatePending) return
+      timeUpdatePending = true
+      requestAnimationFrame(() => {
+        timeUpdatePending = false
+        const current = videoPlayer.currentTime
+        const duration = videoPlayer.duration
+        if (!duration) return
+
+        const percent = current / duration
+        progressFill.style.width = `${percent * 100}%`
+
+        const buffered = videoPlayer.buffered
+        if (buffered.length > 0) {
+          const bufferedEnd = buffered.end(buffered.length - 1)
+          progressBuffered.style.width = `${(bufferedEnd / duration) * 100}%`
+        }
+
+        timeDisplay.textContent = formatTime(current) + ' / ' + formatTime(duration)
+
+        // Periodic DASH audio re-sync to prevent clock drift on long videos
+        if (currentAudioElement && !videoPlayer.paused && !videoPlayer.seeking
+            && current - lastAudioSync > 5) {
+          const drift = Math.abs(current - currentAudioElement.currentTime)
+          if (drift > 0.1) {
+            currentAudioElement.currentTime = current
+          }
+          lastAudioSync = current
+        }
+      })
     })
 
     function formatTime(seconds) {

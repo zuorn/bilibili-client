@@ -132,6 +132,62 @@
   background-color: #e66488;
 }
 
+.follow-btn.followed {
+  background-color: #e5e6e7;
+  color: #61666d;
+}
+
+.follow-btn.followed:hover {
+  background-color: #d1d2d3;
+  color: #18191c;
+}
+
+.follow-btn.followed {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding-left: 12px;
+}
+
+.follow-btn.followed::before {
+  content: '≡';
+  font-size: 16px;
+  color: inherit;
+}
+
+.follow-dropdown {
+  position: fixed;
+  background-color: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  padding: 4px;
+  min-width: 140px;
+  z-index: 9999;
+  display: none;
+  flex-direction: column;
+}
+
+.dropdown-item {
+  padding: 10px 12px;
+  font-size: 14px;
+  color: #18191c;
+  cursor: pointer;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.dropdown-item:hover {
+  background-color: #f5f5f5;
+}
+
+.dropdown-item-danger {
+  color: #f04747;
+}
+
+.dropdown-item-danger:hover {
+  background-color: #fff5f5;
+}
+
 .message-btn {
   background-color: #ffffff;
   color: #61666d;
@@ -241,6 +297,8 @@
   width: 50%;
   border: 1px solid #f1f2f3;
   transition: background-color 0.2s;
+  content-visibility: auto;
+  contain-intrinsic-size: auto 300px;
 }
 
 .up-dynamic-card:hover {

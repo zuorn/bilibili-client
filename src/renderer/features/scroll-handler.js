@@ -161,32 +161,6 @@ function handleUpPageScroll(scrollTop, scrollHeight, clientHeight) {
       }
     }
   }
-  
-  // 预加载视口内的图片
-  if (pageStates.up.currentTab === 'dynamics') {
-    preloadVisibleImages(scrollTop, clientHeight)
-  }
-}
-
-function preloadVisibleImages(scrollTop, clientHeight) {
-  const viewportBottom = scrollTop + clientHeight + 500 // 额外预加载500px范围内的图片
-  const cards = document.querySelectorAll('.up-dynamic-card')
-  
-  cards.forEach(card => {
-    const rect = card.getBoundingClientRect()
-    const cardTop = rect.top + scrollTop
-    
-    if (cardTop < viewportBottom && cardTop + rect.height > scrollTop) {
-      // 图片在视口范围内或即将进入视口
-      const images = card.querySelectorAll('img[loading="lazy"]')
-      images.forEach(img => {
-        if (img.dataset.src && !img.src) {
-          img.src = img.dataset.src
-          img.removeAttribute('data-src')
-        }
-      })
-    }
-  })
 }
 
 function handleBangumiScroll(scrollTop, scrollHeight, clientHeight) {

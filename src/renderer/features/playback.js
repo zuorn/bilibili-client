@@ -25,6 +25,18 @@ async function playVideo(bvid, cid, title, progress, episodeData = null) {
     return
   }
 
+  // 未传进度时，从播放历史中查找上次观看进度
+  if ((progress === null || progress === undefined) && useBuiltin) {
+    try {
+      const histResult = await ipcRenderer.invoke('get-video-progress', bvid)
+      if (histResult.success && histResult.progress > 0) {
+        progress = histResult.progress
+      }
+    } catch (e) {
+      // 查找失败不影响播放，从头开始
+    }
+  }
+
   playerOpening = true
   try {
     const showDanmaku = localStorage.getItem('showDanmaku') !== 'false'
