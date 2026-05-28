@@ -52,6 +52,15 @@ function switchUpTab(tabName) {
       loadUpDynamics(pageStates.up.mid, '')
     }
   }
+
+  if (tabName === 'collections-series' && pageStates.up.mid) {
+    const grid = document.getElementById('upCollectionsSeriesGrid')
+    if (grid && grid.children.length === 0) {
+      pageStates.up.collectionsPage = 1
+      pageStates.up.hasMoreCollections = true
+      loadUpCollectionsSeries(pageStates.up.mid)
+    }
+  }
 }
 
 function updateFollowButton() {
@@ -192,6 +201,9 @@ async function navigateToUP(mid, isSelf = false) {
   pageStates.up.dynamicLoading = false
   pageStates.up.relationStatus = 0
   pageStates.up.isSelf = isSelf
+  pageStates.up.collectionsPage = 1
+  pageStates.up.hasMoreCollections = true
+  pageStates.up.collectionsLoading = false
 
   pageHistory.push(currentPage)
   if (pageHistory.length > 50) pageHistory.shift()
@@ -222,9 +234,7 @@ async function navigateToUP(mid, isSelf = false) {
   }
 
   resetUpProfileUI()
-  console.log('Calling fetchUpInfo...')
   await fetchUpInfo(mid)
-  console.log('fetchUpInfo completed')
   loadUpVideos(mid, '')
   loadUpDynamics(mid, '')
 }
@@ -244,6 +254,10 @@ function resetUpProfileUI() {
   const upDynamicsList = document.getElementById('upDynamicsList')
   const dynLoadingMore = document.getElementById('upDynamicsLoadingMore')
   const dynNoMore = document.getElementById('upDynamicsNoMore')
+  const upCollectionsSeriesGrid = document.getElementById('upCollectionsSeriesGrid')
+  const collectionsLoadingMore = document.getElementById('upCollectionsSeriesLoadingMore')
+  const collectionsNoMore = document.getElementById('upCollectionsSeriesNoMore')
+  const collectionsPlaceholder = document.getElementById('upCollectionsSeriesPlaceholder')
 
   if (upAvatar) upAvatar.src = ''
   if (upName) upName.textContent = ''
@@ -259,6 +273,10 @@ function resetUpProfileUI() {
   if (upDynamicsList) upDynamicsList.innerHTML = ''
   if (dynLoadingMore) dynLoadingMore.style.display = 'none'
   if (dynNoMore) dynNoMore.style.display = 'none'
+  if (upCollectionsSeriesGrid) upCollectionsSeriesGrid.innerHTML = ''
+  if (collectionsLoadingMore) collectionsLoadingMore.style.display = 'none'
+  if (collectionsNoMore) collectionsNoMore.style.display = 'none'
+  if (collectionsPlaceholder) collectionsPlaceholder.style.display = 'none'
 
   const upActions = document.querySelector('.up-actions')
   if (upActions) {
@@ -887,6 +905,333 @@ function initImagePreviewHandlers() {
       }
     }
   })
+}
+
+function createCollectionsSeriesCard(item) {
+  const card = document.createElement('div')
+  card.className = 'collections-series-card'
+  
+  const typeText = item.meta && item.meta.name && item.meta.name.startsWith('合集') ? '合集' : '系列'
+  const cover = item.meta && item.meta.cover ? item.meta.cover : ''
+  const title = item.meta && item.meta.title ? item.meta.title : ''
+  const count = item.meta && item.meta.total ? item.meta.total : 0
+  const ptime = item.meta && item.meta.ptime ? item.meta.ptime : 0
+  
+  function formatTime(timestamp) {
+    if (!timestamp) return ''
+    const date = new Date(timestamp * 1000)
+    const now = new Date()
+    const diff = now - date
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    
+    if (days === 0) return '今天'
+    if (days === 1) return '昨天'
+    if (days < 7) return `${days}天前`
+    if (days < 30) return `${Math.floor(days / 7)}周前`
+    if (days < 365) return `${Math.floor(days / 30)}个月前`
+    return `${Math.floor(days / 365)}年前`
+  }
+  
+  const stackHtml = count > 1 ? `
+    <div class="collections-series-stack">
+      <div class="collections-series-stack-item"></div>
+      <div class="collections-series-stack-item"></div>
+      <div class="collections-series-stack-item"></div>
+    </div>
+  ` : ''
+  
+  card.innerHTML = `
+    <div class="collections-series-cover">
+      ${stackHtml}
+      <img src="${fixImageUrl(cover)}" alt="${escapeHtml(title)}" loading="lazy" decoding="async">
+      <div class="collections-series-badge">
+        <span>${count}个内容</span>
+      </div>
+      <div class="collections-series-type">${typeText}</div>
+    </div>
+    <div class="collections-series-info">
+      <h3 class="collections-series-title">${typeText}·${escapeHtml(title)}</h3>
+      <p class="collections-series-time">${formatTime(ptime)}</p>
+    </div>
+  `
+  
+  card.addEventListener('click', () => {
+    const seasonId = item.meta && item.meta.season_id
+    if (seasonId) {
+      showSeasonContent(pageStates.up.mid, seasonId, title, cover, count)
+    }
+  })
+  
+  return card
+}
+
+function createSeasonArchiveCard(item) {
+  const card = document.createElement('div')
+  card.className = 'video-card'
+  
+  const title = item.title || ''
+  const cover = item.pic || ''
+  const duration = formatDuration(item.duration)
+  const play = item.stat?.view || 0
+  const pubdate = item.pubdate || 0
+  
+  function formatDate(timestamp) {
+    if (!timestamp) return ''
+    const date = new Date(timestamp * 1000)
+    const now = new Date()
+    const diff = now - date
+    const days = Math.floor(diff / (1000 * 60 * 60 * 24))
+    
+    if (days === 0) return '今天'
+    if (days === 1) return '昨天'
+    if (days < 7) return `${days}天前`
+    if (days < 30) return `${Math.floor(days / 7)}周前`
+    if (days < 365) return `${Math.floor(days / 30)}个月前`
+    return `${Math.floor(days / 365)}年前`
+  }
+  
+  card.innerHTML = `
+    <div class="video-thumbnail">
+      <img src="${fixImageUrl(cover)}" alt="${escapeHtml(title)}" loading="lazy" decoding="async">
+      <span class="video-duration">${duration}</span>
+    </div>
+    <div class="video-info">
+      <h3 class="video-title">${escapeHtml(title)}</h3>
+      <div class="video-meta">
+        <span class="video-views">${formatNumber(play)}播放</span>
+        <span class="video-date">${formatDate(pubdate)}</span>
+      </div>
+    </div>
+  `
+  
+  card.addEventListener('click', () => {
+    playVideo(item.bvid)
+  })
+  
+  return card
+}
+
+function formatDuration(seconds) {
+  if (!seconds) return '00:00'
+  const mins = Math.floor(seconds / 60)
+  const secs = seconds % 60
+  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
+}
+
+function formatNumber(num) {
+  if (num >= 10000) {
+    return (num / 10000).toFixed(1) + '万'
+  }
+  return num.toString()
+}
+
+function showSeasonContent(mid, seasonId, title, cover, totalCount) {
+  const grid = document.getElementById('upCollectionsSeriesGrid')
+  const loadingMore = document.getElementById('upCollectionsSeriesLoadingMore')
+  const noMore = document.getElementById('upCollectionsSeriesNoMore')
+  
+  if (grid) {
+    grid.classList.add('season-detail-mode')
+    grid.innerHTML = `
+      <div class="season-detail-header">
+        <button class="season-back-btn" onclick="backToCollectionsList()">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="15 18 9 12 15 6"/>
+          </svg>
+          返回
+        </button>
+        <div class="season-detail-card">
+          <div class="season-detail-cover">
+            <img src="${fixImageUrl(cover)}" alt="${escapeHtml(title)}">
+          </div>
+          <div class="season-detail-info">
+            <h2 class="season-detail-title">${escapeHtml(title)}</h2>
+            <p class="season-detail-meta">合集 · ${totalCount}个视频</p>
+            <button class="play-all-btn" onclick="playSeasonAll(${mid}, ${seasonId})">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              播放全部
+            </button>
+          </div>
+        </div>
+      </div>
+      <div id="seasonArchiveList" class="video-grid"></div>
+      <div class="loading-more" id="seasonArchiveLoadingMore" style="display: none;">
+        <span>加载中...</span>
+      </div>
+      <div id="seasonArchiveNoMore" class="no-more" style="display: none;">
+        <span>没有更多了</span>
+      </div>
+    `
+  }
+  
+  if (loadingMore) loadingMore.style.display = 'none'
+  if (noMore) noMore.style.display = 'none'
+  
+  loadSeasonArchives(mid, seasonId)
+}
+
+function backToCollectionsList() {
+  pageStates.up.collectionsPage = 1
+  pageStates.up.hasMoreCollections = true
+  
+  const grid = document.getElementById('upCollectionsSeriesGrid')
+  const loadingMore = document.getElementById('upCollectionsSeriesLoadingMore')
+  const noMore = document.getElementById('upCollectionsSeriesNoMore')
+  
+  if (grid) {
+    grid.classList.remove('season-detail-mode')
+    grid.innerHTML = ''
+  }
+  if (loadingMore) loadingMore.style.display = 'none'
+  if (noMore) noMore.style.display = 'none'
+  
+  loadUpCollectionsSeries(pageStates.up.mid)
+}
+
+function playSeasonAll(mid, seasonId) {
+  loadSeasonArchives(mid, seasonId, 1, true)
+}
+
+pageStates.up.currentSeasonPage = 1
+pageStates.up.currentSeasonId = null
+pageStates.up.currentSeasonMid = null
+
+window.backToCollectionsList = backToCollectionsList
+
+async function loadSeasonArchives(mid, seasonId, pageNum = 1, playAll = false) {
+  pageStates.up.currentSeasonMid = mid
+  pageStates.up.currentSeasonId = seasonId
+  
+  const loadingMore = document.getElementById('seasonArchiveLoadingMore')
+  const noMore = document.getElementById('seasonArchiveNoMore')
+  const list = document.getElementById('seasonArchiveList')
+  
+  if (loadingMore) loadingMore.style.display = 'block'
+  if (noMore) noMore.style.display = 'none'
+  
+  try {
+    const result = await ipcRenderer.invoke('fetch-season-archives', mid, seasonId, pageNum)
+    
+    if (result.success && result.data) {
+      const items = result.data.list || []
+      const seasonInfo = result.data.seasonInfo || {}
+      
+      if (playAll && items.length > 0) {
+        playVideo(items[0].bvid)
+        return
+      }
+      
+      if (items.length > 0) {
+        items.forEach(item => {
+          const card = createSeasonArchiveCard(item)
+          list.appendChild(card)
+        })
+        
+        const pageInfo = result.data.page || {}
+        const hasMore = (pageNum < (pageInfo.page || 1)) || (pageInfo.size && items.length >= pageInfo.size)
+        
+        if (!hasMore) {
+          if (loadingMore) loadingMore.style.display = 'none'
+          if (noMore) noMore.style.display = 'block'
+        } else {
+          if (loadingMore) loadingMore.style.display = 'none'
+        }
+        
+        pageStates.up.currentSeasonPage = pageNum
+      } else {
+        if (loadingMore) loadingMore.style.display = 'none'
+        if (noMore) noMore.style.display = 'block'
+      }
+    } else {
+      if (loadingMore) loadingMore.style.display = 'none'
+      if (noMore) noMore.style.display = 'block'
+    }
+  } catch (error) {
+    console.error('加载合集内容失败:', error)
+    if (loadingMore) loadingMore.style.display = 'none'
+    if (noMore) noMore.style.display = 'block'
+  }
+}
+
+async function loadUpCollectionsSeries(mid, pageNum = 1) {
+  if (pageStates.up.collectionsLoading) return
+  
+  pageStates.up.collectionsLoading = true
+  const loadingMore = document.getElementById('upCollectionsSeriesLoadingMore')
+  const noMore = document.getElementById('upCollectionsSeriesNoMore')
+  const placeholder = document.getElementById('upCollectionsSeriesPlaceholder')
+  const grid = document.getElementById('upCollectionsSeriesGrid')
+  
+  if (loadingMore) loadingMore.style.display = 'block'
+  if (noMore) noMore.style.display = 'none'
+  if (placeholder) placeholder.style.display = 'none'
+  
+  try {
+    const result = await ipcRenderer.invoke('fetch-up-collections-series', mid, pageNum)
+    console.log('fetch-up-collections-series result:', result)
+    console.log('fetch-up-collections-series data:', result.data)
+    console.log('fetch-up-collections-series list:', result.data && result.data.list)
+    
+    if (result.success && result.data) {
+      const items = result.data.list || []
+      const page = result.data.page || {}
+      
+      console.log('Collections series items length:', items.length)
+      console.log('Collections series items:', items)
+      
+      if (items.length > 0) {
+        if (!grid) {
+          console.error('upCollectionsSeriesGrid not found')
+          return
+        }
+        
+        console.log('Grid found, appending cards...')
+        
+        items.forEach(item => {
+          const card = createCollectionsSeriesCard(item)
+          grid.appendChild(card)
+        })
+        
+        console.log('Cards appended successfully')
+        
+        pageStates.up.hasMoreCollections = (pageNum < (page.page || 1)) || (page.size && items.length >= page.size)
+        pageStates.up.collectionsPage = pageNum
+        
+        if (!pageStates.up.hasMoreCollections) {
+          if (loadingMore) loadingMore.style.display = 'none'
+          if (noMore) noMore.style.display = 'block'
+        } else {
+          if (loadingMore) loadingMore.style.display = 'none'
+        }
+      } else {
+        if (loadingMore) loadingMore.style.display = 'none'
+        if (noMore) noMore.style.display = 'block'
+        if (pageNum === 1 && placeholder) {
+          placeholder.style.display = 'flex'
+          placeholder.innerHTML = '<span>暂无合集和系列</span>'
+        }
+      }
+    } else {
+      if (loadingMore) loadingMore.style.display = 'none'
+      if (noMore) noMore.style.display = 'block'
+      if (pageNum === 1 && placeholder) {
+        placeholder.style.display = 'flex'
+        placeholder.innerHTML = '<span>获取合集和系列失败</span>'
+      }
+    }
+  } catch (error) {
+    console.error('加载UP主合集和系列失败:', error)
+    if (loadingMore) loadingMore.style.display = 'none'
+    if (noMore) noMore.style.display = 'block'
+    if (pageNum === 1 && placeholder) {
+      placeholder.style.display = 'flex'
+      placeholder.innerHTML = '<span>加载失败</span>'
+    }
+  }
+  
+  pageStates.up.collectionsLoading = false
 }
 
 // Initialize on page load

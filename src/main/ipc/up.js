@@ -14,6 +14,50 @@ function registerUpHandlers(deps) {
     return fetchApi(url)
   }
 
+  async function fetchUpCollectionsSeries(mid, pageNum = 1, pageSize = 20) {
+    const params = {
+      mid,
+      page_num: pageNum,
+      page_size: pageSize,
+      web_location: 'bilibili-electron'
+    }
+    
+    const keys = await fetchWbiKeys()
+    if (!keys || !keys.imgKey) {
+      log('WBI keys not available for collections series')
+      throw new Error('WBI keys not available')
+    }
+    
+    const mixKey = getMixKey(keys.imgKey, keys.subKey)
+    const signed = signParams(params, mixKey)
+    
+    const url = `https://api.bilibili.com/x/space/seasons/series/list?mid=${mid}&page_num=${pageNum}&page_size=${pageSize}&web_location=bilibili-electron&w_rid=${signed.w_rid}&wts=${signed.wts}`
+    return fetchApi(url)
+  }
+
+  async function fetchSeasonArchives(mid, seasonId, pageNum = 1, pageSize = 20) {
+    const params = {
+      mid,
+      season_id: seasonId,
+      sort_reverse: false,
+      page_num: pageNum,
+      page_size: pageSize,
+      web_location: 'bilibili-electron'
+    }
+    
+    const keys = await fetchWbiKeys()
+    if (!keys || !keys.imgKey) {
+      log('WBI keys not available for season archives')
+      throw new Error('WBI keys not available')
+    }
+    
+    const mixKey = getMixKey(keys.imgKey, keys.subKey)
+    const signed = signParams(params, mixKey)
+    
+    const url = `https://api.bilibili.com/x/space/seasons/archives/list?mid=${mid}&season_id=${seasonId}&sort_reverse=false&page_num=${pageNum}&page_size=${pageSize}&web_location=bilibili-electron&w_rid=${signed.w_rid}&wts=${signed.wts}`
+    return fetchApi(url)
+  }
+
   ipcMain.handle('fetch-up-info', async (event, mid) => {
     log('Fetching UP info for mid:', mid)
     try {
@@ -228,6 +272,55 @@ function registerUpHandlers(deps) {
       return { success: ok, data: result, already: result.code === 22014 }
     } catch (error) {
       log('Error modifying UP relation:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('fetch-up-collections-series', async (event, mid, pageNum = 1, pageSize = 20) => {
+    log('Fetching UP collections and series for mid:', mid, 'page:', pageNum)
+    try {
+      const data = await fetchUpCollectionsSeries(mid, pageNum, pageSize)
+      log('UP collections series result code:', data.code)
+      log('UP collections series result data:', JSON.stringify(data.data))
+      if (data.code === 0 && data.data) {
+        const listData = data.data.items_lists || {}
+        const seasonList = listData.seasons_list || []
+        const seriesList = listData.series_list || []
+        const allItems = [...seasonList, ...seriesList]
+        return { 
+          success: true, 
+          data: {
+            list: allItems,
+            page: listData.page || {},
+            total: seasonList.length + seriesList.length
+          }
+        }
+      }
+      return { success: false, error: data.message || '获取合集和系列失败' }
+    } catch (error) {
+      log('Error fetching UP collections series:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('fetch-season-archives', async (event, mid, seasonId, pageNum = 1, pageSize = 20) => {
+    log('Fetching season archives for mid:', mid, 'seasonId:', seasonId, 'page:', pageNum)
+    try {
+      const data = await fetchSeasonArchives(mid, seasonId, pageNum, pageSize)
+      log('Season archives result code:', data.code)
+      if (data.code === 0 && data.data) {
+        return { 
+          success: true, 
+          data: {
+            list: data.data.archives || [],
+            page: data.data.page || {},
+            seasonInfo: data.data.meta || {}
+          }
+        }
+      }
+      return { success: false, error: data.message || '获取合集内容失败' }
+    } catch (error) {
+      log('Error fetching season archives:', error.message)
       return { success: false, error: error.message }
     }
   })

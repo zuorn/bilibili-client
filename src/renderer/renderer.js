@@ -136,13 +136,6 @@ function initEventListeners() {
     })
   })
 
-  document.getElementById('sidebarUserAvatar').addEventListener('click', () => {
-    if (currentUser?.isLogin && currentUser?.mid) {
-      navigateToUP(currentUser.mid, true)
-    } else {
-      openLoginModal()
-    }
-  })
   document.getElementById('sidebarBackBtn').addEventListener('click', goBack)
   
   // 关注数点击事件 - 跳转到关注页面

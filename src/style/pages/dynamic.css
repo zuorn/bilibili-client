@@ -273,8 +273,8 @@ aside.dynamic-sidebar .following-name {
 
 .video-container {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-  gap: 24px;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 20px;
 }
 
 .loading-more {

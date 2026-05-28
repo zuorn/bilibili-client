@@ -159,11 +159,12 @@ function initEventListeners() {
     })
   })
 
-  document.querySelectorAll('.up-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
+  document.addEventListener('click', (e) => {
+    const tab = e.target.closest('.up-tab')
+    if (tab) {
       const tabName = tab.dataset.tab
       if (tabName) switchUpTab(tabName)
-    })
+    }
   })
 
   document.querySelectorAll('.my-tab').forEach(tab => {
