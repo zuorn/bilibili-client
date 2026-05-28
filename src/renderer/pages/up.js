@@ -179,7 +179,7 @@ async function toggleFollow() {
   if (btn) btn.disabled = false
 }
 
-async function navigateToUP(mid) {
+async function navigateToUP(mid, isSelf = false) {
   pageStates.up.mid = mid
   pageStates.up.offset = ''
   pageStates.up.hasMore = true
@@ -191,6 +191,7 @@ async function navigateToUP(mid) {
   pageStates.up.hasMoreDynamics = true
   pageStates.up.dynamicLoading = false
   pageStates.up.relationStatus = 0
+  pageStates.up.isSelf = isSelf
 
   pageHistory.push(currentPage)
   if (pageHistory.length > 50) pageHistory.shift()
@@ -258,6 +259,11 @@ function resetUpProfileUI() {
   if (upDynamicsList) upDynamicsList.innerHTML = ''
   if (dynLoadingMore) dynLoadingMore.style.display = 'none'
   if (dynNoMore) dynNoMore.style.display = 'none'
+
+  const upActions = document.querySelector('.up-actions')
+  if (upActions) {
+    upActions.style.display = pageStates.up.isSelf ? 'none' : 'flex'
+  }
 
   // Reset follow button
   pageStates.up.relationStatus = 0
@@ -334,6 +340,11 @@ async function fetchUpInfo(mid) {
           } else {
             upVip.style.display = 'none'
           }
+        }
+
+        const upActions = document.querySelector('.up-actions')
+        if (upActions) {
+          upActions.style.display = pageStates.up.isSelf ? 'none' : 'flex'
         }
       }
     }

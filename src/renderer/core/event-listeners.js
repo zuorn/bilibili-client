@@ -35,7 +35,13 @@ function initEventListeners() {
     if (typeof navigateToUP === 'function') navigateToUP(mid)
   })
 
-  document.getElementById('sidebarUserAvatar').addEventListener('click', () => navigateToPage('my'))
+  document.getElementById('sidebarUserAvatar').addEventListener('click', () => {
+    if (currentUser?.isLogin && currentUser?.mid) {
+      navigateToUP(currentUser.mid, true)
+    } else {
+      openLoginModal()
+    }
+  })
   document.getElementById('sidebarBackBtn').addEventListener('click', goBack)
 
   document.getElementById('myFollowingCount')?.addEventListener('click', () => {

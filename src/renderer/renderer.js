@@ -136,7 +136,13 @@ function initEventListeners() {
     })
   })
 
-  document.getElementById('sidebarUserAvatar').addEventListener('click', () => navigateToPage('my'))
+  document.getElementById('sidebarUserAvatar').addEventListener('click', () => {
+    if (currentUser?.isLogin && currentUser?.mid) {
+      navigateToUP(currentUser.mid, true)
+    } else {
+      openLoginModal()
+    }
+  })
   document.getElementById('sidebarBackBtn').addEventListener('click', goBack)
   
   // 关注数点击事件 - 跳转到关注页面
@@ -1061,13 +1067,14 @@ async function searchVideos(keyword, page = 1, append = false) {
   state.loading = false
 }
 
-async function navigateToUP(mid) {
+async function navigateToUP(mid, isSelf = false) {
   pageStates.up.mid = mid
   pageStates.up.offset = ''
   pageStates.up.hasMore = true
   pageStates.up.loading = false
   pageStates.up.scrollLocked = false
   pageStates.up.name = ''
+  pageStates.up.isSelf = isSelf
 
   pageHistory.push(currentPage)
   if (pageHistory.length > 50) pageHistory.shift()
@@ -1125,6 +1132,11 @@ function resetUpProfileUI() {
   if (upVideoGrid) upVideoGrid.innerHTML = ''
   if (loadingMore) loadingMore.style.display = 'none'
   if (noMore) noMore.style.display = 'none'
+
+  const upActions = document.querySelector('.up-actions')
+  if (upActions) {
+    upActions.style.display = pageStates.up.isSelf ? 'none' : 'flex'
+  }
 }
 
 async function fetchUpInfo(mid) {
@@ -1188,6 +1200,11 @@ async function fetchUpInfo(mid) {
         } else {
           upVip.style.display = 'none'
         }
+      }
+
+      const upActions = document.querySelector('.up-actions')
+      if (upActions) {
+        upActions.style.display = pageStates.up.isSelf ? 'none' : 'flex'
       }
     } else {
       console.error('fetchUpInfo failed - result:', result)
