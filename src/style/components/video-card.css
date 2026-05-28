@@ -261,3 +261,37 @@
 .video-card.preview-active .video-thumbnail > .video-rank {
   opacity: 0;
 }
+
+.add-to-view-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s, background 0.2s, transform 0.2s;
+  padding: 0;
+  z-index: 10;
+}
+
+.video-card:hover .add-to-view-btn {
+  opacity: 1;
+}
+
+.add-to-view-btn:hover {
+  background: rgba(251, 114, 153, 0.9);
+  transform: scale(1.1);
+}
+
+.add-to-view-btn.added {
+  background: rgba(102, 187, 106, 0.9);
+}

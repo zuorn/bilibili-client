@@ -55,6 +55,12 @@ function createVideoCard(video, onAuthorClick, options = {}) {
     <div class="video-thumbnail">
       <img src="" alt="${video.title}" data-src="${coverSrc}">
       <span class="video-duration">${video.duration}</span>
+      <button class="add-to-view-btn" title="添加到稍后再看">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12,6 12,12 16,14"></polyline>
+        </svg>
+      </button>
       ${rankBadge}
     </div>
     <div class="video-info">
@@ -83,6 +89,31 @@ function createVideoCard(video, onAuthorClick, options = {}) {
     e.stopPropagation()
     const mid = video.owner?.mid || video.mid
     if (mid && onAuthorClick) onAuthorClick(mid)
+  })
+
+  const addToViewBtn = card.querySelector('.add-to-view-btn')
+  addToViewBtn.addEventListener('click', async (e) => {
+    e.stopPropagation()
+    if (video.bvid) {
+      const result = await ipcRenderer.invoke('add-to-view', video.bvid)
+      if (result.success) {
+        addToViewBtn.classList.add('added')
+        addToViewBtn.innerHTML = `
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="20,6 9,17 4,12"></polyline>
+          </svg>
+        `
+        setTimeout(() => {
+          addToViewBtn.classList.remove('added')
+          addToViewBtn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polyline points="12,6 12,12 16,14"></polyline>
+            </svg>
+          `
+        }, 2000)
+      }
+    }
   })
 
   return card

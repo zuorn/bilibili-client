@@ -317,6 +317,76 @@ function registerHistoryHandlers(deps) {
       return { success: false, progress: 0, cid: '' }
     }
   })
+
+  ipcMain.handle('add-to-view', async (event, bvid) => {
+    log('add-to-view called, bvid:', bvid)
+    try {
+      if (!bvid) {
+        return { success: false, error: '缺少视频ID' }
+      }
+
+      const savedCookies = cookieManager.getSavedCookies()
+      const csrf = savedCookies.bili_jct || ''
+      if (!csrf) {
+        return { success: false, error: '缺少 bili_jct，无法添加稍后再看' }
+      }
+
+      return new Promise((resolve) => {
+        const params = new URLSearchParams({ bvid, csrf })
+        const data = params.toString()
+        const path = '/x/v2/history/toview/add'
+        log('Add to view path:', path, 'body:', data)
+        const options = {
+          hostname: 'api.bilibili.com',
+          port: 443,
+          path: path,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Length': Buffer.byteLength(data),
+            'Cookie': cookieManager.getCookieString(),
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://www.bilibili.com/',
+            'Origin': 'https://www.bilibili.com',
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          rejectUnauthorized: false
+        }
+
+        const req = https.request(options, (res) => {
+          let body = ''
+          log('Add to view response status:', res.statusCode)
+          res.on('data', (chunk) => { body += chunk })
+          res.on('end', () => {
+            log('Add to view response:', body)
+            try {
+              const result = JSON.parse(body)
+              if (result.code === 0) {
+                resolve({ success: true, data: result.data })
+              } else {
+                resolve({ success: false, error: result.message || '添加失败' })
+              }
+            } catch (e) {
+              log('Error parsing response:', e.message)
+              resolve({ success: false, error: '响应解析失败' })
+            }
+          })
+        })
+
+        req.on('error', (e) => {
+          log('Add to view request error:', e.message)
+          resolve({ success: false, error: e.message })
+        })
+
+        req.write(data)
+        req.end()
+      })
+    } catch (error) {
+      log('Error adding to view:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
 }
 
 module.exports = { formatProgressTime, reportPlayHistory, registerHistoryHandlers }
