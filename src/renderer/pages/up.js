@@ -204,6 +204,7 @@ async function navigateToUP(mid, isSelf = false) {
   pageStates.up.collectionsPage = 1
   pageStates.up.hasMoreCollections = true
   pageStates.up.collectionsLoading = false
+  pageStates.up.tabsOriginalOffset = null
 
   pageHistory.push(currentPage)
   if (pageHistory.length > 50) pageHistory.shift()
