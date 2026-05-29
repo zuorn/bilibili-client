@@ -94,13 +94,26 @@ function handleMyPageScroll(scrollTop, scrollHeight, clientHeight) {
       }
     }
 
-    if (!state.isFavoritesLoading && state.hasMoreFavorites) {
-      const favoritesTab = document.querySelector('.my-tab.active[data-tab="favorites"]')
+    const favoritesTab = document.querySelector('.my-tab.active[data-tab="favorites"]')
       if (favoritesTab) {
-        console.log('触发加载更多收藏')
-        loadFavorites(true)
+        const activeSubTab = document.querySelector('.favorites-sub-tab.active')
+        if (activeSubTab?.dataset.subtab === 'default') {
+          if (!state.isFavoritesLoading && state.hasMoreFavoritesDefault) {
+            console.log('触发加载更多默认收藏夹')
+            loadFavoritesDefault(true)
+          }
+        } else if (activeSubTab?.dataset.subtab === 'collections') {
+          if (!state.isFavoritesLoading && state.hasMoreCollections) {
+            console.log('触发加载更多收藏与订阅')
+            loadFavoritesCollections(true)
+          }
+        } else {
+          if (!state.isFavoritesLoading && state.hasMoreFavorites) {
+            console.log('触发加载更多收藏')
+            loadFavorites(true)
+          }
+        }
       }
-    }
 
     if (!state.isToviewLoading && state.hasMoreToview) {
       const toviewTab = document.querySelector('.my-tab.active[data-tab="later"]')

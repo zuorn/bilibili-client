@@ -7,13 +7,14 @@ async function checkLoginStatus() {
       currentUser = result.data
       console.log('Current user:', currentUser)
       console.log('isLogin value:', currentUser.isLogin, 'type:', typeof currentUser.isLogin)
+      console.log('mid value:', currentUser.mid, 'type:', typeof currentUser.mid)
 
       updateUserAvatar(currentUser)
       updateMyPageUI(currentUser)
       updateSettingsAvatar()
       updateSettingsUserName()
 
-      const isLoggedIn = currentUser.isLogin === true || currentUser.isLogin === 1
+      const isLoggedIn = currentUser.isLogin === true || currentUser.isLogin === 1 || currentUser.mid > 0
       console.log('isLoggedIn:', isLoggedIn)
 
       if (!isLoggedIn) {

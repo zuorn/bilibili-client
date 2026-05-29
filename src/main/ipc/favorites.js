@@ -3,6 +3,46 @@
 function registerFavoritesHandlers(deps) {
   const { ipcMain, fetchApi, log } = deps
 
+  ipcMain.handle('get-favorites-list', async (event) => {
+    log('get-favorites-list called')
+    try {
+      const url = 'https://api.bilibili.com/x/v3/fav/folder/list?up_mid=&platform=web&web_location=333.1387'
+      log('Favorites list API URL:', url)
+      const result = await fetchApi(url)
+      log('Favorites list result code:', result.code)
+
+      if (result.code === 0 && result.data && result.data.list) {
+        const folders = result.data.list || []
+        log('Favorites folders count:', folders.length)
+
+        return {
+          success: true,
+          data: folders.map(item => ({
+            id: item.id || '',
+            mid: item.mid || '',
+            name: item.name || '',
+            cover: item.cover || '',
+            media_count: item.media_count || 0,
+            attr: item.attr || 0,
+            fid: item.fid || '',
+            type: item.type || 0,
+            upper: item.upper || null,
+            ctime: item.ctime || 0,
+            mtime: item.mtime || 0
+          })),
+          hasMore: result.data.has_more || false,
+          total: result.data.total || folders.length
+        }
+      } else {
+        log('Favorites list API error:', result.message || 'Unknown error')
+        return { success: false, error: result.message || '获取收藏夹列表失败' }
+      }
+    } catch (error) {
+      log('Error getting favorites list:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
   ipcMain.handle('get-favorites', async (event, mediaId = 166434448, pageNum = 1, pageSize = 36, keyword = '') => {
     log('get-favorites called, mediaId:', mediaId, 'pageNum:', pageNum, 'pageSize:', pageSize, 'keyword:', keyword)
     try {
@@ -11,8 +51,8 @@ function registerFavoritesHandlers(deps) {
       const result = await fetchApi(url)
       log('Favorites result code:', result.code)
 
-      if (result.code === 0 && result.data && result.data.medias) {
-        const medias = result.data.medias || []
+      if (result.code === 0 && result.data) {
+        const medias = result.data.medias || result.data.list || []
         log('Favorites medias count:', medias.length)
 
         if (medias.length > 0) {
@@ -48,6 +88,52 @@ function registerFavoritesHandlers(deps) {
       }
     } catch (error) {
       log('Error getting favorites:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('get-favorites-collected', async (event, upMid = '', pageNum = 1, pageSize = 20) => {
+    log('get-favorites-collected called, upMid:', upMid, 'pageNum:', pageNum, 'pageSize:', pageSize)
+    try {
+      const url = `https://api.bilibili.com/x/v3/fav/folder/collected/list?up_mid=${upMid}&ps=${pageSize}&pn=${pageNum}&platform=web&web_location=333.1387`
+      log('Favorites collected API URL:', url)
+      const result = await fetchApi(url)
+      log('Favorites collected result code:', result.code)
+
+      if (result.code === 0 && result.data) {
+        const list = result.data.list || []
+        log('Favorites collected count:', list.length)
+
+        if (list.length > 0) {
+          log('First collected favorite:', list[0].name)
+        }
+
+        return {
+          success: true,
+          data: list.map(item => ({
+            id: item.id || '',
+            mid: item.mid || '',
+            name: item.name || '',
+            cover: item.cover || '',
+            media_count: item.media_count || 0,
+            attr: item.attr || 0,
+            fid: item.fid || '',
+            upper: item.upper || null,
+            ctime: item.ctime || 0,
+            mtime: item.mtime || 0,
+            sub_time: item.sub_time || 0,
+            count: item.count || item.media_count || 0
+          })),
+          hasMore: result.data.has_more || (list.length >= pageSize),
+          nextPage: result.data.has_more ? pageNum + 1 : null,
+          total: result.data.total || list.length
+        }
+      } else {
+        log('Favorites collected API error:', result.message || 'Unknown error')
+        return { success: false, error: result.message || '获取收藏与订阅失败' }
+      }
+    } catch (error) {
+      log('Error getting favorites collected:', error.message)
       return { success: false, error: error.message }
     }
   })

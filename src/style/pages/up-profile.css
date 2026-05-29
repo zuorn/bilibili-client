@@ -954,8 +954,8 @@
 /* Collections and Series */
 .collections-series-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 16px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 20px;
   padding: 16px 0;
 }
 

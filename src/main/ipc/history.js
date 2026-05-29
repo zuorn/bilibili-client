@@ -107,6 +107,9 @@ function registerHistoryHandlers(deps) {
         log('Has more:', hasMore)
 
         if (list.length > 0) {
+          log('First item FULL:', JSON.stringify(list[0]))
+          log('First item keys:', Object.keys(list[0]))
+          log('First item kid:', list[0].kid)
           log('First item uri:', list[0].uri)
           log('First item bvid:', list[0].bvid)
           log('First item history:', JSON.stringify(list[0].history))
@@ -125,7 +128,13 @@ function registerHistoryHandlers(deps) {
               if (match) bvid = match[0]
             }
 
+            // kid 可能在顶层 item.kid，也可能是 history.oid 或其他位置
+            let kid = (item.kid != null && item.kid !== '') ? item.kid : (item.history?.oid ?? '')
+            log('Mapped item kid:', kid, 'bvid:', bvid, 'title:', item.title?.substring(0, 20))
+
             return {
+              kid: kid,
+              oid: item.history?.oid ?? '',
               bvid: bvid,
               title: item.title || item.long_title || '',
               pic: item.cover || '',
@@ -155,11 +164,12 @@ function registerHistoryHandlers(deps) {
     }
   })
 
-  ipcMain.handle('delete-history', async (event, bvid) => {
-    log('delete-history called, bvid:', bvid)
+  ipcMain.handle('delete-history', async (event, params) => {
+    const { oid, bvid } = params
+    log('delete-history called, oid:', oid, 'bvid:', bvid)
     try {
       if (!bvid) {
-        return { success: false, error: '缺少视频ID' }
+        return { success: false, error: '缺少视频BV号' }
       }
 
       const savedCookies = cookieManager.getSavedCookies()
@@ -169,8 +179,13 @@ function registerHistoryHandlers(deps) {
       }
 
       return new Promise((resolve) => {
-        const params = new URLSearchParams({ bvid, csrf })
-        const data = params.toString()
+        const postData = new URLSearchParams({ 
+          oid: oid || bvid.replace('BV', ''), 
+          bvid, 
+          csrf, 
+          csrf_token: csrf 
+        })
+        const data = postData.toString()
         const path = '/x/v2/history/delete'
         log('Delete history path:', path, 'body:', data)
         const options = {
@@ -246,7 +261,12 @@ function registerHistoryHandlers(deps) {
               if (match) bvid = match[0]
             }
 
+            // kid 可能在顶层 item.kid，也可能是 history.oid 或其他位置
+            let kid = (item.kid != null && item.kid !== '') ? item.kid : (item.history?.oid ?? '')
+
             return {
+              kid: kid,
+              oid: item.history?.oid ?? '',
               bvid: bvid,
               title: item.title || item.long_title || '',
               pic: item.cover || '',

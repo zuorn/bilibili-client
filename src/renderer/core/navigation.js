@@ -80,7 +80,6 @@ function navigateToPage(page) {
   updateNavLinks(page)
   updateBackButton()
 
-  // 切换滚动监听器
   const content = document.querySelector('.content')
   if (content) {
     content.removeEventListener('scroll', throttledHandleScroll)
@@ -90,6 +89,8 @@ function navigateToPage(page) {
     } else {
       content.addEventListener('scroll', throttledHandleScroll)
     }
+    
+    content.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   loadPageContent(page)

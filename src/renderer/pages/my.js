@@ -82,7 +82,7 @@ function createHistoryCard(video, onAuthorClick, options = {}) {
     e.stopPropagation()
     dropdown.style.display = 'none'
 
-    const result = await ipcRenderer.invoke('delete-history', video.bvid)
+    const result = await ipcRenderer.invoke('delete-history', { oid: video.oid, bvid: video.bvid })
     if (result.success) {
       card.remove()
       const historyGrid = document.getElementById('historyGrid')
@@ -139,6 +139,7 @@ async function loadHistory(append = false) {
     const result = await ipcRenderer.invoke('get-history', state.historyCursor)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
+        kid: item.kid || '',
         bvid: item.bvid || '',
         cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
@@ -486,5 +487,250 @@ async function searchToview(keyword) {
   } catch (error) {
     console.error('搜索稍后再看失败:', error)
     showEmptyMessage('toviewGrid', '搜索失败')
+  }
+}
+
+async function loadFavoritesDefault(append = false) {
+  const state = pageStates.my
+  if (state.isFavoritesDefaultLoading) return
+  if (!append) {
+    state.favoritesDefaultPageNum = 1
+    state.hasMoreFavoritesDefault = true
+  }
+  if (!state.hasMoreFavoritesDefault && append) {
+    return
+  }
+
+  state.isFavoritesDefaultLoading = true
+
+  try {
+    const pageSize = 36
+    const result = await ipcRenderer.invoke('get-favorites', 166434448, state.favoritesDefaultPageNum, pageSize)
+    if (result.success && result.data) {
+      const videos = result.data.map(item => ({
+        bvid: item.bvid || '',
+        title: (item.title || '').replace(/<[^>]+>/g, ''),
+        pic: optimizeCoverUrl(item.pic || '', 672, 378),
+        play: formatPlayCount(item.cnt_info?.play || item.play || 0),
+        duration: formatDuration(item.duration || 0),
+        author: item.upper?.name || item.author || '未知UP主',
+        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' }
+      }))
+
+      if (videos.length > 0) {
+        if (append) {
+          appendVideos(videos, 'favoritesDefaultGrid', navigateToUP)
+        } else {
+          renderVideos(videos, 'favoritesDefaultGrid', navigateToUP)
+        }
+        state.hasMoreFavoritesDefault = result.hasMore || (videos.length === pageSize)
+        state.favoritesDefaultPageNum++
+      } else if (!append) {
+        showEmptyMessage('favoritesDefaultGrid', '暂无收藏内容')
+      } else {
+        state.hasMoreFavoritesDefault = false
+      }
+    }
+  } catch (error) {
+    console.error('加载默认收藏夹失败:', error)
+    if (!append) {
+      showEmptyMessage('favoritesDefaultGrid', '加载默认收藏夹失败')
+    }
+  } finally {
+    state.isFavoritesDefaultLoading = false
+  }
+}
+
+async function loadFavoritesCreated() {
+  try {
+    const result = await ipcRenderer.invoke('get-favorites-list')
+    if (result.success && result.data) {
+      const container = document.getElementById('favoritesCreatedList')
+      if (!container) return
+      
+      const createdFavorites = result.data.filter(fav => fav.attr === 0)
+      
+      if (createdFavorites.length > 0) {
+        container.innerHTML = `
+          <div class="favorites-grid">
+            ${createdFavorites.map(fav => `
+              <div class="favorites-item" data-media-id="${fav.id}">
+                <div class="favorites-item-cover">
+                  <img src="${optimizeCoverUrl(fav.cover || '', 672, 378)}" alt="${fav.name}">
+                  <span class="favorites-item-count">${fav.media_count}个视频</span>
+                </div>
+                <div class="favorites-item-info">
+                  <h3 class="favorites-item-name">${fav.name}</h3>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `
+        
+        document.querySelectorAll('.favorites-item').forEach(item => {
+          item.addEventListener('click', () => {
+            const mediaId = item.dataset.mediaId
+            loadFavoritesByMediaId(mediaId)
+          })
+        })
+      } else {
+        container.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">暂无创建的收藏夹</div>'
+      }
+    }
+  } catch (error) {
+    console.error('加载我创建的收藏夹失败:', error)
+    const container = document.getElementById('favoritesCreatedList')
+    if (container) {
+      container.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">加载失败</div>'
+    }
+  }
+}
+
+async function loadFavoritesCollections(append = false) {
+  const state = pageStates.my
+  if (!append) {
+    state.collectionsPageNum = 1
+    state.hasMoreCollections = true
+  }
+  if (!state.hasMoreCollections && append) {
+    return
+  }
+
+  try {
+    console.log('loadFavoritesCollections called, currentUser:', currentUser)
+    const userMid = currentUser?.mid ?? ''
+    console.log('loadFavoritesCollections userMid:', userMid)
+    if (!userMid) {
+      console.error('userMid is empty, currentUser:', currentUser)
+      showEmptyMessage('favoritesCollectionsGrid', '无法获取用户信息，请重新登录')
+      return
+    }
+    const result = await ipcRenderer.invoke('get-favorites-collected', userMid, state.collectionsPageNum, 20)
+    if (result.success && result.data) {
+      const container = document.getElementById('favoritesCollectionsGrid')
+      if (!container) return
+
+      const favorites = result.data.map(item => ({
+        id: item.id || '',
+        mid: item.mid || '',
+        name: item.name || '',
+        cover: item.cover || '',
+        media_count: item.media_count || item.count || 0,
+        upper: item.upper || null
+      }))
+
+      if (favorites.length > 0) {
+        if (append) {
+          appendFavoritesCollectionItems(favorites, container)
+        } else {
+          renderFavoritesCollectionItems(favorites, container)
+        }
+        state.hasMoreCollections = result.hasMore || (favorites.length === 20)
+        state.collectionsPageNum++
+      } else if (!append) {
+        showEmptyMessage('favoritesCollectionsGrid', '暂无收藏与订阅内容')
+      } else {
+        state.hasMoreCollections = false
+      }
+    }
+  } catch (error) {
+    console.error('加载我的收藏与订阅失败:', error)
+    if (!append) {
+      showEmptyMessage('favoritesCollectionsGrid', '加载失败')
+    }
+  }
+}
+
+function renderFavoritesCollectionItems(favorites, container) {
+  container.innerHTML = `
+    <div class="collections-series-grid">
+      ${favorites.map(fav => `
+        <div class="collections-series-card" data-media-id="${fav.id}" data-up-mid="${fav.mid}">
+          <div class="collections-series-cover">
+            <img src="${optimizeCoverUrl(fav.cover || '', 672, 378)}" alt="${fav.name}">
+            <div class="collections-series-stack">
+              <div class="collections-series-stack-item"></div>
+              <div class="collections-series-stack-item"></div>
+              <div class="collections-series-stack-item"></div>
+            </div>
+            <div class="collections-series-badge">
+              <span>${fav.media_count}</span>
+            </div>
+          </div>
+          <div class="collections-series-info">
+            <h3 class="collections-series-title">${fav.name}</h3>
+            ${fav.upper ? `<p class="collections-series-time">UP主: ${fav.upper.name || '未知'}</p>` : ''}
+          </div>
+        </div>
+      `).join('')}
+    </div>
+  `
+  attachFavoritesCollectionListeners()
+}
+
+function appendFavoritesCollectionItems(favorites, container) {
+  const grid = container.querySelector('.collections-series-grid')
+  if (!grid) {
+    renderFavoritesCollectionItems(favorites, container)
+    return
+  }
+  const html = favorites.map(fav => `
+    <div class="collections-series-card" data-media-id="${fav.id}" data-up-mid="${fav.mid}">
+      <div class="collections-series-cover">
+        <img src="${optimizeCoverUrl(fav.cover || '', 672, 378)}" alt="${fav.name}">
+        <div class="collections-series-stack">
+          <div class="collections-series-stack-item"></div>
+          <div class="collections-series-stack-item"></div>
+          <div class="collections-series-stack-item"></div>
+        </div>
+        <div class="collections-series-badge">
+          <span>${fav.media_count}</span>
+        </div>
+      </div>
+      <div class="collections-series-info">
+        <h3 class="collections-series-title">${fav.name}</h3>
+        ${fav.upper ? `<p class="collections-series-time">UP主: ${fav.upper.name || '未知'}</p>` : ''}
+      </div>
+    </div>
+  `).join('')
+  grid.insertAdjacentHTML('beforeend', html)
+  attachFavoritesCollectionListeners()
+}
+
+function attachFavoritesCollectionListeners() {
+  document.querySelectorAll('#favoritesCollectionsGrid .collections-series-card').forEach(item => {
+    item.addEventListener('click', () => {
+      const mediaId = item.dataset.mediaId
+      loadFavoritesByMediaId(mediaId)
+    })
+  })
+}
+
+async function loadFavoritesByMediaId(mediaId) {
+  const container = document.getElementById('favoritesDefaultGrid')
+  if (!container) return
+  
+  try {
+    const result = await ipcRenderer.invoke('get-favorites', mediaId, 1, 36)
+    if (result.success && result.data) {
+      const videos = result.data.map(item => ({
+        bvid: item.bvid || '',
+        title: (item.title || '').replace(/<[^>]+>/g, ''),
+        pic: optimizeCoverUrl(item.pic || '', 672, 378),
+        play: formatPlayCount(item.cnt_info?.play || item.play || 0),
+        duration: formatDuration(item.duration || 0),
+        author: item.upper?.name || item.author || '未知UP主',
+        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' }
+      }))
+      
+      if (videos.length > 0) {
+        renderVideos(videos, 'favoritesDefaultGrid', navigateToUP)
+      } else {
+        showEmptyMessage('favoritesDefaultGrid', '该收藏夹暂无内容')
+      }
+    }
+  } catch (error) {
+    console.error('加载收藏夹内容失败:', error)
+    showEmptyMessage('favoritesDefaultGrid', '加载失败')
   }
 }

@@ -568,7 +568,20 @@
               <p class="no-login-text">登录后查看我的收藏</p>
               <button class="login-btn" id="myLoginBtn2">登录</button>
             </div>
-            <div class="video-grid" id="favoritesGrid" style="display: none;"></div>
+            <div class="favorites-sub-tabs" style="display: none;">
+              <div class="favorites-sub-tab active" data-subtab="default">默认收藏夹</div>
+              <div class="favorites-sub-tab" data-subtab="created">我创建的收藏夹</div>
+              <div class="favorites-sub-tab" data-subtab="collections">我的收藏与订阅</div>
+            </div>
+            <div class="favorites-sub-content" id="favorites-default-content" style="display: none;">
+              <div class="video-grid" id="favoritesDefaultGrid"></div>
+            </div>
+            <div class="favorites-sub-content" id="favorites-created-content" style="display: none;">
+              <div class="favorites-list-container" id="favoritesCreatedList"></div>
+            </div>
+            <div class="favorites-sub-content" id="favorites-collections-content" style="display: none;">
+              <div class="collections-series-grid" id="favoritesCollectionsGrid"></div>
+            </div>
           </div>
 
           <div class="my-tab-content" id="bangumi-content">

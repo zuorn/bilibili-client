@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (typeof initViewAllButtons === 'function') initViewAllButtons()
   if (typeof initPopularTabs === 'function') initPopularTabs()
   if (typeof initRankingFilters === 'function') initRankingFilters()
-  checkLoginStatus()
+  await checkLoginStatus()
   loadPageContent('home')
 })
 
@@ -188,11 +188,13 @@ function initEventListeners() {
         document.getElementById('toview-content').style.display = 'none'
         document.getElementById('historySearchInput').placeholder = '搜索你的收藏内容'
         if (currentUser?.isLogin) {
-          document.getElementById('favoritesGrid').style.display = 'grid'
-          pageStates.my.favoritesPageNum = 1
-          pageStates.my.hasMoreFavorites = true
-          pageStates.my.isFavoritesLoading = false
-          loadFavorites()
+          document.querySelector('.no-login-area')?.style.setProperty('display', 'none')
+          document.querySelector('.favorites-sub-tabs')?.style.setProperty('display', 'flex')
+          document.querySelectorAll('.favorites-sub-content').forEach(c => c.style.display = 'none')
+          document.getElementById('favorites-default-content').style.display = 'block'
+          document.querySelectorAll('.favorites-sub-tab').forEach(t => t.classList.remove('active'))
+          document.querySelector('.favorites-sub-tab[data-subtab="default"]')?.classList.add('active')
+          loadFavoritesDefault()
         }
       } else if (tabName === 'bangumi') {
         document.getElementById('history-content').style.display = 'none'
@@ -232,6 +234,26 @@ function initEventListeners() {
         document.getElementById('historySearchInput').placeholder = '搜索你的收藏内容'
       } else if (tabName === 'history') {
         document.getElementById('historySearchInput').placeholder = '搜索你的历史记录'
+      }
+    })
+  })
+
+  document.querySelectorAll('.favorites-sub-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      document.querySelectorAll('.favorites-sub-tab').forEach(t => t.classList.remove('active'))
+      tab.classList.add('active')
+      const subTabName = tab.dataset.subtab
+      document.querySelectorAll('.favorites-sub-content').forEach(c => c.style.display = 'none')
+      
+      if (subTabName === 'default') {
+        document.getElementById('favorites-default-content').style.display = 'block'
+        loadFavoritesDefault()
+      } else if (subTabName === 'created') {
+        document.getElementById('favorites-created-content').style.display = 'block'
+        loadFavoritesCreated()
+      } else if (subTabName === 'collections') {
+        document.getElementById('favorites-collections-content').style.display = 'block'
+        loadFavoritesCollections()
       }
     })
   })

@@ -6,7 +6,8 @@
       "Bash(curl -s \"https://api.bilibili.com/x/web-interface/wbi/view/detail?bvid=BV1VaLH6RE7X&need_operation_card=1&web_rm_repeat=1&need_elec=1&out_referer=&platform=pc&web_location=bilibili-electron&w_rid=dcc26adf785728443812cccb226b978c&wts=1779723069\")",
       "Bash(curl -s \"https://api.bilibili.com/x/web-interface/archive/related?bvid=BV1VaLH6RE7X\" -H \"User-Agent: Mozilla/5.0 \\(Windows NT 10.0; Win64; x64\\) AppleWebKit/537.36\" -H \"Referer: https://www.bilibili.com/video/BV1VaLH6RE7X\")",
       "Bash(node -e \"const chunks=[];process.stdin.on\\('data',c=>chunks.push\\(c\\)\\);process.stdin.on\\('end',\\(\\)=>{const d=JSON.parse\\(Buffer.concat\\(chunks\\).toString\\(\\)\\);console.log\\('code:',d.code\\);const r=d.data;console.log\\('data type:',Array.isArray\\(r\\)?'array\\('+r.length+'\\)':'object'\\);if\\(r&&r[0]\\){console.log\\('First item keys:',Object.keys\\(r[0]\\)\\);console.log\\('First item:',JSON.stringify\\(r[0]\\).substring\\(0,300\\)\\)}}\\)\")",
-      "Bash(npm run *)"
+      "Bash(npm run *)",
+      "WebSearch"
     ]
   }
 }
