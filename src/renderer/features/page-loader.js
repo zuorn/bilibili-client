@@ -19,7 +19,12 @@ function loadPageContent(page) {
     media: () => loadMediaPage(),
     my: () => { if (currentUser?.isLogin) loadHistory() },
     dynamic: () => initDynamicPage(),
-    following: () => initFollowingPage()
+    following: () => initFollowingPage(),
+    up: () => {
+      if (typeof resetUpProfileUI === 'function' && pageStates.up.mid) {
+        resetUpProfileUI()
+      }
+    }
   }
   actions[page]?.()
 }

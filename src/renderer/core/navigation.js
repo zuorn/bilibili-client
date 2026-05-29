@@ -118,6 +118,14 @@ function updateNavLinks(page) {
 }
 
 function goBack() {
+  const upCollectionsSeriesGrid = document.getElementById('upCollectionsSeriesGrid')
+  if (upCollectionsSeriesGrid && upCollectionsSeriesGrid.classList.contains('season-detail-mode')) {
+    if (typeof backToCollectionsList === 'function') {
+      backToCollectionsList()
+      return
+    }
+  }
+  
   if (pageHistory.length > 0) {
     const prevPage = pageHistory.pop()
     navigateToPage(prevPage)

@@ -961,7 +961,12 @@
 
 .collections-series-grid.season-detail-mode {
   grid-template-columns: 1fr;
-  gap: 20px;
+  gap: 16px;
+  padding-top: 0;
+}
+
+.season-detail-mode .season-detail-header {
+  margin-top: -16px;
 }
 
 .collections-series-card {
@@ -1258,41 +1263,21 @@
 }
 
 .season-detail-header {
-  margin-bottom: 24px;
-}
-
-.season-back-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 16px;
-  background: none;
-  border: none;
-  color: #666;
-  font-size: 14px;
-  cursor: pointer;
-  border-radius: 6px;
-  transition: background-color 0.2s;
-  margin-bottom: 16px;
-}
-
-.season-back-btn:hover {
-  background-color: #f0f0f0;
-  color: #333;
+  margin-bottom: 8px;
 }
 
 .season-detail-card {
   display: flex;
-  gap: 20px;
+  gap: 16px;
   background-color: #fff;
-  padding: 20px;
+  padding: 16px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .season-detail-cover {
-  width: 280px;
-  height: 158px;
+  width: 240px;
+  height: 135px;
   border-radius: 8px;
   overflow: hidden;
   flex-shrink: 0;
@@ -1312,24 +1297,24 @@
 }
 
 .season-detail-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: #18191c;
-  margin: 0 0 10px 0;
+  margin: 0 0 8px 0;
 }
 
 .season-detail-meta {
-  font-size: 14px;
+  font-size: 13px;
   color: #9499a0;
-  margin: 0 0 16px 0;
+  margin: 0 0 12px 0;
 }
 
 .play-all-btn {
   align-self: flex-start;
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 10px 24px;
+  gap: 6px;
+  padding: 8px 20px;
   background-color: #fb7299;
   color: #fff;
   border: none;

@@ -258,6 +258,8 @@ function resetUpProfileUI() {
   const collectionsLoadingMore = document.getElementById('upCollectionsSeriesLoadingMore')
   const collectionsNoMore = document.getElementById('upCollectionsSeriesNoMore')
   const collectionsPlaceholder = document.getElementById('upCollectionsSeriesPlaceholder')
+  const upInfoSection = document.getElementById('upInfoSection')
+  const upTabsWrapper = document.querySelector('.up-tabs-wrapper')
 
   if (upAvatar) upAvatar.src = ''
   if (upName) upName.textContent = ''
@@ -273,10 +275,19 @@ function resetUpProfileUI() {
   if (upDynamicsList) upDynamicsList.innerHTML = ''
   if (dynLoadingMore) dynLoadingMore.style.display = 'none'
   if (dynNoMore) dynNoMore.style.display = 'none'
-  if (upCollectionsSeriesGrid) upCollectionsSeriesGrid.innerHTML = ''
+  if (upCollectionsSeriesGrid) {
+    upCollectionsSeriesGrid.innerHTML = ''
+    upCollectionsSeriesGrid.classList.remove('season-detail-mode')
+  }
   if (collectionsLoadingMore) collectionsLoadingMore.style.display = 'none'
   if (collectionsNoMore) collectionsNoMore.style.display = 'none'
   if (collectionsPlaceholder) collectionsPlaceholder.style.display = 'none'
+
+  if (upInfoSection) upInfoSection.style.display = ''
+  if (upTabsWrapper) {
+    upTabsWrapper.style.display = ''
+    upTabsWrapper.classList.remove('sticky')
+  }
 
   const upActions = document.querySelector('.up-actions')
   if (upActions) {
@@ -1029,17 +1040,24 @@ function showSeasonContent(mid, seasonId, title, cover, totalCount) {
   const grid = document.getElementById('upCollectionsSeriesGrid')
   const loadingMore = document.getElementById('upCollectionsSeriesLoadingMore')
   const noMore = document.getElementById('upCollectionsSeriesNoMore')
-  
+  const upInfoSection = document.getElementById('upInfoSection')
+  const upTabsWrapper = document.querySelector('.up-tabs-wrapper')
+
+  if (upInfoSection) upInfoSection.style.display = 'none'
+  if (upTabsWrapper) {
+    upTabsWrapper.style.display = 'none'
+    upTabsWrapper.classList.remove('sticky')
+  }
+
+  const placeholder = document.querySelector('.up-tabs-placeholder')
+  if (placeholder) {
+    placeholder.remove()
+  }
+
   if (grid) {
     grid.classList.add('season-detail-mode')
     grid.innerHTML = `
       <div class="season-detail-header">
-        <button class="season-back-btn" onclick="backToCollectionsList()">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
-            <polyline points="15 18 9 12 15 6"/>
-          </svg>
-          返回
-        </button>
         <div class="season-detail-card">
           <div class="season-detail-cover">
             <img src="${fixImageUrl(cover)}" alt="${escapeHtml(title)}">
@@ -1075,18 +1093,33 @@ function showSeasonContent(mid, seasonId, title, cover, totalCount) {
 function backToCollectionsList() {
   pageStates.up.collectionsPage = 1
   pageStates.up.hasMoreCollections = true
-  
+
   const grid = document.getElementById('upCollectionsSeriesGrid')
   const loadingMore = document.getElementById('upCollectionsSeriesLoadingMore')
   const noMore = document.getElementById('upCollectionsSeriesNoMore')
-  
+  const upInfoSection = document.getElementById('upInfoSection')
+  const upTabsWrapper = document.querySelector('.up-tabs-wrapper')
+
+  if (upInfoSection) upInfoSection.style.display = ''
+  if (upTabsWrapper) {
+    upTabsWrapper.style.display = ''
+    upTabsWrapper.classList.remove('sticky')
+  }
+
+  // 重置 tabsOriginalOffset，下次滚动时重新计算偏移量
+  pageStates.up.tabsOriginalOffset = null
+
+  // 返回时滚动到顶部
+  const content = document.querySelector('.content')
+  if (content) content.scrollTop = 0
+
   if (grid) {
     grid.classList.remove('season-detail-mode')
     grid.innerHTML = ''
   }
   if (loadingMore) loadingMore.style.display = 'none'
   if (noMore) noMore.style.display = 'none'
-  
+
   loadUpCollectionsSeries(pageStates.up.mid)
 }
 
