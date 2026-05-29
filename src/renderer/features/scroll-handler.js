@@ -103,7 +103,7 @@ function handleMyPageScroll(scrollTop, scrollHeight, clientHeight) {
             loadFavoritesDefault(true)
           }
         } else if (activeSubTab?.dataset.subtab === 'collections') {
-          if (!state.isFavoritesLoading && state.hasMoreCollections) {
+          if (!state.isCollectionsLoading && state.hasMoreCollections) {
             console.log('触发加载更多收藏与订阅')
             loadFavoritesCollections(true)
           }

@@ -588,6 +588,7 @@ async function loadFavoritesCreated() {
 
 async function loadFavoritesCollections(append = false) {
   const state = pageStates.my
+  if (state.isCollectionsLoading) return
   if (!append) {
     state.collectionsPageNum = 1
     state.hasMoreCollections = true
@@ -595,6 +596,8 @@ async function loadFavoritesCollections(append = false) {
   if (!state.hasMoreCollections && append) {
     return
   }
+
+  state.isCollectionsLoading = true
 
   try {
     console.log('loadFavoritesCollections called, currentUser:', currentUser)
@@ -638,6 +641,8 @@ async function loadFavoritesCollections(append = false) {
     if (!append) {
       showEmptyMessage('favoritesCollectionsGrid', '加载失败')
     }
+  } finally {
+    state.isCollectionsLoading = false
   }
 }
 
