@@ -77,6 +77,12 @@ function navigateToPage(page) {
   document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'))
   document.getElementById(`page-${page}`)?.classList.add('active')
 
+  // 导航到设置或我的页面时刷新登录状态 UI
+  if (page === 'settings' || page === 'my') {
+    if (typeof updateSettingsAvatar === 'function') updateSettingsAvatar()
+    if (typeof updateSettingsUserName === 'function') updateSettingsUserName()
+  }
+
   updateNavLinks(page)
   updateBackButton()
 
@@ -127,6 +133,22 @@ function goBack() {
     }
   }
   
+  const favoritesCreatedList = document.getElementById('favoritesCreatedList')
+  if (favoritesCreatedList && favoritesCreatedList.classList.contains('season-detail-mode')) {
+    if (typeof backToFavoritesCreated === 'function') {
+      backToFavoritesCreated()
+      return
+    }
+  }
+
+  const favoritesCollectionsGrid = document.getElementById('favoritesCollectionsGrid')
+  if (favoritesCollectionsGrid && favoritesCollectionsGrid.classList.contains('season-detail-mode')) {
+    if (typeof backToFavoritesCollections === 'function') {
+      backToFavoritesCollections()
+      return
+    }
+  }
+
   if (pageHistory.length > 0) {
     const prevPage = pageHistory.pop()
     navigateToPage(prevPage)

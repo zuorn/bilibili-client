@@ -7,7 +7,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (typeof initViewAllButtons === 'function') initViewAllButtons()
   if (typeof initPopularTabs === 'function') initPopularTabs()
   if (typeof initRankingFilters === 'function') initRankingFilters()
-  await checkLoginStatus()
+  checkLoginStatus()
   loadPageContent('home')
 })
 

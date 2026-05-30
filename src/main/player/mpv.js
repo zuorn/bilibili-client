@@ -123,9 +123,25 @@ function getCurrentProgress() {
   sendMpvCommand('get_property', 'playback-time')
 }
 
-// 启动定时上报（空实现，关闭时统一上报）
+// 启动定时上报（每30秒查询一次MPV播放进度并上报）
 function startReportTimer() {
-  // 移除频繁上报，只在关闭时上报
+  stopReportTimer()
+  state.reportTimer = setInterval(async () => {
+    if (!state.mpvProcess || !state.currentVideoInfo || !state.currentVideoInfo.aid || !state.currentVideoInfo.cid) {
+      return
+    }
+    try {
+      const playbackTime = await getMpvPlaybackTime()
+      if (playbackTime !== null && playbackTime > 0) {
+        state.currentVideoInfo.lastReportProgress = Math.floor(playbackTime)
+        log(`[MPV定时上报] 播放进度: ${Math.floor(playbackTime)}秒`)
+        const { reportPlayHistory } = require('../ipc/history')
+        reportPlayHistory(state.currentVideoInfo.aid, state.currentVideoInfo.cid, Math.floor(playbackTime))
+      }
+    } catch (e) {
+      // 静默处理查询失败
+    }
+  }, 30000)
 }
 
 // 停止定时上报

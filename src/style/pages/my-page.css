@@ -62,7 +62,7 @@
   justify-content: space-between;
   align-items: center;
   border-radius: 8px;
-  margin-bottom: 15px;
+  margin-bottom: 8px;
   position: relative;
   z-index: 100;
   padding: 0 12px;
@@ -170,12 +170,22 @@
 }
 
 .my-tab:hover {
-  color: #333;
+  color: #fb7299;
+}
+
+.my-tab:hover span,
+.my-tab:hover svg {
+  color: #fb7299;
 }
 
 .my-tab.active {
   color: #fb7299;
   font-weight: 500;
+}
+
+.my-tab.active span,
+.my-tab.active svg {
+  color: #fb7299;
 }
 
 .my-tab.active::after {
@@ -193,18 +203,16 @@
 .favorites-sub-tabs {
   display: flex;
   background-color: #fff;
-  border-bottom: 1px solid #f0f0f0;
   padding: 0 12px;
-  margin-bottom: 15px;
+  margin-bottom: 4px;
   gap: 30px;
 }
 
 .favorites-sub-tab {
-  padding: 12px 16px;
+  padding: 8px 12px;
   cursor: pointer;
   color: #666;
   font-size: 14px;
-  position: relative;
   transition: color 0.2s;
 }
 
@@ -217,22 +225,10 @@
   font-weight: 500;
 }
 
-.favorites-sub-tab.active::after {
-  content: '';
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 20px;
-  height: 2px;
-  background-color: #ff9eb7;
-  border-radius: 1px;
-}
-
 .favorites-sub-content {
   background-color: #fff;
   border-radius: 8px;
-  padding: 15px;
+  padding: 8px;
 }
 
 .favorites-grid {
@@ -653,4 +649,122 @@
 
 .my-content-wrapper {
   flex: 1;
+}
+
+#favoritesCreatedList.season-detail-mode {
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding-top: 0;
+}
+
+#favoritesCreatedList.season-detail-mode .season-detail-header {
+  margin-bottom: 24px;
+}
+
+#favoritesCollectionsGrid.season-detail-mode {
+  padding-top: 0;
+}
+
+#favoritesCollectionsGrid.season-detail-mode .season-detail-header {
+  margin-bottom: 24px;
+}
+
+.collections-series-grid {
+  display: grid;
+  grid-template-columns: repeat(6, 1fr);
+  gap: 16px;
+  padding: 16px 0;
+}
+
+.collections-series-grid.season-detail-mode {
+  grid-template-columns: 1fr;
+  gap: 16px;
+  padding-top: 0;
+}
+
+.collections-series-card {
+  background-color: #fff;
+  border-radius: 10px;
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.collections-series-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+.collections-series-cover {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+}
+
+.collections-series-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.collections-series-stack {
+  position: absolute;
+  top: -6px;
+  left: 2px;
+  right: 2px;
+  height: 20px;
+  pointer-events: none;
+}
+
+.collections-series-stack-item {
+  position: absolute;
+  width: 100%;
+  height: 10px;
+  border-radius: 6px 6px 0 0;
+  background: linear-gradient(180deg, rgba(200, 200, 200, 0.4) 0%, rgba(200, 200, 200, 0.2) 100%);
+}
+
+.collections-series-stack-item:nth-child(1) {
+  top: 0;
+}
+
+.collections-series-stack-item:nth-child(2) {
+  top: 4px;
+}
+
+.collections-series-stack-item:nth-child(3) {
+  top: 8px;
+}
+
+.collections-series-meta {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: #fff;
+  font-size: 12px;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+}
+
+.collections-series-info {
+  padding: 12px;
+}
+
+.collections-series-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #18191c;
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.collections-series-date {
+  font-size: 12px;
+  color: #9499a0;
+  margin-top: 4px;
 }

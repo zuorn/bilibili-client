@@ -5,6 +5,30 @@ const { spawn } = require('child_process')
 const ffmpegPath = require('ffmpeg-static')
 const cookieManager = require('../cookieManager')
 
+let builtinReportTimer = null
+
+function startBuiltinReportTimer(state, log) {
+  stopBuiltinReportTimer()
+  builtinReportTimer = setInterval(async () => {
+    if (!state.currentVideoInfo || !state.currentVideoInfo.aid || !state.currentVideoInfo.cid) {
+      return
+    }
+    if (state.currentVideoInfo.lastReportProgress && state.currentVideoInfo.lastReportProgress > 0) {
+      const progress = state.currentVideoInfo.lastReportProgress
+      log(`[内置播放器定时上报] 播放进度: ${progress}秒`)
+      const { reportPlayHistory } = require('../ipc/history')
+      await reportPlayHistory(state.currentVideoInfo.aid, state.currentVideoInfo.cid, progress)
+    }
+  }, 30000)
+}
+
+function stopBuiltinReportTimer() {
+  if (builtinReportTimer) {
+    clearInterval(builtinReportTimer)
+    builtinReportTimer = null
+  }
+}
+
 // 从 DASH 视频流中选出浏览器可播放的最佳流。
 // Chromium 不支持 HEVC (codecid=12)，优先选 AVC (codecid=7)，其次 AV1 (codecid=13)，最后 HEVC。
 function pickBestPlayableDashVideo(dashVideo) {
@@ -85,7 +109,7 @@ async function fetchPlayUrl(bvid, cid, cookieString, log) {
 }
 
 async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, episodeData = null) {
-  const { log, app, formatProgressTime, reportPlayHistory, startReportTimer, cleanupMpvSocket, getVideoInfo, state } = deps
+  const { log, app, formatProgressTime, reportPlayHistory, getVideoInfo, state } = deps
   const { BrowserWindow } = require('electron')
 
   log('Opening builtin player for:', bvid, title, 'dimension:', dimension, 'progress:', progress)
@@ -118,6 +142,20 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
       }
     } catch (error) {
       log('Failed to get video info:', error.message)
+    }
+  }
+
+  if (!videoAid || !videoDuration) {
+    try {
+      const info = await getVideoInfo(bvid)
+      if (info) {
+        videoAid = videoAid || info.aid
+        videoDuration = videoDuration || info.duration
+        finalCid = finalCid || info.cid
+        log('补充获取 video info: aid=' + videoAid + ', cid=' + finalCid + ', duration=' + videoDuration)
+      }
+    } catch (error) {
+      log('Failed to get video info for aid/duration:', error.message)
     }
   }
 
@@ -355,20 +393,30 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
     reportPlayHistory(videoAid, finalCid, 10)
   }
 
-  // 启动定时上报
-  startReportTimer()
+  startBuiltinReportTimer(state, log)
 
   playerWindow.on('closed', () => {
     log('[播放器窗口关闭]')
+    stopBuiltinReportTimer()
     // 上报最终播放进度
     if (state.currentVideoInfo && state.currentVideoInfo.aid && state.currentVideoInfo.cid) {
-      const elapsedSeconds = Math.floor((Date.now() - state.currentVideoInfo.startTime) / 1000)
-      const estimatedProgress = Math.min(elapsedSeconds, state.currentVideoInfo.duration || 300)
-      const formattedProgress = formatProgressTime(estimatedProgress)
-      log(`[播放器窗口关闭] 上报最终进度: ${formattedProgress} (${Math.floor(estimatedProgress)}秒)`)
-      reportPlayHistory(state.currentVideoInfo.aid, state.currentVideoInfo.cid, estimatedProgress)
+      // 如果渲染进程已经通过 report-final-progress 上报过，跳过二次上报
+      if (state.currentVideoInfo.finalProgressReported) {
+        log('[播放器窗口关闭] 最终进度已由渲染进程上报，跳过')
+      } else {
+        // 优先使用渲染进程定时上报的最新进度；否则用时间估算
+        let progress
+        if (state.currentVideoInfo.lastReportProgress && state.currentVideoInfo.lastReportProgress > 0) {
+          progress = state.currentVideoInfo.lastReportProgress
+          log(`[播放器窗口关闭] 使用渲染进程最新上报进度: ${formatProgressTime(progress)}`)
+        } else {
+          const elapsedSeconds = Math.floor((Date.now() - state.currentVideoInfo.startTime) / 1000)
+          progress = Math.min(elapsedSeconds, state.currentVideoInfo.duration || 300)
+          log(`[播放器窗口关闭] 使用时间估算进度: ${formatProgressTime(progress)}`)
+        }
+        reportPlayHistory(state.currentVideoInfo.aid, state.currentVideoInfo.cid, progress)
+      }
     }
-    cleanupMpvSocket()
     if (state.playerWindow === playerWindow) {
       state.playerWindow = null
     }
@@ -860,4 +908,4 @@ function registerBuiltinPlayerHandlers(deps) {
   })
 }
 
-module.exports = { openBuiltinPlayer, registerBuiltinPlayerHandlers }
+module.exports = { openBuiltinPlayer, registerBuiltinPlayerHandlers, startBuiltinReportTimer, stopBuiltinReportTimer }

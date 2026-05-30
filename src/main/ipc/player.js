@@ -330,11 +330,17 @@ function registerPlayerHandlers(deps) {
       state.mpvProcess.on('close', (code) => {
         log(`[MPV关闭] 代码: ${code}`)
         if (state.currentVideoInfo && state.currentVideoInfo.aid && state.currentVideoInfo.cid) {
-          const elapsedSeconds = Math.floor((Date.now() - state.currentVideoInfo.startTime) / 1000)
-          const estimatedProgress = Math.min(elapsedSeconds, state.currentVideoInfo.duration || 300)
-          const formattedProgress = formatProgressTime(estimatedProgress)
-          log(`[MPV关闭] 上报最终进度: ${formattedProgress} (${Math.floor(estimatedProgress)}秒)`)
-          reportPlayHistory(state.currentVideoInfo.aid, state.currentVideoInfo.cid, estimatedProgress)
+          // 优先使用通过 IPC 查询到的最新进度；否则用时间估算
+          let progress
+          if (state.currentVideoInfo.lastReportProgress && state.currentVideoInfo.lastReportProgress > 0) {
+            progress = state.currentVideoInfo.lastReportProgress
+            log(`[MPV关闭] 使用最新上报进度: ${formatProgressTime(progress)}`)
+          } else {
+            const elapsedSeconds = Math.floor((Date.now() - state.currentVideoInfo.startTime) / 1000)
+            progress = Math.min(elapsedSeconds, state.currentVideoInfo.duration || 300)
+            log(`[MPV关闭] 使用时间估算进度: ${formatProgressTime(progress)}`)
+          }
+          reportPlayHistory(state.currentVideoInfo.aid, state.currentVideoInfo.cid, progress)
         }
         cleanupMpvSocket()
         state.mpvProcess = null

@@ -1941,6 +1941,28 @@
         }
       }
     }
+
+    // DASH 音画同步定时器，防止长时间播放后音画漂移
+    let dashSyncTimer = null
+    const startDashSyncTimer = () => {
+      stopDashSyncTimer()
+      dashSyncTimer = setInterval(() => {
+        if (currentAudioElement && !videoPlayer.paused && videoPlayer.currentTime > 0) {
+          const timeDiff = Math.abs(currentAudioElement.currentTime - videoPlayer.currentTime)
+          if (timeDiff > 0.5) {
+            console.log(`[DASH同步] 音画偏差${timeDiff.toFixed(2)}秒，修正`)
+            currentAudioElement.currentTime = videoPlayer.currentTime
+          }
+        }
+      }, 5000)
+    }
+    const stopDashSyncTimer = () => {
+      if (dashSyncTimer) {
+        clearInterval(dashSyncTimer)
+        dashSyncTimer = null
+      }
+    }
+
     let danmakuEnabled = localStorage.getItem('showDanmaku') !== 'false'
     let danmakuList = []
     let danmakuIndex = 0
@@ -1976,12 +1998,46 @@
 
     minBtn.addEventListener('click', () => ipcRenderer.invoke('minimize-player-window'))
     maxBtn.addEventListener('click', () => ipcRenderer.invoke('maximize-player-window'))
-    closeBtn.addEventListener('click', () => {
+
+    // 安全关闭：先上报最终播放进度，等待完成后关闭窗口
+    async function safeClosePlayer() {
       const finalProgress = Math.floor(videoPlayer.currentTime)
-      ipcRenderer.invoke('report-final-progress', finalProgress).then(() => {
-        window.close()
-      })
+      try {
+        await ipcRenderer.invoke('report-final-progress', finalProgress)
+      } catch (e) {
+        console.error('上报最终进度失败:', e)
+      }
+      window.close()
+    }
+
+    closeBtn.addEventListener('click', safeClosePlayer)
+
+    // 捕获窗口关闭事件（Alt+F4、任务栏关闭等），确保进度已上报
+    // 在 beforeunload 中使用 send（非阻塞），由主进程在 closed 事件中完成上报
+    window.addEventListener('beforeunload', () => {
+      const finalProgress = Math.floor(videoPlayer.currentTime)
+      try {
+        ipcRenderer.send('beforeunload-progress', finalProgress)
+      } catch (e) {}
     })
+
+    // 定时上报播放进度（每15秒），确保意外崩溃时也能保留最近进度
+    let progressReportTimer = null
+    const startProgressReportTimer = () => {
+      stopProgressReportTimer()
+      progressReportTimer = setInterval(() => {
+        if (!videoPlayer.paused && videoPlayer.currentTime > 0) {
+          const currentProgress = Math.floor(videoPlayer.currentTime)
+          ipcRenderer.invoke('report-play-progress', currentProgress).catch(() => {})
+        }
+      }, 15000)
+    }
+    const stopProgressReportTimer = () => {
+      if (progressReportTimer) {
+        clearInterval(progressReportTimer)
+        progressReportTimer = null
+      }
+    }
 
     // 右键菜单逻辑
     const contextMenu = document.getElementById('contextMenu')
@@ -2567,6 +2623,8 @@
     videoPlayer.addEventListener('pause', () => {
       showControls()
       showCursor()
+      stopProgressReportTimer()
+      stopDashSyncTimer()
       if (hideTimer) {
         clearTimeout(hideTimer)
         hideTimer = null
@@ -2575,6 +2633,8 @@
 
     videoPlayer.addEventListener('play', () => {
       hideControls()
+      startProgressReportTimer()
+      startDashSyncTimer()
       const videoArea = document.querySelector('.video-area')
       if (videoArea) {
         const rect = videoArea.getBoundingClientRect()
@@ -2632,10 +2692,7 @@
 
       if (e.key === 'q' || e.key === 'Q') {
         e.preventDefault()
-        const finalProgress = Math.floor(videoPlayer.currentTime)
-        ipcRenderer.invoke('report-final-progress', finalProgress).then(() => {
-          window.close()
-        })
+        safeClosePlayer()
       }
       if (e.key === 'f' || e.key === 'F' || e.key === 'Enter') {
         ipcRenderer.invoke('toggle-fullscreen')
@@ -3016,6 +3073,7 @@
           currentAudioElement.remove()
           currentAudioElement = null
         }
+        stopDashSyncTimer()
         videoPlayer.removeEventListener('play', dashSyncHandlers.onPlay)
         videoPlayer.removeEventListener('pause', dashSyncHandlers.onPause)
         videoPlayer.removeEventListener('volumechange', dashSyncHandlers.onVolumeChange)

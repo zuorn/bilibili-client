@@ -1,7 +1,7 @@
 // IPC handlers for favorites-related operations
 
 function registerFavoritesHandlers(deps) {
-  const { ipcMain, fetchApi, log } = deps
+  const { ipcMain, fetchApi, log, cookieManager, fetchWbiKeys, getMixKey, signParams } = deps
 
   ipcMain.handle('get-favorites-list', async (event) => {
     log('get-favorites-list called')
@@ -20,7 +20,7 @@ function registerFavoritesHandlers(deps) {
           data: folders.map(item => ({
             id: item.id || '',
             mid: item.mid || '',
-            name: item.name || '',
+            name: item.title || item.name || '',
             cover: item.cover || '',
             media_count: item.media_count || 0,
             attr: item.attr || 0,
@@ -39,6 +39,81 @@ function registerFavoritesHandlers(deps) {
       }
     } catch (error) {
       log('Error getting favorites list:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('get-favorites-created', async (event) => {
+    log('get-favorites-created called')
+    try {
+      const savedCookies = cookieManager.getSavedCookies()
+      const upMid = savedCookies.DedeUserID || ''
+      
+      if (!upMid) {
+        log('User mid not found')
+        return { success: false, error: '用户未登录' }
+      }
+
+      const params = {
+        up_mid: upMid,
+        ps: 200,
+        pn: 1,
+        platform: 'pc',
+        web_location: 'bilibili-electron'
+      }
+
+      const keys = await fetchWbiKeys()
+      if (!keys || !keys.imgKey) {
+        log('WBI keys not available')
+        return { success: false, error: 'WBI签名不可用' }
+      }
+
+      const mixKey = getMixKey(keys.imgKey, keys.subKey)
+      const signed = signParams(params, mixKey)
+
+      const url = `https://api.bilibili.com/x/v3/fav/folder/created/list?up_mid=${upMid}&ps=200&pn=1&platform=pc&web_location=bilibili-electron&w_rid=${signed.w_rid}&wts=${signed.wts}`
+      log('Favorites created API URL:', url)
+      const result = await fetchApi(url)
+      log('Favorites created result code:', result.code)
+
+      if (result.code === 0 && result.data) {
+        let folders = result.data.list || result.data || []
+        log('Favorites created folders count:', folders.length)
+        if (folders.length > 0) {
+          log('Favorites created first folder:', JSON.stringify(folders[0]))
+        }
+
+        folders = folders.filter(item => {
+          const fid = item.fid || item.id || 0
+          const title = item.title || item.name || ''
+          return fid !== 0 && fid !== '0' && title !== '默认收藏夹'
+        })
+        log('Favorites created after filter count:', folders.length)
+
+        return {
+          success: true,
+          data: folders.map(item => ({
+            id: item.id || '',
+            mid: item.mid || '',
+            name: item.title || item.name || '',
+            cover: item.cover || '',
+            media_count: item.media_count || 0,
+            attr: item.attr || 0,
+            fid: item.fid || '',
+            type: item.type || 0,
+            upper: item.upper || null,
+            ctime: item.ctime || 0,
+            mtime: item.mtime || 0
+          })),
+          hasMore: result.data.has_more || false,
+          total: result.data.total || folders.length
+        }
+      } else {
+        log('Favorites created API error:', result.message || 'Unknown error')
+        return { success: false, error: result.message || '获取我创建的收藏夹失败' }
+      }
+    } catch (error) {
+      log('Error getting favorites created:', error.message)
       return { success: false, error: error.message }
     }
   })
@@ -113,7 +188,7 @@ function registerFavoritesHandlers(deps) {
           data: list.map(item => ({
             id: item.id || '',
             mid: item.mid || '',
-            name: item.name || '',
+            name: item.title || item.name || '',
             cover: item.cover || '',
             media_count: item.media_count || 0,
             attr: item.attr || 0,
@@ -134,6 +209,69 @@ function registerFavoritesHandlers(deps) {
       }
     } catch (error) {
       log('Error getting favorites collected:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('get-favorites-collected-detail', async (event, seasonId = '', pageNum = 1, pageSize = 36) => {
+    log('get-favorites-collected-detail called, seasonId:', seasonId, 'pageNum:', pageNum, 'pageSize:', pageSize)
+    try {
+      const params = {
+        season_id: seasonId,
+        ps: pageSize,
+        pn: pageNum,
+        platform: 'web',
+        web_location: 'bilibili-electron'
+      }
+
+      const keys = await fetchWbiKeys()
+      if (!keys || !keys.imgKey) {
+        log('WBI keys not available')
+        return { success: false, error: 'WBI签名不可用' }
+      }
+
+      const mixKey = getMixKey(keys.imgKey, keys.subKey)
+      const signed = signParams(params, mixKey)
+
+      const url = `https://api.bilibili.com/x/space/fav/season/list?season_id=${seasonId}&ps=${pageSize}&pn=${pageNum}&platform=web&web_location=bilibili-electron&w_rid=${signed.w_rid}&wts=${signed.wts}`
+      log('Favorites collected detail API URL:', url)
+      const result = await fetchApi(url)
+      log('Favorites collected detail result code:', result.code)
+
+      if (result.code === 0 && result.data) {
+        const medias = result.data.medias || result.data.archives || result.data.list || []
+        log('Favorites collected detail medias count:', medias.length)
+
+        if (medias.length > 0) {
+          log('First media title:', medias[0].title)
+          log('First media bvid:', medias[0].bvid || medias[0].bv_id)
+        }
+
+        return {
+          success: true,
+          data: medias.map(item => ({
+            bvid: item.bvid || item.bv_id || '',
+            title: item.title || '',
+            pic: item.cover || item.pic || '',
+            duration: item.duration || 0,
+            upper: item.upper || null,
+            cnt_info: item.cnt_info || null,
+            page: item.page || 1,
+            intro: item.intro || '',
+            ctime: item.ctime || 0,
+            pubtime: item.pubtime || 0,
+            media_id: item.id || seasonId
+          })),
+          hasMore: result.data.has_more || false,
+          nextPage: result.data.has_more ? pageNum + 1 : null,
+          seasonInfo: result.data.info || result.data.season || null
+        }
+      } else {
+        log('Favorites collected detail API error:', result.message || 'Unknown error')
+        return { success: false, error: result.message || '获取收藏合集详情失败' }
+      }
+    } catch (error) {
+      log('Error getting favorites collected detail:', error.message)
       return { success: false, error: error.message }
     }
   })

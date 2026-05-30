@@ -1,39 +1,110 @@
 async function checkLoginStatus() {
+  const result = await fetchUserInfoWithRetry()
+
+  if (result && result.success && result.data) {
+    currentUser = result.data
+    console.log('Current user:', currentUser)
+    console.log('isLogin value:', currentUser.isLogin, 'type:', typeof currentUser.isLogin)
+    console.log('mid value:', currentUser.mid, 'type:', typeof currentUser.mid)
+
+    updateUserAvatar(currentUser)
+    updateMyPageUI(currentUser)
+    updateSettingsAvatar()
+    updateSettingsUserName()
+
+    const isLoggedIn = currentUser.isLogin === true || currentUser.isLogin === 1 || currentUser.mid > 0
+    console.log('isLoggedIn:', isLoggedIn)
+
+    if (!isLoggedIn) {
+      console.log('用户未登录，打开登录窗口')
+      setTimeout(() => {
+        openLoginModal()
+      }, 500)
+    }
+    return
+  }
+
+  // API 失败，用本地 cookie 判断登录状态
+  const hasCookies = await checkLoginFromCookies()
+  if (hasCookies) {
+    console.log('API 不可达，但本地存在登录 cookie，假定已登录')
+    currentUser = { isLogin: true, uname: '', face: '', mid: 0, level: 0, coins: 0, bCoins: 0 }
+    updateSettingsAvatar()
+    updateSettingsUserName()
+    updateMyPageUI(currentUser)
+    scheduleRecheck()
+  }
+}
+
+async function checkLoginFromCookies() {
+  try {
+    const result = await ipcRenderer.invoke('get-cookies')
+    if (result.success && result.cookies) {
+      const hasSESSDATA = !!(result.cookies.SESSDATA && result.cookies.SESSDATA.length > 0)
+      const hasDedeUserID = !!(result.cookies.DedeUserID && result.cookies.DedeUserID.length > 0)
+      console.log('Cookie check - SESSDATA:', hasSESSDATA, 'DedeUserID:', hasDedeUserID)
+      return hasSESSDATA || hasDedeUserID
+    }
+  } catch (e) {
+    console.error('Cookie check failed:', e)
+  }
+  return false
+}
+
+function scheduleRecheck() {
+  setTimeout(async () => {
+    console.log('延迟重新检查登录状态...')
+    const result = await fetchUserInfoWithRetry()
+    if (result && result.success && result.data) {
+      currentUser = result.data
+      updateUserAvatar(currentUser)
+      updateMyPageUI(currentUser)
+      updateSettingsAvatar()
+      updateSettingsUserName()
+      console.log('延迟重检成功，用户信息已更新')
+    }
+  }, 10000)
+}
+
+async function fetchUserInfoWithRetry() {
   try {
     const result = await ipcRenderer.invoke('get-user-info')
     console.log('checkLoginStatus result:', result)
 
     if (result.success && result.data) {
-      currentUser = result.data
-      console.log('Current user:', currentUser)
-      console.log('isLogin value:', currentUser.isLogin, 'type:', typeof currentUser.isLogin)
-      console.log('mid value:', currentUser.mid, 'type:', typeof currentUser.mid)
-
-      updateUserAvatar(currentUser)
-      updateMyPageUI(currentUser)
-      updateSettingsAvatar()
-      updateSettingsUserName()
-
-      const isLoggedIn = currentUser.isLogin === true || currentUser.isLogin === 1 || currentUser.mid > 0
-      console.log('isLoggedIn:', isLoggedIn)
-
-      if (!isLoggedIn) {
-        console.log('用户未登录，打开登录窗口')
-        setTimeout(() => {
-          openLoginModal()
-        }, 500)
-      }
-    } else if (!result.success) {
-      console.log('获取用户信息失败，尝试打开登录窗口:', result.error)
-      setTimeout(() => {
-        openLoginModal()
-      }, 500)
+      return result
     }
+
+    console.log('首次获取用户信息失败，2秒后重试:', result.error)
+    await new Promise(r => setTimeout(r, 2000))
+
+    const retryResult = await ipcRenderer.invoke('get-user-info')
+    console.log('checkLoginStatus retry result:', retryResult)
+
+    if (retryResult.success && retryResult.data) {
+      return retryResult
+    }
+
+    console.log('重试获取用户信息仍然失败:', retryResult.error)
+    return null
   } catch (error) {
-    console.error('检查登录状态失败:', error)
-    setTimeout(() => {
-      openLoginModal()
-    }, 500)
+    console.log('首次获取用户信息异常，2秒后重试:', error)
+    await new Promise(r => setTimeout(r, 2000))
+
+    try {
+      const retryResult = await ipcRenderer.invoke('get-user-info')
+      console.log('checkLoginStatus retry result:', retryResult)
+
+      if (retryResult.success && retryResult.data) {
+        return retryResult
+      }
+
+      console.log('重试获取用户信息仍然失败:', retryResult.error)
+      return null
+    } catch (retryError) {
+      console.error('重试获取用户信息仍然异常:', retryError)
+      return null
+    }
   }
 }
 

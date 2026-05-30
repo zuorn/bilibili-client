@@ -299,11 +299,20 @@ function registerHistoryHandlers(deps) {
     }
   })
 
+  // 渲染进程窗口即将关闭（beforeunload）时同步发送的进度
+  ipcMain.on('beforeunload-progress', (event, progress) => {
+    log(`[播放器即将关闭] 收到beforeunload进度: ${formatProgressTime(progress)} (${Math.floor(progress)}秒)`)
+    if (deps.state && deps.state.currentVideoInfo) {
+      deps.state.currentVideoInfo.lastReportProgress = progress
+    }
+  })
+
   ipcMain.handle('report-final-progress', async (event, progress) => {
     const formattedProgress = formatProgressTime(progress)
     log(`[播放器关闭] 收到最终播放进度: ${formattedProgress} (${Math.floor(progress)}秒)`)
     if (deps.state && deps.state.currentVideoInfo && deps.state.currentVideoInfo.aid && deps.state.currentVideoInfo.cid) {
       deps.state.currentVideoInfo.lastReportProgress = progress
+      deps.state.currentVideoInfo.finalProgressReported = true
       await reportPlayHistory(deps.state.currentVideoInfo.aid, deps.state.currentVideoInfo.cid, progress)
     }
   })

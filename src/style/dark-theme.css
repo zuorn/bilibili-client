@@ -428,7 +428,12 @@ body.dark-theme .my-tabs {
 }
 
 body.dark-theme .my-tab:hover {
-  background-color: #333;
+  color: #fb7299;
+}
+
+body.dark-theme .my-tab:hover span,
+body.dark-theme .my-tab:hover svg {
+  color: #fb7299;
 }
 
 body.dark-theme .my-tab span {
@@ -437,6 +442,11 @@ body.dark-theme .my-tab span {
 
 body.dark-theme .my-tab svg {
   color: #808080;
+}
+
+body.dark-theme .my-tab.active span,
+body.dark-theme .my-tab.active svg {
+  color: #fb7299;
 }
 
 body.dark-theme .no-login-area {
@@ -911,4 +921,64 @@ body.dark-theme .dropdown-item:hover {
 
 body.dark-theme .delete-history-btn:hover {
   background-color: #3a2a30;
+}
+
+body.dark-theme .favorites-sub-tabs {
+  background-color: #2a2a2a;
+}
+
+body.dark-theme .favorites-sub-tab {
+  color: #808080;
+}
+
+body.dark-theme .favorites-sub-tab:hover {
+  color: #ff9eb7;
+}
+
+body.dark-theme .favorites-sub-tab.active {
+  color: #ff9eb7;
+}
+
+body.dark-theme .favorites-sub-content {
+  background-color: #2a2a2a;
+}
+
+body.dark-theme .collections-series-card {
+  background-color: #333;
+}
+
+body.dark-theme .collections-series-title {
+  color: #e0e0e0;
+}
+
+body.dark-theme .collections-series-date {
+  color: #808080;
+}
+
+body.dark-theme .history-search-box {
+  background-color: #333;
+}
+
+body.dark-theme .history-search-input {
+  color: #e0e0e0;
+}
+
+body.dark-theme .history-search-input::placeholder {
+  color: #666;
+}
+
+body.dark-theme .history-search-btn {
+  color: #808080;
+}
+
+body.dark-theme .history-search-btn:hover {
+  color: #e0e0e0;
+}
+
+body.dark-theme .search-clear-btn {
+  color: #666;
+}
+
+body.dark-theme .search-clear-btn:hover {
+  color: #999;
 }

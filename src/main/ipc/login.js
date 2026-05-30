@@ -241,14 +241,8 @@ function registerLoginHandlers(deps) {
             log('请求 crossDomain 触发 Set-Cookie 失败:', e.message)
           }
 
-          // 保存关键登录凭证，防止被 exportCookiesFromSession 中的旧 session 值覆盖
-          const criticalKeys = ['SESSDATA', 'bili_jct', 'DedeUserID', 'DedeUserID__ckMd5']
-          const criticalValues = {}
-          for (const key of criticalKeys) {
-            if (savedCookies[key]) {
-              criticalValues[key] = savedCookies[key]
-            }
-          }
+          // 保存当前所有 cookie（包括 crossDomain 请求下发的 sec_ck 等），防止被 exportCookiesFromSession 中的旧 session 值覆盖
+          const preExportCookies = { ...savedCookies }
 
           // 从 session 中导出 cookies
           try {
@@ -256,8 +250,8 @@ function registerLoginHandlers(deps) {
             await cookieManager.exportCookiesFromSession(deps.mainWindow.webContents.session)
             savedCookies = cookieManager.getSavedCookies()
 
-            // 用登录 URL 中提取的凭证覆盖旧的 session 值
-            Object.assign(savedCookies, criticalValues)
+            // 用登录流程中获取的 cookie 覆盖旧的 session 值（preExportCookies 包含 URL 参数 + crossDomain Set-Cookie）
+            Object.assign(savedCookies, preExportCookies)
 
             log('从 session 导出并合并 cookies 完成')
           } catch (e) {

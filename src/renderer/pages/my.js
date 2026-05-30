@@ -543,34 +543,60 @@ async function loadFavoritesDefault(append = false) {
 
 async function loadFavoritesCreated() {
   try {
-    const result = await ipcRenderer.invoke('get-favorites-list')
+    const result = await ipcRenderer.invoke('get-favorites-created')
     if (result.success && result.data) {
       const container = document.getElementById('favoritesCreatedList')
       if (!container) return
-      
-      const createdFavorites = result.data.filter(fav => fav.attr === 0)
-      
+
+      const createdFavorites = result.data
+
+      const formatDate = (timestamp) => {
+        if (!timestamp) return ''
+        const date = new Date(timestamp * 1000)
+        const year = date.getFullYear()
+        const month = String(date.getMonth() + 1).padStart(2, '0')
+        const day = String(date.getDate()).padStart(2, '0')
+        return `${year}-${month}-${day}`
+      }
+
       if (createdFavorites.length > 0) {
         container.innerHTML = `
-          <div class="favorites-grid">
-            ${createdFavorites.map(fav => `
-              <div class="favorites-item" data-media-id="${fav.id}">
-                <div class="favorites-item-cover">
-                  <img src="${optimizeCoverUrl(fav.cover || '', 672, 378)}" alt="${fav.name}">
-                  <span class="favorites-item-count">${fav.media_count}个视频</span>
+          <div class="collections-series-grid">
+            ${createdFavorites.map(fav => {
+              const privacy = fav.attr === 0 ? '公开' : '私密'
+              const dateStr = formatDate(fav.ctime)
+              return `
+                <div class="collections-series-card" data-media-id="${fav.id}">
+                  <div class="collections-series-cover">
+                    <img src="${optimizeCoverUrl(fav.cover || '', 672, 378)}" alt="${fav.name}">
+                    <div class="collections-series-stack">
+                      <div class="collections-series-stack-item"></div>
+                      <div class="collections-series-stack-item"></div>
+                      <div class="collections-series-stack-item"></div>
+                    </div>
+                    <div class="collections-series-meta" style="position: absolute; bottom: 8px; left: 8px; display: flex; align-items: center; gap: 4px; color: #fff; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">
+                      <span>${fav.media_count}个内容</span>
+                      <span>·</span>
+                      <span>${privacy}</span>
+                    </div>
+                  </div>
+                  <div class="collections-series-info">
+                    <h3 class="collections-series-title">${fav.name}</h3>
+                    ${dateStr ? `<p class="collections-series-date" style="font-size: 12px; color: #999; margin-top: 4px;">创建于${dateStr}</p>` : ''}
+                  </div>
                 </div>
-                <div class="favorites-item-info">
-                  <h3 class="favorites-item-name">${fav.name}</h3>
-                </div>
-              </div>
-            `).join('')}
+              `
+            }).join('')}
           </div>
         `
-        
-        document.querySelectorAll('.favorites-item').forEach(item => {
+
+        container.querySelectorAll('.collections-series-card').forEach(item => {
           item.addEventListener('click', () => {
             const mediaId = item.dataset.mediaId
-            loadFavoritesByMediaId(mediaId)
+            const title = item.querySelector('.collections-series-title')?.textContent || ''
+            const cover = item.querySelector('.collections-series-cover img')?.src || ''
+            const count = parseInt(item.querySelector('.collections-series-badge span')?.textContent || '0')
+            showFavoritesDetail(mediaId, title, cover, count)
           })
         })
       } else {
@@ -658,13 +684,15 @@ function renderFavoritesCollectionItems(favorites, container) {
               <div class="collections-series-stack-item"></div>
               <div class="collections-series-stack-item"></div>
             </div>
-            <div class="collections-series-badge">
-              <span>${fav.media_count}</span>
+            <div class="collections-series-meta" style="position: absolute; bottom: 8px; left: 8px; display: flex; align-items: center; gap: 4px; color: #fff; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">
+              <span>${fav.media_count}个内容</span>
+              <span>·</span>
+              <span>${fav.attr === 0 ? '公开' : '私密'}</span>
             </div>
           </div>
           <div class="collections-series-info">
             <h3 class="collections-series-title">${fav.name}</h3>
-            ${fav.upper ? `<p class="collections-series-time">UP主: ${fav.upper.name || '未知'}</p>` : ''}
+            ${fav.upper ? `<p class="collections-series-date" style="font-size: 12px; color: #999; margin-top: 4px;">${fav.upper.name || '未知'}</p>` : ''}
           </div>
         </div>
       `).join('')}
@@ -688,13 +716,15 @@ function appendFavoritesCollectionItems(favorites, container) {
           <div class="collections-series-stack-item"></div>
           <div class="collections-series-stack-item"></div>
         </div>
-        <div class="collections-series-badge">
-          <span>${fav.media_count}</span>
+        <div class="collections-series-meta" style="position: absolute; bottom: 8px; left: 8px; display: flex; align-items: center; gap: 4px; color: #fff; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">
+          <span>${fav.media_count}个内容</span>
+          <span>·</span>
+          <span>${fav.attr === 0 ? '公开' : '私密'}</span>
         </div>
       </div>
       <div class="collections-series-info">
         <h3 class="collections-series-title">${fav.name}</h3>
-        ${fav.upper ? `<p class="collections-series-time">UP主: ${fav.upper.name || '未知'}</p>` : ''}
+        ${fav.upper ? `<p class="collections-series-date" style="font-size: 12px; color: #999; margin-top: 4px;">${fav.upper.name || '未知'}</p>` : ''}
       </div>
     </div>
   `).join('')
@@ -706,17 +736,247 @@ function attachFavoritesCollectionListeners() {
   document.querySelectorAll('#favoritesCollectionsGrid .collections-series-card').forEach(item => {
     item.addEventListener('click', () => {
       const mediaId = item.dataset.mediaId
-      loadFavoritesByMediaId(mediaId)
+      const title = item.querySelector('.collections-series-title')?.textContent || ''
+      const cover = item.querySelector('.collections-series-cover img')?.src || ''
+      const metaText = item.querySelector('.collections-series-meta')?.textContent || ''
+      const countMatch = metaText.match(/(\d+)个内容/)
+      const totalCount = countMatch ? parseInt(countMatch[1]) : 0
+      showFavoritesCollectionDetail(mediaId, title, cover, totalCount)
     })
   })
 }
 
-async function loadFavoritesByMediaId(mediaId) {
-  const container = document.getElementById('favoritesDefaultGrid')
+let hiddenElementsForFavoritesDetail = []
+let hiddenElementsForCollectionsDetail = []
+
+function showFavoritesCollectionDetail(mediaId, title, cover, totalCount) {
+  const favoritesCollectionsGrid = document.getElementById('favoritesCollectionsGrid')
+  const favoritesCollectionsContent = document.getElementById('favorites-collections-content')
+  const favoritesSubTabs = document.querySelector('.favorites-sub-tabs')
+  const favoritesDefaultContent = document.getElementById('favorites-default-content')
+  const favoritesCreatedContent = document.getElementById('favorites-created-content')
+  const myHeader = document.querySelector('.my-header')
+  const myTabs = document.querySelector('.my-tabs')
+
+  hiddenElementsForCollectionsDetail = []
+
+  if (myHeader) {
+    hiddenElementsForCollectionsDetail.push({
+      element: myHeader,
+      display: myHeader.style.display
+    })
+    myHeader.style.display = 'none'
+  }
+
+  if (myTabs) {
+    hiddenElementsForCollectionsDetail.push({
+      element: myTabs,
+      display: myTabs.style.display
+    })
+    myTabs.style.display = 'none'
+  }
+
+  if (favoritesSubTabs) {
+    hiddenElementsForCollectionsDetail.push({
+      element: favoritesSubTabs,
+      display: favoritesSubTabs.style.display
+    })
+    favoritesSubTabs.style.display = 'none'
+  }
+
+  if (favoritesDefaultContent) {
+    hiddenElementsForCollectionsDetail.push({
+      element: favoritesDefaultContent,
+      display: favoritesDefaultContent.style.display
+    })
+    favoritesDefaultContent.style.display = 'none'
+  }
+
+  if (favoritesCreatedContent) {
+    hiddenElementsForCollectionsDetail.push({
+      element: favoritesCreatedContent,
+      display: favoritesCreatedContent.style.display
+    })
+    favoritesCreatedContent.style.display = 'none'
+  }
+
+  if (favoritesCollectionsContent) favoritesCollectionsContent.style.display = 'block'
+
+  if (favoritesCollectionsGrid) {
+    favoritesCollectionsGrid.classList.add('season-detail-mode')
+    favoritesCollectionsGrid.innerHTML = `
+      <div class="season-detail-header">
+        <div class="season-detail-card">
+          <div class="season-detail-cover">
+            <img src="${cover}" alt="${title}">
+          </div>
+          <div class="season-detail-info">
+            <h2 class="season-detail-title">${title}</h2>
+            <p class="season-detail-meta">收藏夹 · ${totalCount}个视频</p>
+            <button class="play-all-btn" onclick="playFavoritesCollectionAll(${mediaId})">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              播放全部
+            </button>
+          </div>
+        </div>
+      </div>
+      <div id="favoritesCollectionDetailList" class="video-grid"></div>
+      <div class="loading-more" id="favoritesCollectionDetailLoadingMore" style="display: none;">
+        <span>加载中...</span>
+      </div>
+      <div id="favoritesCollectionDetailNoMore" class="no-more" style="display: none;">
+        <span>没有更多了</span>
+      </div>
+    `
+  }
+
+  loadFavoritesCollectionDetailVideos(mediaId)
+}
+
+function showFavoritesDetail(mediaId, title, cover, totalCount) {
+  const favoritesCreatedList = document.getElementById('favoritesCreatedList')
+  const favoritesCreatedContent = document.getElementById('favorites-created-content')
+  const favoritesSubTabs = document.querySelector('.favorites-sub-tabs')
+  const favoritesDefaultContent = document.getElementById('favorites-default-content')
+  const favoritesCollectionsContent = document.getElementById('favorites-collections-content')
+  const myHeader = document.querySelector('.my-header')
+  const myTabs = document.querySelector('.my-tabs')
+  
+  hiddenElementsForFavoritesDetail = []
+  
+  if (myHeader) {
+    hiddenElementsForFavoritesDetail.push({
+      element: myHeader,
+      display: myHeader.style.display
+    })
+    myHeader.style.display = 'none'
+  }
+  
+  if (myTabs) {
+    hiddenElementsForFavoritesDetail.push({
+      element: myTabs,
+      display: myTabs.style.display
+    })
+    myTabs.style.display = 'none'
+  }
+  
+  if (favoritesSubTabs) {
+    hiddenElementsForFavoritesDetail.push({
+      element: favoritesSubTabs,
+      display: favoritesSubTabs.style.display
+    })
+    favoritesSubTabs.style.display = 'none'
+  }
+  
+  if (favoritesDefaultContent) {
+    hiddenElementsForFavoritesDetail.push({
+      element: favoritesDefaultContent,
+      display: favoritesDefaultContent.style.display
+    })
+    favoritesDefaultContent.style.display = 'none'
+  }
+  
+  if (favoritesCollectionsContent) {
+    hiddenElementsForFavoritesDetail.push({
+      element: favoritesCollectionsContent,
+      display: favoritesCollectionsContent.style.display
+    })
+    favoritesCollectionsContent.style.display = 'none'
+  }
+  
+  if (favoritesCreatedContent) favoritesCreatedContent.style.display = 'block'
+
+  if (favoritesCreatedList) {
+    favoritesCreatedList.classList.add('season-detail-mode')
+    favoritesCreatedList.innerHTML = `
+      <div class="season-detail-header">
+        <div class="season-detail-card">
+          <div class="season-detail-cover">
+            <img src="${cover}" alt="${title}">
+          </div>
+          <div class="season-detail-info">
+            <h2 class="season-detail-title">${title}</h2>
+            <p class="season-detail-meta">收藏夹 · ${totalCount}个视频</p>
+            <button class="play-all-btn" onclick="playFavoritesAll(${mediaId})">
+              <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+                <polygon points="5 3 19 12 5 21 5 3"/>
+              </svg>
+              播放全部
+            </button>
+          </div>
+        </div>
+      </div>
+      <div id="favoritesDetailList" class="video-grid"></div>
+      <div class="loading-more" id="favoritesDetailLoadingMore" style="display: none;">
+        <span>加载中...</span>
+      </div>
+      <div id="favoritesDetailNoMore" class="no-more" style="display: none;">
+        <span>没有更多了</span>
+      </div>
+    `
+  }
+
+  loadFavoritesDetailVideos(mediaId)
+}
+
+function backToFavoritesCreated() {
+  const favoritesCreatedList = document.getElementById('favoritesCreatedList')
+  if (favoritesCreatedList) {
+    favoritesCreatedList.classList.remove('season-detail-mode')
+  }
+  
+  hiddenElementsForFavoritesDetail.forEach(item => {
+    item.element.style.display = item.display
+  })
+  hiddenElementsForFavoritesDetail = []
+  
+  document.querySelectorAll('.favorites-sub-content').forEach(c => c.style.display = 'none')
+  const favoritesCreatedContent = document.getElementById('favorites-created-content')
+  if (favoritesCreatedContent) favoritesCreatedContent.style.display = 'block'
+  
+  document.querySelectorAll('.favorites-sub-tab').forEach(t => t.classList.remove('active'))
+  document.querySelector('.favorites-sub-tab[data-subtab="created"]')?.classList.add('active')
+  
+  loadFavoritesCreated()
+}
+
+function backToFavoritesCollections() {
+  const favoritesCollectionsGrid = document.getElementById('favoritesCollectionsGrid')
+  if (favoritesCollectionsGrid) {
+    favoritesCollectionsGrid.classList.remove('season-detail-mode')
+  }
+
+  hiddenElementsForCollectionsDetail.forEach(item => {
+    item.element.style.display = item.display
+  })
+  hiddenElementsForCollectionsDetail = []
+
+  document.querySelectorAll('.favorites-sub-content').forEach(c => c.style.display = 'none')
+  const favoritesCollectionsContent = document.getElementById('favorites-collections-content')
+  if (favoritesCollectionsContent) favoritesCollectionsContent.style.display = 'block'
+
+  document.querySelectorAll('.favorites-sub-tab').forEach(t => t.classList.remove('active'))
+  document.querySelector('.favorites-sub-tab[data-subtab="collections"]')?.classList.add('active')
+
+  loadFavoritesCollections()
+}
+
+function playFavoritesAll(mediaId) {
+  loadFavoritesDetailVideos(mediaId, 1, 36, true)
+}
+
+function playFavoritesCollectionAll(mediaId) {
+  loadFavoritesCollectionDetailVideos(mediaId, 1, 36, true)
+}
+
+async function loadFavoritesDetailVideos(mediaId, pageNum = 1, pageSize = 36, playAll = false) {
+  const container = document.getElementById('favoritesDetailList')
   if (!container) return
   
   try {
-    const result = await ipcRenderer.invoke('get-favorites', mediaId, 1, 36)
+    const result = await ipcRenderer.invoke('get-favorites', mediaId, pageNum, pageSize)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
         bvid: item.bvid || '',
@@ -729,13 +989,51 @@ async function loadFavoritesByMediaId(mediaId) {
       }))
       
       if (videos.length > 0) {
-        renderVideos(videos, 'favoritesDefaultGrid', navigateToUP)
-      } else {
-        showEmptyMessage('favoritesDefaultGrid', '该收藏夹暂无内容')
+        if (pageNum === 1) {
+          renderVideos(videos, 'favoritesDetailList', navigateToUP)
+        } else {
+          appendVideos(videos, 'favoritesDetailList', navigateToUP)
+        }
+      } else if (pageNum === 1) {
+        showEmptyMessage('favoritesDetailList', '该收藏夹暂无内容')
       }
     }
   } catch (error) {
     console.error('加载收藏夹内容失败:', error)
-    showEmptyMessage('favoritesDefaultGrid', '加载失败')
+    showEmptyMessage('favoritesDetailList', '加载失败')
   }
 }
+
+async function loadFavoritesCollectionDetailVideos(seasonId, pageNum = 1, pageSize = 36, playAll = false) {
+  const container = document.getElementById('favoritesCollectionDetailList')
+  if (!container) return
+
+  try {
+    const result = await ipcRenderer.invoke('get-favorites-collected-detail', seasonId, pageNum, pageSize)
+    if (result.success && result.data) {
+      const videos = result.data.map(item => ({
+        bvid: item.bvid || '',
+        title: (item.title || '').replace(/<[^>]+>/g, ''),
+        pic: optimizeCoverUrl(item.pic || '', 672, 378),
+        play: formatPlayCount(item.cnt_info?.play || item.play || 0),
+        duration: formatDuration(item.duration || 0),
+        author: item.upper?.name || item.author || '未知UP主',
+        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' }
+      }))
+
+      if (videos.length > 0) {
+        if (pageNum === 1) {
+          renderVideos(videos, 'favoritesCollectionDetailList', navigateToUP)
+        } else {
+          appendVideos(videos, 'favoritesCollectionDetailList', navigateToUP)
+        }
+      } else if (pageNum === 1) {
+        showEmptyMessage('favoritesCollectionDetailList', '该收藏夹暂无内容')
+      }
+    }
+  } catch (error) {
+    console.error('加载收藏合集内容失败:', error)
+    showEmptyMessage('favoritesCollectionDetailList', '加载失败')
+  }
+}
+
