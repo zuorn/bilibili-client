@@ -129,11 +129,13 @@ function registerHistoryHandlers(deps) {
             }
 
             // kid 可能在顶层 item.kid，也可能是 history.oid 或其他位置
-            let kid = (item.kid != null && item.kid !== '') ? item.kid : (item.history?.oid ?? '')
-            log('Mapped item kid:', kid, 'bvid:', bvid, 'title:', item.title?.substring(0, 20))
+            let kid = (item.kid != null && item.kid !== '') ? String(item.kid) : (item.history?.oid ? String(item.history.oid) : '')
+            let business = item.history?.business || 'archive'
+            log('Mapped item kid:', kid, 'business:', business, 'bvid:', bvid, 'title:', item.title?.substring(0, 20))
 
             return {
               kid: kid,
+              business: business,
               oid: item.history?.oid ?? '',
               bvid: bvid,
               title: item.title || item.long_title || '',
@@ -165,11 +167,27 @@ function registerHistoryHandlers(deps) {
   })
 
   ipcMain.handle('delete-history', async (event, params) => {
-    const { oid, bvid } = params
-    log('delete-history called, oid:', oid, 'bvid:', bvid)
+    const { kid, business, oid, bvid } = params
+    log('delete-history called, kid:', kid, 'business:', business, 'oid:', oid, 'bvid:', bvid)
     try {
-      if (!bvid) {
-        return { success: false, error: '缺少视频BV号' }
+      // 构造 finalKid：
+      // B站删除接口要求 kid 格式为 {business}_{id}，如 archive_540580868
+      // 如果传入的 kid 已包含下划线（已是正确格式），直接使用；否则用 business 拼接
+      let finalKid = ''
+      if (kid) {
+        if (String(kid).includes('_')) {
+          finalKid = String(kid)
+        } else {
+          const prefix = business || 'archive'
+          finalKid = `${prefix}_${kid}`
+        }
+      } else if (oid) {
+        const prefix = business || 'archive'
+        finalKid = `${prefix}_${oid}`
+      }
+      log('Constructed finalKid:', finalKid)
+      if (!finalKid) {
+        return { success: false, error: '缺少历史记录标识，无法删除' }
       }
 
       const savedCookies = cookieManager.getSavedCookies()
@@ -180,10 +198,8 @@ function registerHistoryHandlers(deps) {
 
       return new Promise((resolve) => {
         const postData = new URLSearchParams({ 
-          oid: oid || bvid.replace('BV', ''), 
-          bvid, 
-          csrf, 
-          csrf_token: csrf 
+          kid: finalKid, 
+          csrf
         })
         const data = postData.toString()
         const path = '/x/v2/history/delete'

@@ -82,7 +82,7 @@ function createHistoryCard(video, onAuthorClick, options = {}) {
     e.stopPropagation()
     dropdown.style.display = 'none'
 
-    const result = await ipcRenderer.invoke('delete-history', { oid: video.oid, bvid: video.bvid })
+    const result = await ipcRenderer.invoke('delete-history', { kid: video.kid, business: video.business, oid: video.oid, bvid: video.bvid })
     if (result.success) {
       card.remove()
       const historyGrid = document.getElementById('historyGrid')
@@ -140,6 +140,7 @@ async function loadHistory(append = false) {
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
         kid: item.kid || '',
+        business: item.business || 'archive',
         bvid: item.bvid || '',
         cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
