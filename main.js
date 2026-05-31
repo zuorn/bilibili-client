@@ -106,7 +106,7 @@ function registerAllHandlers() {
 
   // 播放器相关处理器
   registerPlayerHandlers({
-    ipcMain, log, fetchApi, app, screen, dialog,
+    ipcMain, log, fetchApi, fetchApiPost, app, screen, dialog,
     state: sharedState,
     getDanmakuXml, xml2ass, formatProgressTime, reportPlayHistory,
     openBuiltinPlayer,

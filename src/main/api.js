@@ -361,7 +361,11 @@ function fetchApiPost(url, bodyParams) {
       'Accept-Encoding': 'gzip, deflate, br',
       'Origin': 'https://www.bilibili.com',
       'Content-Type': 'application/x-www-form-urlencoded',
-      'Content-Length': Buffer.byteLength(body)
+      'Content-Length': Buffer.byteLength(body),
+      'Connection': 'keep-alive',
+      'Cache-Control': 'no-cache',
+      'Pragma': 'no-cache',
+      'TE': 'Trailers'
     }
 
     const savedCookies = cookieManager.getSavedCookies()

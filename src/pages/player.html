@@ -188,6 +188,28 @@
     @keyframes fadeInUp {
       from {
         opacity: 0;
+        transform: translateY(20px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    @keyframes fadeOutDown {
+      from {
+        opacity: 1;
+        transform: translateY(0);
+      }
+      to {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+    }
+
+    @keyframes toastFadeInUp {
+      from {
+        opacity: 0;
         transform: translateX(-50%) translateY(20px);
       }
       to {
@@ -196,7 +218,7 @@
       }
     }
 
-    @keyframes fadeOutDown {
+    @keyframes toastFadeOutDown {
       from {
         opacity: 1;
         transform: translateX(-50%) translateY(0);
@@ -842,6 +864,10 @@
       color: #fb7299;
     }
 
+    .action-btn.like.liked {
+      color: #fb7299;
+    }
+
     .action-btn.collect:hover {
       color: #ff9f1c;
     }
@@ -1318,6 +1344,207 @@
       font-size: 13px;
     }
 
+    /* Favorites modal */
+    .favorites-modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(4px);
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .favorites-modal-overlay.show {
+      display: flex;
+    }
+
+    .favorites-modal {
+      background: rgba(30, 30, 30, 0.95);
+      border-radius: 12px;
+      width: 400px;
+      max-width: 90vw;
+      overflow: hidden;
+      animation: fadeInUp 0.2s ease;
+    }
+
+    .favorites-modal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .favorites-modal-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: #fff;
+    }
+
+    .favorites-modal-close {
+      width: 28px;
+      height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: #999;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: all 0.2s;
+      font-size: 20px;
+      line-height: 1;
+    }
+
+    .favorites-modal-close:hover {
+      background: rgba(255, 255, 255, 0.1);
+      color: #fff;
+    }
+
+    .favorites-modal-body {
+      padding: 16px;
+      max-height: 360px;
+      overflow-y: auto;
+    }
+
+    .favorites-modal-body::-webkit-scrollbar {
+      width: 4px;
+    }
+
+    .favorites-modal-body::-webkit-scrollbar-thumb {
+      background: rgba(255, 255, 255, 0.15);
+      border-radius: 2px;
+    }
+
+    .favorite-folder-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+      user-select: none;
+    }
+
+    .favorite-folder-item:hover {
+      background: rgba(255, 255, 255, 0.06);
+    }
+
+    .favorite-folder-item.selected {
+      background: rgba(0, 161, 214, 0.15);
+    }
+
+    .favorite-folder-radio {
+      width: 18px;
+      height: 18px;
+      border: 2px solid rgba(255, 255, 255, 0.3);
+      border-radius: 50%;
+      position: relative;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+
+    .favorite-folder-item.selected .favorite-folder-radio {
+      border-color: #00a1d6;
+    }
+
+    .favorite-folder-radio::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 8px;
+      height: 8px;
+      background: #00a1d6;
+      border-radius: 50%;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .favorite-folder-item.selected .favorite-folder-radio::after {
+      opacity: 1;
+    }
+
+    .favorite-folder-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .favorite-folder-name {
+      font-size: 14px;
+      color: #fff;
+      margin-bottom: 2px;
+    }
+
+    .favorite-folder-count {
+      font-size: 12px;
+      color: #888;
+    }
+
+    .favorites-modal-footer {
+      display: flex;
+      gap: 12px;
+      padding: 16px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      justify-content: flex-end;
+    }
+
+    .favorites-modal-btn {
+      padding: 8px 20px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+    }
+
+    .favorites-modal-btn.cancel {
+      background: rgba(255, 255, 255, 0.1);
+      color: #ccc;
+    }
+
+    .favorites-modal-btn.cancel:hover {
+      background: rgba(255, 255, 255, 0.15);
+      color: #fff;
+    }
+
+    .favorites-modal-btn.save {
+      background: #00a1d6;
+      color: #fff;
+    }
+
+    .favorites-modal-btn.save:hover {
+      background: #00b5e5;
+    }
+
+    .favorites-modal-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .favorites-loading {
+      text-align: center;
+      padding: 40px;
+      color: #666;
+      font-size: 14px;
+    }
+
+    .favorites-error {
+      text-align: center;
+      padding: 40px;
+      color: #ff6b6b;
+      font-size: 14px;
+    }
+
     .comments-error {
       text-align: center;
       padding: 20px 16px;
@@ -1773,6 +2000,25 @@
       </div>
     </div>
 
+    <!-- Favorites Modal -->
+    <div id="favoritesModal" class="favorites-modal-overlay">
+      <div class="favorites-modal">
+        <div class="favorites-modal-header">
+          <span class="favorites-modal-title">选择收藏夹</span>
+          <button class="favorites-modal-close" onclick="closeFavoritesModal()">×</button>
+        </div>
+        <div class="favorites-modal-body" id="favoritesModalBody">
+          <div class="favorites-loading">
+            <span class="loading-spinner"></span>加载中...
+          </div>
+        </div>
+        <div class="favorites-modal-footer">
+          <button class="favorites-modal-btn cancel" onclick="closeFavoritesModal()">取消</button>
+          <button class="favorites-modal-btn save" id="favoritesSaveBtn" onclick="saveToFavorites()">保存</button>
+        </div>
+      </div>
+    </div>
+
     <div class="volume-panel" id="volumePanel">
       <div class="volume-slider-container" id="volumeSlider">
         <div class="volume-slider-fill" id="volumeSliderFill"></div>
@@ -1857,6 +2103,7 @@
     const viewCount = document.getElementById('viewCount')
     const danmakuCount = document.getElementById('danmakuCount')
     const likeCount = document.getElementById('likeCount')
+    const likeBtn = document.getElementById('likeBtn')
     const coinCount = document.getElementById('coinCount')
     const collectCount = document.getElementById('collectCount')
     const shareCount = document.getElementById('shareCount')
@@ -1910,7 +2157,8 @@
     let pendingPrefetchData = null
     let loadVideoTimeout = null
     let currentOwnerMid = null
-    
+    let isLiked = false
+
     // Comments related state
     let currentCommentSort = 'hot'
     let currentPaginationStr = '{"offset":""}'
@@ -2282,13 +2530,13 @@
         border-radius: 8px;
         font-size: 14px;
         z-index: 10000;
-        animation: fadeInUp 0.3s ease;
+        animation: toastFadeInUp 0.3s ease;
       `
       toast.textContent = message
       document.body.appendChild(toast)
       
       setTimeout(() => {
-        toast.style.animation = 'fadeOutDown 0.3s ease'
+        toast.style.animation = 'toastFadeOutDown 0.3s ease'
         setTimeout(() => toast.remove(), 300)
       }, 2000)
     }
@@ -2790,8 +3038,8 @@
 
     // 鼠标滚轮：直接滚动=音量，Ctrl+滚动=进度，Alt+滚动=窗口缩放
     document.addEventListener('wheel', (e) => {
-      // 光标在侧边栏时不做音量/进度/缩放处理，让面板自然滚动
-      if (e.target.closest('.video-info-panel')) return
+      // 光标在侧边栏或收藏夹弹窗时不做音量/进度/缩放处理，让面板自然滚动
+      if (e.target.closest('.video-info-panel, #favoritesModal')) return
 
       if (e.ctrlKey) {
         e.preventDefault()
@@ -3218,6 +3466,10 @@
       panelFollowBtn.textContent = '+ 关注'
       panelFollowBtn.classList.remove('followed')
 
+      // Like button state reset
+      isLiked = false
+      likeBtn.classList.remove('liked')
+
       // Fetch follower count async
       if (video.owner?.mid) {
         fetchAuthorFans(video.owner.mid)
@@ -3257,6 +3509,165 @@
       } else {
         panelFollowBtn.classList.add('followed')
         panelFollowBtn.textContent = '已关注'
+      }
+    })
+
+    likeBtn.addEventListener('click', async () => {
+      const aid = currentVideoData?.aid
+      if (!aid) {
+        showToast('无法获取视频信息')
+        return
+      }
+      try {
+        const newLikedState = !isLiked
+        const result = await ipcRenderer.invoke('like-archive', aid, newLikedState ? 1 : 2)
+        if (result.success) {
+          isLiked = newLikedState
+          if (isLiked) {
+            likeBtn.classList.add('liked')
+          } else {
+            likeBtn.classList.remove('liked')
+          }
+          const currentCount = parseInt(likeCount.textContent.replace(/[^0-9]/g, '')) || 0
+          if (newLikedState) {
+            likeCount.textContent = formatNumber(currentCount + 1)
+            showToast('点赞成功')
+          } else {
+            likeCount.textContent = formatNumber(Math.max(0, currentCount - 1))
+            showToast('取消点赞')
+          }
+        } else {
+          showToast(result.error || '操作失败')
+        }
+      } catch (error) {
+        showToast('点赞失败: ' + error.message)
+      }
+    })
+
+    let selectedFolderId = null
+    let favoritesFolders = []
+
+    collectBtn.addEventListener('click', () => {
+      openFavoritesModal()
+    })
+
+    async function openFavoritesModal() {
+      const modal = document.getElementById('favoritesModal')
+      const modalBody = document.getElementById('favoritesModalBody')
+      const saveBtn = document.getElementById('favoritesSaveBtn')
+      
+      modal.classList.add('show')
+      modalBody.innerHTML = '<div class="favorites-loading"><span class="loading-spinner"></span>加载中...</div>'
+      saveBtn.disabled = true
+      selectedFolderId = null
+
+      try {
+        const aid = currentVideoData?.aid
+        const result = await ipcRenderer.invoke('get-favorites-folders', aid)
+        
+        if (result.success) {
+          favoritesFolders = result.data
+          renderFavoritesFolders(result.data)
+          // 默认选中第一个（默认收藏夹）
+          if (result.data.length > 0) {
+            selectFolder(result.data[0].fid)
+          }
+        } else {
+          modalBody.innerHTML = `<div class="favorites-error">${result.error || '获取收藏夹失败'}</div>`
+        }
+      } catch (error) {
+        modalBody.innerHTML = `<div class="favorites-error">${error.message}</div>`
+      }
+    }
+
+    function renderFavoritesFolders(folders) {
+      const modalBody = document.getElementById('favoritesModalBody')
+      const saveBtn = document.getElementById('favoritesSaveBtn')
+      
+      if (folders.length === 0) {
+        modalBody.innerHTML = '<div class="favorites-error">暂无收藏夹</div>'
+        saveBtn.disabled = true
+        return
+      }
+
+      let html = ''
+      folders.forEach(folder => {
+        const isSelected = selectedFolderId === folder.fid
+        html += `
+          <div class="favorite-folder-item ${isSelected ? 'selected' : ''}" data-fid="${folder.fid}" onclick="selectFolder(${folder.fid})">
+            <div class="favorite-folder-radio"></div>
+            <div class="favorite-folder-info">
+              <div class="favorite-folder-name">${escapeHtml(folder.name)}</div>
+              <div class="favorite-folder-count">${folder.media_count} 个视频</div>
+            </div>
+          </div>
+        `
+      })
+      
+      modalBody.innerHTML = html
+      saveBtn.disabled = selectedFolderId === null
+    }
+
+    function selectFolder(fid) {
+      selectedFolderId = fid
+      document.querySelectorAll('.favorite-folder-item').forEach(item => {
+        item.classList.remove('selected')
+      })
+      document.querySelector(`.favorite-folder-item[data-fid="${fid}"]`)?.classList.add('selected')
+      document.getElementById('favoritesSaveBtn').disabled = false
+    }
+
+    async function saveToFavorites() {
+      if (selectedFolderId === null) {
+        showToast('请选择收藏夹')
+        return
+      }
+
+      const saveBtn = document.getElementById('favoritesSaveBtn')
+      saveBtn.disabled = true
+      saveBtn.textContent = '保存中...'
+
+      try {
+        const aid = currentVideoData?.aid
+        if (!aid) {
+          throw new Error('无法获取视频信息')
+        }
+
+        const result = await ipcRenderer.invoke('add-to-favorites', {
+          rid: selectedFolderId,
+          type: 2,
+          add_media_ids: [aid]
+        })
+
+        if (result.success) {
+          showToast('收藏成功')
+          closeFavoritesModal()
+          // 更新收藏数
+          const collectCount = document.getElementById('collectCount')
+          const currentCount = parseInt(collectCount.textContent.replace(/[^0-9]/g, '')) || 0
+          collectCount.textContent = formatNumber(currentCount + 1)
+          collectBtn.classList.add('collected')
+        } else {
+          showToast(result.error || '收藏失败')
+        }
+      } catch (error) {
+        showToast('收藏失败: ' + error.message)
+      } finally {
+        saveBtn.textContent = '保存'
+        saveBtn.disabled = false
+      }
+    }
+
+    function closeFavoritesModal() {
+      const modal = document.getElementById('favoritesModal')
+      modal.classList.remove('show')
+      selectedFolderId = null
+    }
+
+    // Click outside to close
+    document.getElementById('favoritesModal').addEventListener('click', (e) => {
+      if (e.target === document.getElementById('favoritesModal')) {
+        closeFavoritesModal()
       }
     })
 

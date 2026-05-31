@@ -135,7 +135,7 @@ async function fetchBestPlayUrl(bvid, cid, cookieString, log) {
 
 function registerPlayerHandlers(deps) {
   _deps = deps
-  const { ipcMain, log, fetchApi, app, dialog, state, fetchWbiKeys, getMixKey, signParams } = deps
+  const { ipcMain, log, fetchApi, fetchApiPost, app, dialog, state, fetchWbiKeys, getMixKey, signParams } = deps
 
   ipcMain.handle('play-video', async (event, bvid, cid, title, mpvPath, showDanmaku = true, useBuiltin = false, progress = null, episodeData = null) => {
     const { getDanmakuXml, xml2ass, formatProgressTime, reportPlayHistory, openBuiltinPlayer, startReportTimer, cleanupMpvSocket, stopVideo, findMpvExecutable } = deps
@@ -724,6 +724,44 @@ function registerPlayerHandlers(deps) {
       return { success: true, data: data.data }
     } catch (error) {
       log('Error getting comments:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('like-archive', async (event, aid, like) => {
+    log('like-archive called with aid:', aid, 'like:', like)
+    try {
+      if (!aid) {
+        throw new Error('缺少视频ID')
+      }
+
+      const keys = await fetchWbiKeys()
+      if (!keys || !keys.imgKey || !keys.subKey) {
+        throw new Error('获取WBI密钥失败')
+      }
+      const mixKey = getMixKey(keys.imgKey, keys.subKey)
+
+      const params = {
+        aid: aid,
+        like: like,
+        csrf: cookieManager.getSavedCookies().bili_jct || ''
+      }
+
+      const signed = signParams(params, mixKey)
+      const bodyParams = {
+        ...params,
+        w_rid: signed.w_rid,
+        wts: signed.wts
+      }
+
+      const result = await fetchApiPost('https://api.bilibili.com/x/web-interface/archive/like', bodyParams)
+      log('Like API result code:', result.code, 'message:', result.message)
+      if (result.code === 0) {
+        return { success: true, data: result.data }
+      }
+      throw new Error(result.message || '点赞失败')
+    } catch (error) {
+      log('Error liking archive:', error.message)
       return { success: false, error: error.message }
     }
   })

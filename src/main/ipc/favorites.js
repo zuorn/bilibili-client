@@ -1,7 +1,7 @@
 // IPC handlers for favorites-related operations
 
 function registerFavoritesHandlers(deps) {
-  const { ipcMain, fetchApi, log, cookieManager, fetchWbiKeys, getMixKey, signParams } = deps
+  const { ipcMain, fetchApi, fetchApiPost, log, cookieManager, fetchWbiKeys, getMixKey, signParams } = deps
 
   ipcMain.handle('get-favorites-list', async (event) => {
     log('get-favorites-list called')
@@ -316,6 +316,147 @@ function registerFavoritesHandlers(deps) {
       }
     } catch (error) {
       log('Error getting toview:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  // 获取用户创建的收藏夹列表（包含默认收藏夹）
+  ipcMain.handle('get-favorites-folders', async (event, rid, upMid) => {
+    log('get-favorites-folders called, rid:', rid, 'upMid:', upMid)
+    try {
+      const savedCookies = cookieManager.getSavedCookies()
+      const userId = upMid || savedCookies.DedeUserID || ''
+      
+      if (!userId) {
+        log('User mid not found')
+        return { success: false, error: '用户未登录' }
+      }
+
+      const params = {
+        type: 2,
+        rid: rid || '',
+        up_mid: userId,
+        web_location: 'bilibili-electron'
+      }
+
+      const keys = await fetchWbiKeys()
+      if (!keys || !keys.imgKey) {
+        log('WBI keys not available')
+        return { success: false, error: 'WBI签名不可用' }
+      }
+
+      const mixKey = getMixKey(keys.imgKey, keys.subKey)
+      const signed = signParams(params, mixKey)
+
+      const url = `https://api.bilibili.com/x/v3/fav/folder/created/list-all?type=2&rid=${encodeURIComponent(rid || '')}&up_mid=${userId}&web_location=bilibili-electron&w_rid=${signed.w_rid}&wts=${signed.wts}`
+      log('Favorites folders API URL:', url)
+      const result = await fetchApi(url)
+      log('Favorites folders result code:', result.code)
+
+      if (result.code === 0 && result.data) {
+        let folders = result.data.list || result.data || []
+        log('Favorites folders count:', folders.length)
+
+        // 添加默认收藏夹
+        const defaultFolder = {
+          id: -1,
+          fid: -1,
+          title: '默认收藏夹',
+          name: '默认收藏夹',
+          cover: '',
+          media_count: 0,
+          attr: 0,
+          type: 2,
+          mid: userId,
+          ctime: 0,
+          mtime: 0,
+          is_default: true
+        }
+
+        // 确保默认收藏夹在最前面
+        folders = [defaultFolder, ...folders.filter(item => {
+          const title = item.title || item.name || ''
+          return title !== '默认收藏夹'
+        })]
+
+        return {
+          success: true,
+          data: folders.map(item => ({
+            id: item.id || item.fid || '',
+            fid: item.fid || item.id || '',
+            mid: item.mid || '',
+            name: item.title || item.name || '',
+            cover: item.cover || '',
+            media_count: item.media_count || 0,
+            attr: item.attr || 0,
+            type: item.type || 2,
+            ctime: item.ctime || 0,
+            mtime: item.mtime || 0,
+            is_default: item.is_default || false
+          }))
+        }
+      } else {
+        log('Favorites folders API error:', result.message || 'Unknown error')
+        return { success: false, error: result.message || '获取收藏夹列表失败' }
+      }
+    } catch (error) {
+      log('Error getting favorites folders:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  // 完成收藏操作
+  ipcMain.handle('add-to-favorites', async (event, params) => {
+    log('add-to-favorites called, params:', params)
+    try {
+      const { rid, type, add_media_ids } = params
+      
+      if (!rid || !add_media_ids || add_media_ids.length === 0) {
+        return { success: false, error: '参数不完整' }
+      }
+
+      const savedCookies = cookieManager.getSavedCookies()
+      const csrf = savedCookies.bili_jct || ''
+      
+      if (!csrf) {
+        return { success: false, error: '缺少CSRF Token' }
+      }
+
+      const requestParams = {
+        rid: rid,
+        type: type || 2,
+        add_media_ids: JSON.stringify(add_media_ids),
+        csrf: csrf,
+        platform: 'pc',
+        web_location: 'bilibili-electron'
+      }
+
+      const keys = await fetchWbiKeys()
+      if (!keys || !keys.imgKey) {
+        log('WBI keys not available')
+        return { success: false, error: 'WBI签名不可用' }
+      }
+
+      const mixKey = getMixKey(keys.imgKey, keys.subKey)
+      const signed = signParams(requestParams, mixKey)
+
+      const bodyParams = {
+        ...requestParams,
+        w_rid: signed.w_rid,
+        wts: signed.wts
+      }
+
+      log('Favorites deal API params:', bodyParams)
+      const result = await fetchApiPost('https://api.bilibili.com/x/v3/fav/resource/deal', bodyParams)
+      log('Favorites deal result code:', result.code, 'message:', result.message)
+
+      if (result.code === 0) {
+        return { success: true, data: result.data }
+      } else {
+        return { success: false, error: result.message || '收藏失败' }
+      }
+    } catch (error) {
+      log('Error adding to favorites:', error.message)
       return { success: false, error: error.message }
     }
   })
