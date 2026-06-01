@@ -439,6 +439,65 @@ function registerFavoritesHandlers(deps) {
     }
   })
 
+  // 取消收藏（批量移除收藏夹中的资源）
+  ipcMain.handle('unfavorite-video', async (event, params) => {
+    log('unfavorite-video called, params:', params)
+    try {
+      const { resources, media_id } = params || {}
+
+      if (!resources) {
+        return { success: false, error: '缺少资源ID' }
+      }
+      if (!media_id && media_id !== 0) {
+        return { success: false, error: '缺少收藏夹ID' }
+      }
+
+      const savedCookies = cookieManager.getSavedCookies()
+      const csrf = savedCookies.bili_jct || ''
+
+      if (!csrf) {
+        return { success: false, error: '缺少CSRF Token' }
+      }
+
+      // WBI 签名参数
+      const signParamsInput = {
+        resources: String(resources),
+        media_id: String(media_id)
+      }
+
+      const keys = await fetchWbiKeys()
+      if (!keys || !keys.imgKey) {
+        log('WBI keys not available')
+        return { success: false, error: 'WBI签名不可用' }
+      }
+
+      const mixKey = getMixKey(keys.imgKey, keys.subKey)
+      const signed = signParams(signParamsInput, mixKey)
+
+      const bodyParams = {
+        ...signParamsInput,
+        csrf: csrf,
+        platform: 'pc',
+        web_location: 'bilibili-electron',
+        w_rid: signed.w_rid,
+        wts: signed.wts
+      }
+
+      log('Unfavorite API params:', bodyParams)
+      const result = await fetchApiPost('https://api.bilibili.com/x/v3/fav/resource/batch-del', bodyParams)
+      log('Unfavorite result code:', result.code, 'message:', result.message)
+
+      if (result.code === 0) {
+        return { success: true, data: result.data }
+      } else {
+        return { success: false, error: result.message || '取消收藏失败' }
+      }
+    } catch (error) {
+      log('Error unfavoriting video:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
   // 完成收藏操作
   ipcMain.handle('add-to-favorites', async (event, params) => {
     log('add-to-favorites called, params:', params)

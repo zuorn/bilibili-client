@@ -295,3 +295,175 @@
 .add-to-view-btn.added {
   background: rgba(102, 187, 106, 0.9);
 }
+
+/* 标题行布局 */
+.video-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.video-title-row .video-title {
+  flex: 1;
+  margin-bottom: 10px;
+}
+
+/* 收藏卡片更多按钮 - 与历史记录页面样式一致 */
+.favorites-more-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.favorites-more-btn {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #999;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.favorites-more-btn:hover {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.favorites-more-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 收藏卡片下拉菜单 - 使用 fixed 定位避免被父容器遮挡 */
+.favorites-dropdown {
+  position: fixed;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  padding: 4px 0;
+  min-width: 140px;
+  display: none;
+  z-index: 9999;
+  overflow: hidden;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.favorites-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  color: #333;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  white-space: nowrap;
+}
+
+.favorites-dropdown-item:hover {
+  background-color: #f5f5f5;
+}
+
+.favorites-dropdown-item svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.favorites-dropdown-divider {
+  height: 1px;
+  background: #f0f0f0;
+  margin: 4px 0;
+}
+
+.favorites-unfavorite-btn {
+  color: #ff4d4f;
+}
+
+.favorites-unfavorite-btn:hover {
+  background-color: #fff0f0;
+}
+
+/* 取消收藏确认弹窗 */
+.favorites-confirm-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  -webkit-app-region: no-drag;
+}
+
+.favorites-confirm-dialog {
+  width: 360px;
+  max-width: 90vw;
+  background: #fff;
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  padding: 20px 24px;
+  animation: favoritesConfirmPop 0.18s ease;
+}
+
+@keyframes favoritesConfirmPop {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.favorites-confirm-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #18191c;
+  margin-bottom: 10px;
+}
+
+.favorites-confirm-message {
+  font-size: 14px;
+  color: #4e5969;
+  line-height: 1.6;
+  word-break: break-word;
+  margin-bottom: 18px;
+}
+
+.favorites-confirm-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.favorites-confirm-btn {
+  height: 32px;
+  padding: 0 14px;
+  border: 1px solid #e5e6eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #4e5969;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s;
+}
+
+.favorites-confirm-btn:hover {
+  border-color: #fb7299;
+  color: #fb7299;
+}
+
+.favorites-confirm-ok {
+  background: #fb7299;
+  border-color: #fb7299;
+  color: #fff;
+}
+
+.favorites-confirm-ok:hover {
+  background: #fc8caa;
+  border-color: #fc8caa;
+  color: #fff;
+}

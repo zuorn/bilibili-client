@@ -4,7 +4,6 @@ function formatHistoryTime(timestamp) {
   const historyDate = new Date(timestamp * 1000)
   const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
   const yesterdayStart = new Date(todayStart - 24 * 60 * 60 * 1000)
-
   const hours = historyDate.getHours().toString().padStart(2, '0')
   const minutes = historyDate.getMinutes().toString().padStart(2, '0')
 
@@ -16,6 +15,136 @@ function formatHistoryTime(timestamp) {
     const month = (historyDate.getMonth() + 1).toString()
     const day = historyDate.getDate().toString()
     return `${month}月${day}日`
+  }
+}
+
+let currentFavoritesDetailTitle = ''
+
+async function handleFavoritesUnfavorite(video, card, mediaId, mediaName, containerId) {
+  console.log('[Favorites] handleFavoritesUnfavorite called:', { video, mediaId, mediaName, containerId })
+  
+  if (!video || !video.bvid) {
+    console.log('[Favorites] 视频信息缺失:', video)
+    showToast('视频信息缺失')
+    return
+  }
+  if (mediaId === undefined || mediaId === null || mediaId === '') {
+    console.log('[Favorites] 收藏夹信息缺失:', mediaId)
+    showToast('收藏夹信息缺失')
+    return
+  }
+
+  const ok = await showConfirmDialog({
+    title: '取消收藏',
+    message: `确定要取消收藏 “${video.title}” 吗？`,
+    confirmText: '取消收藏',
+    cancelText: '再想想'
+  })
+  console.log('[Favorites] 用户确认结果:', ok)
+  if (!ok) return
+
+  try {
+    console.log('[Favorites] 调用 unfavorite-video API:', { resources: `${video.bvid}:2`, media_id: mediaId })
+    const result = await ipcRenderer.invoke('unfavorite-video', {
+      resources: `${video.bvid}:2`,
+      media_id: mediaId
+    })
+    console.log('[Favorites] API 返回结果:', result)
+
+    if (result && result.success) {
+      console.log('[Favorites] 取消收藏成功')
+      showToast('已取消收藏')
+
+      if (card && card.parentNode) {
+        const dropdown = card.querySelector('.favorites-dropdown')
+        card.style.transition = 'opacity 0.25s, transform 0.25s'
+        card.style.opacity = '0'
+        card.style.transform = 'scale(0.95)'
+        setTimeout(() => {
+          if (dropdown && dropdown.parentNode) dropdown.parentNode.removeChild(dropdown)
+          if (card.parentNode) card.parentNode.removeChild(card)
+          checkFavoritesContainerEmpty(containerId)
+          console.log('[Favorites] 卡片已移除')
+        }, 250)
+      }
+    } else {
+      console.log('[Favorites] 取消收藏失败:', result?.error)
+      showToast(result?.error || '取消收藏失败')
+    }
+  } catch (error) {
+    console.error('[Favorites] 取消收藏异常:', error)
+    showToast(error?.message || '取消收藏失败')
+  }
+}
+
+function showConfirmDialog({ title = '提示', message = '', confirmText = '确定', cancelText = '取消' }) {
+  return new Promise(resolve => {
+    let overlay = document.getElementById('favoritesConfirmOverlay')
+    if (!overlay) {
+      overlay = document.createElement('div')
+      overlay.id = 'favoritesConfirmOverlay'
+      overlay.className = 'favorites-confirm-overlay'
+      document.body.appendChild(overlay)
+    }
+
+    overlay.innerHTML = `
+      <div class="favorites-confirm-dialog" role="dialog" aria-modal="true">
+        <div class="favorites-confirm-title">${escapeHtml(title)}</div>
+        <div class="favorites-confirm-message">${escapeHtml(message)}</div>
+        <div class="favorites-confirm-actions">
+          <button class="favorites-confirm-btn favorites-confirm-cancel">${escapeHtml(cancelText)}</button>
+          <button class="favorites-confirm-btn favorites-confirm-ok">${escapeHtml(confirmText)}</button>
+        </div>
+      </div>
+    `
+
+    const onKey = e => {
+      if (e.key === 'Escape') close(false)
+    }
+    const cleanup = () => {
+      overlay.innerHTML = ''
+      overlay.style.display = 'none'
+      document.removeEventListener('keydown', onKey, true)
+    }
+    const close = result => {
+      cleanup()
+      resolve(result)
+    }
+
+    overlay.querySelector('.favorites-confirm-cancel').onclick = () => close(false)
+    overlay.querySelector('.favorites-confirm-ok').onclick = () => close(true)
+    overlay.onclick = e => {
+      if (e.target === overlay) close(false)
+    }
+    document.addEventListener('keydown', onKey, true)
+
+    overlay.style.display = 'flex'
+    setTimeout(() => overlay.querySelector('.favorites-confirm-ok').focus(), 0)
+  })
+}
+
+function handleFavoritesSelectFolder(video, mediaName) {
+  showToast(`当前收藏夹：${mediaName || '默认收藏夹'}`)
+}
+
+function checkFavoritesContainerEmpty(containerId) {
+  const container = document.getElementById(containerId)
+  if (!container) return
+  const remaining = container.querySelectorAll('.video-card')
+  if (remaining.length === 0) {
+    let msg = '暂无收藏内容'
+    if (containerId === 'favoritesDetailList' || containerId === 'favoritesCollectionDetailList') {
+      msg = '该收藏夹暂无内容'
+    }
+    showEmptyMessage(containerId, msg)
+  }
+}
+
+function getFavoritesCardOptions(mediaId, mediaName, containerId) {
+  return {
+    showFavoritesMore: true,
+    onUnfavorite: (video, card) => handleFavoritesUnfavorite(video, card, mediaId, mediaName, containerId),
+    onSelectFolder: (video, card) => handleFavoritesSelectFolder(video, mediaName)
   }
 }
 
@@ -355,9 +484,9 @@ async function loadFavorites(append = false) {
 
       if (videos.length > 0) {
         if (append) {
-          appendVideos(videos, 'favoritesGrid', navigateToUP)
+          appendVideos(videos, 'favoritesGrid', navigateToUP, getFavoritesCardOptions(166434448, '默认收藏夹', 'favoritesGrid'))
         } else {
-          renderVideos(videos, 'favoritesGrid', navigateToUP)
+          renderVideos(videos, 'favoritesGrid', navigateToUP, getFavoritesCardOptions(166434448, '默认收藏夹', 'favoritesGrid'))
         }
         state.hasMoreFavorites = result.hasMore || false
         state.favoritesPageNum++
@@ -441,7 +570,7 @@ async function searchFavorites(keyword) {
       }))
 
       if (videos.length > 0) {
-        renderVideos(videos, 'favoritesGrid', navigateToUP)
+        renderVideos(videos, 'favoritesGrid', navigateToUP, getFavoritesCardOptions(166434448, '默认收藏夹', 'favoritesGrid'))
       } else {
         showEmptyMessage('favoritesGrid', `未找到包含 "${keyword}" 的收藏内容`)
       }
@@ -520,9 +649,9 @@ async function loadFavoritesDefault(append = false) {
 
       if (videos.length > 0) {
         if (append) {
-          appendVideos(videos, 'favoritesDefaultGrid', navigateToUP)
+          appendVideos(videos, 'favoritesDefaultGrid', navigateToUP, getFavoritesCardOptions(166434448, '默认收藏夹', 'favoritesDefaultGrid'))
         } else {
-          renderVideos(videos, 'favoritesDefaultGrid', navigateToUP)
+          renderVideos(videos, 'favoritesDefaultGrid', navigateToUP, getFavoritesCardOptions(166434448, '默认收藏夹', 'favoritesDefaultGrid'))
         }
         state.hasMoreFavoritesDefault = result.hasMore || (videos.length === pageSize)
         state.favoritesDefaultPageNum++
@@ -833,6 +962,7 @@ function showFavoritesCollectionDetail(mediaId, title, cover, totalCount) {
     `
   }
 
+  currentFavoritesDetailTitle = title
   loadFavoritesCollectionDetailVideos(mediaId)
 }
 
@@ -919,6 +1049,7 @@ function showFavoritesDetail(mediaId, title, cover, totalCount) {
     `
   }
 
+  currentFavoritesDetailTitle = title
   loadFavoritesDetailVideos(mediaId)
 }
 
@@ -989,11 +1120,12 @@ async function loadFavoritesDetailVideos(mediaId, pageNum = 1, pageSize = 36, pl
         owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' }
       }))
       
+      const cardOptions = getFavoritesCardOptions(mediaId, currentFavoritesDetailTitle || '收藏夹', 'favoritesDetailList')
       if (videos.length > 0) {
         if (pageNum === 1) {
-          renderVideos(videos, 'favoritesDetailList', navigateToUP)
+          renderVideos(videos, 'favoritesDetailList', navigateToUP, cardOptions)
         } else {
-          appendVideos(videos, 'favoritesDetailList', navigateToUP)
+          appendVideos(videos, 'favoritesDetailList', navigateToUP, cardOptions)
         }
       } else if (pageNum === 1) {
         showEmptyMessage('favoritesDetailList', '该收藏夹暂无内容')
@@ -1022,11 +1154,12 @@ async function loadFavoritesCollectionDetailVideos(seasonId, pageNum = 1, pageSi
         owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' }
       }))
 
+      const cardOptions = getFavoritesCardOptions(seasonId, currentFavoritesDetailTitle || '收藏合集', 'favoritesCollectionDetailList')
       if (videos.length > 0) {
         if (pageNum === 1) {
-          renderVideos(videos, 'favoritesCollectionDetailList', navigateToUP)
+          renderVideos(videos, 'favoritesCollectionDetailList', navigateToUP, cardOptions)
         } else {
-          appendVideos(videos, 'favoritesCollectionDetailList', navigateToUP)
+          appendVideos(videos, 'favoritesCollectionDetailList', navigateToUP, cardOptions)
         }
       } else if (pageNum === 1) {
         showEmptyMessage('favoritesCollectionDetailList', '该收藏夹暂无内容')

@@ -39,6 +39,52 @@ function setupLazyImage(img, eager) {
   }
 }
 
+let activeFavoritesDropdown = null
+
+function closeFavoritesDropdown() {
+  if (activeFavoritesDropdown) {
+    activeFavoritesDropdown.style.display = 'none'
+    activeFavoritesDropdown = null
+  }
+  document.removeEventListener('click', onFavoritesDropdownDocClick, true)
+  window.removeEventListener('resize', closeFavoritesDropdown, true)
+  window.removeEventListener('scroll', closeFavoritesDropdown, true)
+}
+
+function onFavoritesDropdownDocClick(e) {
+  if (activeFavoritesDropdown && !activeFavoritesDropdown.contains(e.target)) {
+    const trigger = activeFavoritesDropdown._triggerBtn
+    if (trigger && trigger.contains(e.target)) return
+    closeFavoritesDropdown()
+  }
+}
+
+function openFavoritesDropdown(dropdown, triggerBtn) {
+  closeFavoritesDropdown()
+  activeFavoritesDropdown = dropdown
+  dropdown._triggerBtn = triggerBtn
+
+  const rect = triggerBtn.getBoundingClientRect()
+  dropdown.style.visibility = 'hidden'
+  dropdown.style.display = 'block'
+  const ddRect = dropdown.getBoundingClientRect()
+
+  // 向下展开，定位在按钮下方
+  const top = rect.bottom + 6
+  const left = rect.right - ddRect.width
+  // 确保菜单不会超出视口底部
+  const maxTop = window.innerHeight - ddRect.height - 8
+  dropdown.style.top = `${Math.max(8, Math.min(top, maxTop))}px`
+  dropdown.style.left = `${Math.max(8, left)}px`
+  dropdown.style.visibility = 'visible'
+
+  setTimeout(() => {
+    document.addEventListener('click', onFavoritesDropdownDocClick, true)
+    window.addEventListener('resize', closeFavoritesDropdown, true)
+    window.addEventListener('scroll', closeFavoritesDropdown, true)
+  }, 0)
+}
+
 function createVideoCard(video, onAuthorClick, options = {}) {
   const card = document.createElement('div')
   card.className = 'video-card'
@@ -51,25 +97,63 @@ function createVideoCard(video, onAuthorClick, options = {}) {
 
   const coverSrc = video.pic ? optimizeCoverUrl(video.pic, COVER_WIDTH, COVER_HEIGHT) : ''
 
+  const showAddToView = options.showAddToView !== false
+  const showFavoritesMore = !!options.showFavoritesMore
+
   card.innerHTML = `
     <div class="video-thumbnail">
       <img src="" alt="${video.title}" data-src="${coverSrc}">
       <span class="video-duration">${video.duration}</span>
+      ${showAddToView ? `
       <button class="add-to-view-btn" title="添加到稍后再看">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
           <circle cx="12" cy="12" r="10"></circle>
           <polyline points="12,6 12,12 16,14"></polyline>
         </svg>
       </button>
+      ` : ''}
       ${rankBadge}
     </div>
     <div class="video-info">
-      <h3 class="video-title">${video.title}</h3>
+      <div class="video-title-row">
+        <h3 class="video-title">${video.title}</h3>
+        ${showFavoritesMore ? `
+        <div class="favorites-more-wrapper">
+          <button class="favorites-more-btn" title="更多操作" data-bvid="${video.bvid}">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="4" r="1.5"></circle>
+              <circle cx="12" cy="12" r="1.5"></circle>
+              <circle cx="12" cy="20" r="1.5"></circle>
+            </svg>
+          </button>
+        </div>
+        ` : ''}
+      </div>
       <div class="video-meta">
         <span class="video-play">${video.play}</span>
         <span class="video-author" data-mid="${video.owner?.mid || ''}">${video.author}</span>
       </div>
     </div>
+    ${showFavoritesMore ? `
+    <div class="favorites-dropdown" data-bvid="${video.bvid}">
+      <div class="favorites-dropdown-item favorites-select-folder-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
+        </svg>
+        <span>选择收藏夹</span>
+      </div>
+      <div class="favorites-dropdown-divider"></div>
+      <div class="favorites-dropdown-item favorites-unfavorite-btn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3,6 5,6 21,6"/>
+          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+          <path d="M10 11v6M14 11v6"/>
+          <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
+        </svg>
+        <span>取消收藏</span>
+      </div>
+    </div>
+    ` : ''}
   `
 
   const img = card.querySelector('img')
@@ -80,7 +164,10 @@ function createVideoCard(video, onAuthorClick, options = {}) {
     coverObserver.observe(img)
   }
 
-  card.addEventListener('click', () => {
+  card.addEventListener('click', (e) => {
+    if (e.target.closest('.favorites-more-btn') || e.target.closest('.favorites-dropdown')) {
+      return
+    }
     if (video.bvid) playVideo(video.bvid, video.cid, video.title)
   })
 
@@ -91,30 +178,85 @@ function createVideoCard(video, onAuthorClick, options = {}) {
     if (mid && onAuthorClick) onAuthorClick(mid)
   })
 
-  const addToViewBtn = card.querySelector('.add-to-view-btn')
-  addToViewBtn.addEventListener('click', async (e) => {
-    e.stopPropagation()
-    if (video.bvid) {
-      const result = await ipcRenderer.invoke('add-to-view', video.bvid)
-      if (result.success) {
-        addToViewBtn.classList.add('added')
-        addToViewBtn.innerHTML = `
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <polyline points="20,6 9,17 4,12"></polyline>
-          </svg>
-        `
-        setTimeout(() => {
-          addToViewBtn.classList.remove('added')
-          addToViewBtn.innerHTML = `
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-              <circle cx="12" cy="12" r="10"></circle>
-              <polyline points="12,6 12,12 16,14"></polyline>
-            </svg>
-          `
-        }, 2000)
-      }
+  if (showAddToView) {
+    const addToViewBtn = card.querySelector('.add-to-view-btn')
+    if (addToViewBtn) {
+      addToViewBtn.addEventListener('click', async (e) => {
+        e.stopPropagation()
+        if (video.bvid) {
+          const result = await ipcRenderer.invoke('add-to-view', video.bvid)
+          if (result.success) {
+            addToViewBtn.classList.add('added')
+            addToViewBtn.innerHTML = `
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="20,6 9,17 4,12"></polyline>
+              </svg>
+            `
+            setTimeout(() => {
+              addToViewBtn.classList.remove('added')
+              addToViewBtn.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <polyline points="12,6 12,12 16,14"></polyline>
+                </svg>
+              `
+            }, 2000)
+          }
+        }
+      })
     }
-  })
+  }
+
+  if (showFavoritesMore) {
+    const moreBtn = card.querySelector('.favorites-more-btn')
+    const dropdown = card.querySelector('.favorites-dropdown')
+    
+    // 在移动 dropdown 之前先获取按钮引用
+    const unfavoriteBtn = dropdown?.querySelector('.favorites-unfavorite-btn')
+    const selectFolderBtn = dropdown?.querySelector('.favorites-select-folder-btn')
+
+    if (dropdown && dropdown.parentElement !== document.body) {
+      document.body.appendChild(dropdown)
+    }
+
+    moreBtn.addEventListener('click', e => {
+      e.stopPropagation()
+      e.preventDefault()
+      if (dropdown.style.display === 'block' && activeFavoritesDropdown === dropdown) {
+        closeFavoritesDropdown()
+      } else {
+        openFavoritesDropdown(dropdown, moreBtn)
+      }
+    })
+
+    dropdown.addEventListener('click', e => e.stopPropagation())
+
+    if (unfavoriteBtn) {
+      unfavoriteBtn.addEventListener('click', async e => {
+        e.stopPropagation()
+        closeFavoritesDropdown()
+        console.log('[VideoCard] 取消收藏按钮被点击，video:', video.bvid, 'has onUnfavorite:', !!options.onUnfavorite)
+        if (options.onUnfavorite) {
+          console.log('[VideoCard] 调用 onUnfavorite')
+          options.onUnfavorite(video, card)
+        } else {
+          console.log('[VideoCard] onUnfavorite 未定义')
+        }
+      })
+    } else {
+      console.log('[VideoCard] 未找到取消收藏按钮')
+    }
+
+    if (selectFolderBtn) {
+      selectFolderBtn.addEventListener('click', e => {
+        e.stopPropagation()
+        closeFavoritesDropdown()
+        if (options.onSelectFolder) {
+          options.onSelectFolder(video, card)
+        }
+      })
+    }
+  }
 
   return card
 }
