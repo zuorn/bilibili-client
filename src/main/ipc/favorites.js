@@ -140,6 +140,7 @@ function registerFavoritesHandlers(deps) {
         return {
           success: true,
           data: medias.map(item => ({
+            aid: item.id || 0,
             bvid: item.bvid || item.bv_id || '',
             title: item.title || '',
             pic: item.cover || '',
@@ -250,6 +251,7 @@ function registerFavoritesHandlers(deps) {
         return {
           success: true,
           data: medias.map(item => ({
+            aid: item.id || 0,
             bvid: item.bvid || item.bv_id || '',
             title: item.title || '',
             pic: item.cover || item.pic || '',

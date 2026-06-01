@@ -23,7 +23,7 @@ let currentFavoritesDetailTitle = ''
 async function handleFavoritesUnfavorite(video, card, mediaId, mediaName, containerId) {
   console.log('[Favorites] handleFavoritesUnfavorite called:', { video, mediaId, mediaName, containerId })
   
-  if (!video || !video.bvid) {
+  if (!video || (!video.aid && !video.bvid)) {
     console.log('[Favorites] 视频信息缺失:', video)
     showToast('视频信息缺失')
     return
@@ -36,17 +36,18 @@ async function handleFavoritesUnfavorite(video, card, mediaId, mediaName, contai
 
   const ok = await showConfirmDialog({
     title: '取消收藏',
-    message: `确定要取消收藏 “${video.title}” 吗？`,
+    message: `确定要取消收藏 "${video.title}" 吗？`,
     confirmText: '取消收藏',
     cancelText: '再想想'
   })
   console.log('[Favorites] 用户确认结果:', ok)
   if (!ok) return
 
+  const resourceId = video.aid || video.bvid
+  console.log('[Favorites] 调用 unfavorite-video API:', { resources: `${resourceId}:2`, media_id: mediaId, aid: video.aid, bvid: video.bvid })
   try {
-    console.log('[Favorites] 调用 unfavorite-video API:', { resources: `${video.bvid}:2`, media_id: mediaId })
     const result = await ipcRenderer.invoke('unfavorite-video', {
-      resources: `${video.bvid}:2`,
+      resources: `${resourceId}:2`,
       media_id: mediaId
     })
     console.log('[Favorites] API 返回结果:', result)
@@ -472,6 +473,7 @@ async function loadFavorites(append = false) {
     const result = await ipcRenderer.invoke('get-favorites', 166434448, state.favoritesPageNum, 36)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
+        aid: item.aid || 0,
         bvid: item.bvid || '',
         cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
@@ -559,6 +561,7 @@ async function searchFavorites(keyword) {
     const result = await ipcRenderer.invoke('get-favorites', 166434448, 1, 36, keyword)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
+        aid: item.aid || 0,
         bvid: item.bvid || '',
         cid: item.cid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
@@ -638,6 +641,7 @@ async function loadFavoritesDefault(append = false) {
     const result = await ipcRenderer.invoke('get-favorites', 166434448, state.favoritesDefaultPageNum, pageSize)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
+        aid: item.aid || 0,
         bvid: item.bvid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
         pic: optimizeCoverUrl(item.pic || '', 672, 378),
@@ -1111,6 +1115,7 @@ async function loadFavoritesDetailVideos(mediaId, pageNum = 1, pageSize = 36, pl
     const result = await ipcRenderer.invoke('get-favorites', mediaId, pageNum, pageSize)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
+        aid: item.aid || 0,
         bvid: item.bvid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
         pic: optimizeCoverUrl(item.pic || '', 672, 378),
@@ -1145,6 +1150,7 @@ async function loadFavoritesCollectionDetailVideos(seasonId, pageNum = 1, pageSi
     const result = await ipcRenderer.invoke('get-favorites-collected-detail', seasonId, pageNum, pageSize)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
+        aid: item.aid || 0,
         bvid: item.bvid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
         pic: optimizeCoverUrl(item.pic || '', 672, 378),
