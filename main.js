@@ -2,7 +2,7 @@
 process.env.LANG = 'zh_CN.UTF-8'
 process.stdout.write('[3J[H[2J')
 
-const { app, BrowserWindow, ipcMain, screen, dialog, Menu } = require('electron')
+const { app, BrowserWindow, ipcMain, screen, dialog, Menu, Tray } = require('electron')
 const path = require('path')
 
 // 优先设置日志模块（使用缓冲区机制，等 app 准备好后再写入文件）
@@ -70,7 +70,8 @@ const sharedState = {
   currentVideoInfo: null,
   reportTimer: null,
   playerWindow: null,
-  playerVideoAspect: 16/9
+  playerVideoAspect: 16/9,
+  tray: null
 }
 
 // 初始化 MPV 模块（传入共享状态）
@@ -127,6 +128,43 @@ function registerAllHandlers() {
   registerUpdaterHandlers({ ipcMain, log, mainWindow: mw })
 }
 
+// ==================== 创建系统托盘 ====================
+function createTray() {
+  const iconPath = path.join(__dirname, 'icon.ico')
+  sharedState.tray = new Tray(iconPath)
+  
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: '显示窗口',
+      click: () => {
+        if (sharedState.mainWindow) {
+          sharedState.mainWindow.show()
+        }
+      }
+    },
+    {
+      type: 'separator'
+    },
+    {
+      label: '退出',
+      click: () => {
+        mpv.stopVideo()
+        app.quit()
+      }
+    }
+  ])
+  
+  sharedState.tray.setContextMenu(contextMenu)
+  sharedState.tray.setToolTip('Bilibili Client')
+  
+  // 双击托盘显示窗口
+  sharedState.tray.on('double-click', () => {
+    if (sharedState.mainWindow) {
+      sharedState.mainWindow.show()
+    }
+  })
+}
+
 // ==================== 应用生命周期 ====================
 app.whenReady().then(async () => {
   log('app.whenReady() 触发')
@@ -157,8 +195,17 @@ app.whenReady().then(async () => {
   // 注册所有 IPC 处理器（窗口创建后注册，确保 mainWindow 引用有效）
   registerAllHandlers()
 
+  // 创建系统托盘
+  createTray()
+
   // 启动后自动检查更新（延迟 3 秒，等首页加载完成）
   setTimeout(() => checkForUpdates(), 3000)
+
+  // 监听主窗口关闭事件，最小化到托盘
+  sharedState.mainWindow.on('close', (event) => {
+    event.preventDefault()
+    sharedState.mainWindow.hide()
+  })
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) {
@@ -176,9 +223,27 @@ app.whenReady().then(async () => {
   app.quit()
 })
 
+// 监听全局快捷键 Q 键
+app.on('web-contents-created', (event, contents) => {
+  contents.on('before-input-event', (event, input) => {
+    if (input.type === 'keyDown' && input.key.toLowerCase() === 'q') {
+      if (sharedState.mainWindow && !sharedState.mainWindow.isDestroyed() && contents === sharedState.mainWindow.webContents) {
+        sharedState.mainWindow.hide()
+      }
+      if (sharedState.playerWindow && !sharedState.playerWindow.isDestroyed() && contents === sharedState.playerWindow.webContents) {
+        sharedState.playerWindow.close()
+      }
+    }
+  })
+})
+
 app.on('window-all-closed', () => {
-  mpv.stopVideo()
-  if (process.platform !== 'darwin') {
-    app.quit()
+  // 保持应用运行，等待用户从托盘退出
+})
+
+app.on('before-quit', () => {
+  if (sharedState.tray) {
+    sharedState.tray.destroy()
+    sharedState.tray = null
   }
 })

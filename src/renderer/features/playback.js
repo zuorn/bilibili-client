@@ -7,7 +7,8 @@ function getMpvPath() {
 }
 
 function useBuiltinPlayer() {
-  return localStorage.getItem('useBuiltinPlayer') === 'true'
+  const saved = localStorage.getItem('useBuiltinPlayer')
+  return saved === null || saved === 'true'
 }
 
 async function playVideo(bvid, cid, title, progress, episodeData = null) {

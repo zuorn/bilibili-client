@@ -3570,7 +3570,7 @@
           renderFavoritesFolders(result.data)
           // 默认选中第一个（默认收藏夹）
           if (result.data.length > 0) {
-            selectFolder(result.data[0].fid)
+            selectFolder(result.data[0].id)
           }
         } else {
           modalBody.innerHTML = `<div class="favorites-error">${result.error || '获取收藏夹失败'}</div>`
@@ -3592,9 +3592,9 @@
 
       let html = ''
       folders.forEach(folder => {
-        const isSelected = selectedFolderId === folder.fid
+        const isSelected = selectedFolderId === folder.id
         html += `
-          <div class="favorite-folder-item ${isSelected ? 'selected' : ''}" data-fid="${folder.fid}" onclick="selectFolder(${folder.fid})">
+          <div class="favorite-folder-item ${isSelected ? 'selected' : ''}" data-id="${folder.id}" onclick="selectFolder(${folder.id})">
             <div class="favorite-folder-radio"></div>
             <div class="favorite-folder-info">
               <div class="favorite-folder-name">${escapeHtml(folder.name)}</div>
@@ -3608,12 +3608,12 @@
       saveBtn.disabled = selectedFolderId === null
     }
 
-    function selectFolder(fid) {
-      selectedFolderId = fid
+    function selectFolder(folderId) {
+      selectedFolderId = folderId
       document.querySelectorAll('.favorite-folder-item').forEach(item => {
         item.classList.remove('selected')
       })
-      document.querySelector(`.favorite-folder-item[data-fid="${fid}"]`)?.classList.add('selected')
+      document.querySelector(`.favorite-folder-item[data-id="${folderId}"]`)?.classList.add('selected')
       document.getElementById('favoritesSaveBtn').disabled = false
     }
 
@@ -3634,9 +3634,9 @@
         }
 
         const result = await ipcRenderer.invoke('add-to-favorites', {
-          rid: selectedFolderId,
+          rid: aid,
           type: 2,
-          add_media_ids: [aid]
+          add_media_ids: selectedFolderId >= 0 ? [selectedFolderId] : []
         })
 
         if (result.success) {

@@ -8,7 +8,7 @@
 # disabled — 禁用自动更新
 # ============================================================
 
-source: github
+source: generic
 
 # ------------------------------------------------------------
 # GitHub Releases 配置
@@ -52,7 +52,7 @@ github:
 # ------------------------------------------------------------
 generic:
   # 服务器上放置构建产物的目录 URL（不含末尾斜杠）
-  url: ""
+  url: "https://talktime.oss-cn-shanghai.aliyuncs.com/doc/bl/v0.0.2"
   # 更新通道
   channel: latest
 

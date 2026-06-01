@@ -51,7 +51,8 @@ function findMpvExecutable(userPath) {
   }
 
   if (!result) {
-    result = 'mpv'
+    cachedMpvPath = { key: cacheKey, path: null }
+    return null
   }
 
   cachedMpvPath = { key: cacheKey, path: result }

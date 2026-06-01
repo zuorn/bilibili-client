@@ -180,7 +180,20 @@ function registerPlayerHandlers(deps) {
       const videoTitle = title || '哔哩哔哩视频'
       const mpvExecutable = findMpvExecutable(mpvPath)
       if (!mpvExecutable) {
-        return { success: false, error: '未找到 MPV 播放器，请在设置中配置 MPV 路径或开启内置播放器' }
+        log('[播放器] 未找到 MPV，自动回退到内置播放器')
+        let videoDimension = null
+        try {
+          const videoInfo = await getVideoInfo(bvid)
+          if (videoInfo) {
+            videoDimension = videoInfo.dimension
+            if (!cid) {
+              cid = videoInfo.cid
+            }
+          }
+        } catch (error) {
+          log('Failed to get video dimension:', error.message)
+        }
+        return await openBuiltinPlayer(bvid, cid, title, videoDimension, progress, deps, episodeData)
       }
       log(`[启动计时] 步骤1: 获取mpv可执行文件, 耗时: ${Date.now() - startTime}ms`)
 

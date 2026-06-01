@@ -357,43 +357,77 @@ function registerFavoritesHandlers(deps) {
         let folders = result.data.list || result.data || []
         log('Favorites folders count:', folders.length)
 
-        // 添加默认收藏夹
-        const defaultFolder = {
-          id: -1,
-          fid: -1,
-          title: '默认收藏夹',
-          name: '默认收藏夹',
-          cover: '',
-          media_count: 0,
-          attr: 0,
-          type: 2,
-          mid: userId,
-          ctime: 0,
-          mtime: 0,
-          is_default: true
+        // 日志：查看所有文件夹的名称和 ID，便于排查默认收藏夹
+        // 关键调试：同时打印 id 和 fid，排查截断问题
+        log('=== RAW API folder fields (first 3) ===')
+        folders.slice(0, 3).forEach((f, i) => {
+          log(`  Folder[${i}] RAW: id=${f.id}(type=${typeof f.id}), fid=${f.fid}(type=${typeof f.fid}), name="${f.title || f.name}", keys=${Object.keys(f).slice(0,8).join(',')}`)
+        })
+        folders.forEach((f, i) => {
+          log(`  Folder[${i}]: id=${f.id || f.fid}, fid=${f.fid}, name="${f.title || f.name}"`)
+        })
+
+        // 检测默认收藏夹：名称为"默认收藏夹"的即为默认
+        let hasDefault = false
+        folders = folders.map(item => {
+          const name = item.title || item.name || ''
+          if (name === '默认收藏夹') {
+            hasDefault = true
+          }
+          return {
+            ...item,
+            is_default: name === '默认收藏夹'
+          }
+        })
+
+        // API 没有返回默认收藏夹时，手动添加一个
+        if (!hasDefault) {
+          const defaultFolder = {
+            id: 0,
+            fid: 0,
+            title: '默认收藏夹',
+            name: '默认收藏夹',
+            cover: '',
+            media_count: 0,
+            attr: 0,
+            type: 2,
+            mid: userId,
+            ctime: 0,
+            mtime: 0,
+            is_default: true
+          }
+          folders.unshift(defaultFolder)
         }
 
-        // 确保默认收藏夹在最前面
-        folders = [defaultFolder, ...folders.filter(item => {
-          const title = item.title || item.name || ''
-          return title !== '默认收藏夹'
-        })]
+        // 默认收藏夹置顶
+        const defaultIdx = folders.findIndex(f => f.is_default)
+        if (defaultIdx > 0) {
+          const defaultItem = folders.splice(defaultIdx, 1)[0]
+          folders.unshift(defaultItem)
+        }
+
+        // 验证最终返回给前端的 fid 值
+        const mappedFolders = folders.map(item => ({
+          id: item.id || item.fid || '',
+          fid: item.fid || item.id || '',
+          mid: item.mid || '',
+          name: item.title || item.name || '',
+          cover: item.cover || '',
+          media_count: item.media_count || 0,
+          attr: item.attr || 0,
+          type: item.type || 2,
+          ctime: item.ctime || 0,
+          mtime: item.mtime || 0,
+          is_default: item.is_default || false
+        }))
+        log('=== Mapped folders to send to renderer (first 3) ===')
+        mappedFolders.slice(0, 3).forEach((m, i) => {
+          log(`  Mapped[${i}]: id=${m.id}, fid=${m.fid}(type=${typeof m.fid}), name="${m.name}", is_default=${m.is_default}`)
+        })
 
         return {
           success: true,
-          data: folders.map(item => ({
-            id: item.id || item.fid || '',
-            fid: item.fid || item.id || '',
-            mid: item.mid || '',
-            name: item.title || item.name || '',
-            cover: item.cover || '',
-            media_count: item.media_count || 0,
-            attr: item.attr || 0,
-            type: item.type || 2,
-            ctime: item.ctime || 0,
-            mtime: item.mtime || 0,
-            is_default: item.is_default || false
-          }))
+          data: mappedFolders
         }
       } else {
         log('Favorites folders API error:', result.message || 'Unknown error')
@@ -411,8 +445,8 @@ function registerFavoritesHandlers(deps) {
     try {
       const { rid, type, add_media_ids } = params
       
-      if (!rid || !add_media_ids || add_media_ids.length === 0) {
-        return { success: false, error: '参数不完整' }
+      if (!rid) {
+        return { success: false, error: '缺少视频ID' }
       }
 
       const savedCookies = cookieManager.getSavedCookies()
@@ -422,13 +456,21 @@ function registerFavoritesHandlers(deps) {
         return { success: false, error: '缺少CSRF Token' }
       }
 
-      const requestParams = {
+      // 构造 WBI 签名参数（不包含 csrf）
+      // add_media_ids 是必填参数，必须包含在签名和 body 中
+      let addMediaIdsStr = ''
+      if (add_media_ids) {
+        const ids = Array.isArray(add_media_ids) ? add_media_ids : [add_media_ids]
+        const validIds = ids.filter(id => id >= 0)
+        if (validIds.length > 0) {
+          addMediaIdsStr = validIds.join(',')
+        }
+      }
+
+      const signParamsInput = {
         rid: rid,
         type: type || 2,
-        add_media_ids: JSON.stringify(add_media_ids),
-        csrf: csrf,
-        platform: 'pc',
-        web_location: 'bilibili-electron'
+        add_media_ids: addMediaIdsStr
       }
 
       const keys = await fetchWbiKeys()
@@ -438,10 +480,14 @@ function registerFavoritesHandlers(deps) {
       }
 
       const mixKey = getMixKey(keys.imgKey, keys.subKey)
-      const signed = signParams(requestParams, mixKey)
+      const signed = signParams(signParamsInput, mixKey)
 
+      // POST body：WBI 签名参数 + csrf + w_rid/wts
       const bodyParams = {
-        ...requestParams,
+        ...signParamsInput,
+        csrf: csrf,
+        platform: 'pc',
+        web_location: 'bilibili-electron',
         w_rid: signed.w_rid,
         wts: signed.wts
       }
