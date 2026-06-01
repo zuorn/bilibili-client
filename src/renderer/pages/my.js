@@ -1,3 +1,6 @@
+const DEFAULT_FAVORITES_ID = 166434448
+const DEFAULT_FAVORITES_NAME = '默认收藏夹'
+
 function formatHistoryTime(timestamp) {
   if (!timestamp) return ''
   const now = new Date()
@@ -125,7 +128,7 @@ function showConfirmDialog({ title = '提示', message = '', confirmText = '确�
 }
 
 function handleFavoritesSelectFolder(video, mediaName) {
-  showToast(`当前收藏夹：${mediaName || '默认收藏夹'}`)
+  showToast(`当前收藏夹：${mediaName || DEFAULT_FAVORITES_NAME}`)
 }
 
 function checkFavoritesContainerEmpty(containerId) {
@@ -470,7 +473,7 @@ async function loadFavorites(append = false) {
   state.isFavoritesLoading = true
 
   try {
-    const result = await ipcRenderer.invoke('get-favorites', 166434448, state.favoritesPageNum, 36)
+    const result = await ipcRenderer.invoke('get-favorites', DEFAULT_FAVORITES_ID, state.favoritesPageNum, 36)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
         aid: item.aid || 0,
@@ -486,9 +489,9 @@ async function loadFavorites(append = false) {
 
       if (videos.length > 0) {
         if (append) {
-          appendVideos(videos, 'favoritesGrid', navigateToUP, getFavoritesCardOptions(166434448, '默认收藏夹', 'favoritesGrid'))
+          appendVideos(videos, 'favoritesGrid', navigateToUP, getFavoritesCardOptions(DEFAULT_FAVORITES_ID, DEFAULT_FAVORITES_NAME, 'favoritesGrid'))
         } else {
-          renderVideos(videos, 'favoritesGrid', navigateToUP, getFavoritesCardOptions(166434448, '默认收藏夹', 'favoritesGrid'))
+          renderVideos(videos, 'favoritesGrid', navigateToUP, getFavoritesCardOptions(DEFAULT_FAVORITES_ID, DEFAULT_FAVORITES_NAME, 'favoritesGrid'))
         }
         state.hasMoreFavorites = result.hasMore || false
         state.favoritesPageNum++
@@ -558,7 +561,7 @@ async function loadToview(append = false) {
 
 async function searchFavorites(keyword) {
   try {
-    const result = await ipcRenderer.invoke('get-favorites', 166434448, 1, 36, keyword)
+    const result = await ipcRenderer.invoke('get-favorites', DEFAULT_FAVORITES_ID, 1, 36, keyword)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
         aid: item.aid || 0,
@@ -573,7 +576,7 @@ async function searchFavorites(keyword) {
       }))
 
       if (videos.length > 0) {
-        renderVideos(videos, 'favoritesGrid', navigateToUP, getFavoritesCardOptions(166434448, '默认收藏夹', 'favoritesGrid'))
+        renderVideos(videos, 'favoritesGrid', navigateToUP, getFavoritesCardOptions(DEFAULT_FAVORITES_ID, DEFAULT_FAVORITES_NAME, 'favoritesGrid'))
       } else {
         showEmptyMessage('favoritesGrid', `未找到包含 "${keyword}" 的收藏内容`)
       }
@@ -638,7 +641,7 @@ async function loadFavoritesDefault(append = false) {
 
   try {
     const pageSize = 36
-    const result = await ipcRenderer.invoke('get-favorites', 166434448, state.favoritesDefaultPageNum, pageSize)
+    const result = await ipcRenderer.invoke('get-favorites', DEFAULT_FAVORITES_ID, state.favoritesDefaultPageNum, pageSize)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
         aid: item.aid || 0,
@@ -653,9 +656,9 @@ async function loadFavoritesDefault(append = false) {
 
       if (videos.length > 0) {
         if (append) {
-          appendVideos(videos, 'favoritesDefaultGrid', navigateToUP, getFavoritesCardOptions(166434448, '默认收藏夹', 'favoritesDefaultGrid'))
+          appendVideos(videos, 'favoritesDefaultGrid', navigateToUP, getFavoritesCardOptions(DEFAULT_FAVORITES_ID, DEFAULT_FAVORITES_NAME, 'favoritesDefaultGrid'))
         } else {
-          renderVideos(videos, 'favoritesDefaultGrid', navigateToUP, getFavoritesCardOptions(166434448, '默认收藏夹', 'favoritesDefaultGrid'))
+          renderVideos(videos, 'favoritesDefaultGrid', navigateToUP, getFavoritesCardOptions(DEFAULT_FAVORITES_ID, DEFAULT_FAVORITES_NAME, 'favoritesDefaultGrid'))
         }
         state.hasMoreFavoritesDefault = result.hasMore || (videos.length === pageSize)
         state.favoritesDefaultPageNum++
