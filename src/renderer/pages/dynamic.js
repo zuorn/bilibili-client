@@ -153,6 +153,8 @@ function createDynamicVideoInfo(dynamic, onAuthorClick) {
   const info = document.createElement('div')
   info.className = 'video-info'
 
+  const bvid = dynamic.bvid || ''
+  const cid = dynamic.cid || ''
   const title = dynamic.title || dynamic.desc || '暂无标题'
   const author = dynamic.authorName || dynamic.author || '未知'
   const authorMid = dynamic.authorMid || ''
@@ -169,6 +171,14 @@ function createDynamicVideoInfo(dynamic, onAuthorClick) {
       if (authorMid && onAuthorClick) onAuthorClick(authorMid)
     })
   })
+
+  const titleEl = info.querySelector('.video-title')
+  if (titleEl) {
+    titleEl.addEventListener('click', e => {
+      e.stopPropagation()
+      if (bvid) playVideo(bvid, cid, title)
+    })
+  }
 
   return info
 }

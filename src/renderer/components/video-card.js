@@ -207,6 +207,14 @@ function createVideoInfo(video, onAuthorClick, options = {}) {
     })
   })
 
+  const titleEl = info.querySelector('.video-title')
+  if (titleEl) {
+    titleEl.addEventListener('click', e => {
+      e.stopPropagation()
+      if (video.bvid) playVideo(video.bvid, video.cid, video.title)
+    })
+  }
+
   if (showFavoritesMore) {
     const moreBtn = info.querySelector('.favorites-more-btn')
     const dropdown = createFavoritesDropdown(video, options)

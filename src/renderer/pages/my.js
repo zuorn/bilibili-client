@@ -225,6 +225,14 @@ function createHistoryVideoInfo(video, onAuthorClick) {
     })
   })
 
+  const titleEl = info.querySelector('.video-title')
+  if (titleEl) {
+    titleEl.addEventListener('click', e => {
+      e.stopPropagation()
+      if (video.bvid) playVideo(video.bvid, video.cid, video.title)
+    })
+  }
+
   const moreBtn = info.querySelector('.history-more-btn')
   const dropdown = info.querySelector('.history-dropdown')
 
