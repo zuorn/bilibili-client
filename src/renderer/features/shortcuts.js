@@ -5,6 +5,7 @@ function loadShortcuts() {
     const saved = localStorage.getItem('userShortcuts')
     if (saved) {
       const loaded = JSON.parse(saved)
+      // 遍历 defaultShortcuts，确保所有默认快捷键都被处理
       for (const [id, shortcut] of Object.entries(defaultShortcuts)) {
         if (!loaded[id] || !loaded[id].keys || !Array.isArray(loaded[id].keys) || loaded[id].keys.length === 0) {
           loaded[id] = JSON.parse(JSON.stringify(shortcut))
@@ -14,7 +15,16 @@ function loadShortcuts() {
           }
         }
       }
+      // 添加 defaultShortcuts 中存在但 loaded 中不存在的快捷键
+      for (const [id, shortcut] of Object.entries(defaultShortcuts)) {
+        if (!loaded[id]) {
+          loaded[id] = JSON.parse(JSON.stringify(shortcut))
+        }
+      }
       userShortcuts = loaded
+    } else {
+      // 如果没有保存的配置，直接使用默认配置
+      userShortcuts = JSON.parse(JSON.stringify(defaultShortcuts))
     }
   } catch (e) {
     console.error('加载快捷键配置失败:', e)
@@ -440,6 +450,33 @@ function applyShortcuts(e) {
   if (scrollUpShortcut && scrollUpShortcut.keys && matchAnyShortcut(e, scrollUpShortcut.keys)) {
     e.preventDefault()
     scrollHalfPage('up')
+  }
+
+  const triggerActionShortcut = userShortcuts.triggerAction
+  if (triggerActionShortcut && triggerActionShortcut.keys && matchAnyShortcut(e, triggerActionShortcut.keys)) {
+    e.preventDefault()
+    handleTriggerAction()
+  }
+}
+
+function handleTriggerAction() {
+  const focusedElement = document.activeElement
+  if (focusedElement) {
+    const videoCard = focusedElement.closest('.video-card')
+    if (videoCard) {
+      const bvid = videoCard.dataset.bvid
+      if (bvid) {
+        playVideo(bvid, videoCard.dataset.cid, videoCard.querySelector('.video-title')?.textContent)
+        return
+      }
+    }
+  }
+  const selectedCard = document.querySelector('.video-card.selected')
+  if (selectedCard) {
+    const bvid = selectedCard.dataset.bvid
+    if (bvid) {
+      playVideo(bvid, selectedCard.dataset.cid, selectedCard.querySelector('.video-title')?.textContent)
+    }
   }
 }
 

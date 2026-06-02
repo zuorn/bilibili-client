@@ -78,8 +78,11 @@ async function loadDefaultShortcuts() {
       const config = convertConfToShortcuts(conf)
       defaultShortcuts = config
       console.log('默认快捷键配置加载成功:', defaultShortcuts)
-      if (!userShortcuts.focusSearch || !userShortcuts.clearSearch || !userShortcuts.goBack) {
-        userShortcuts = JSON.parse(JSON.stringify(defaultShortcuts))
+      // 合并配置文件中的快捷键到 userShortcuts，确保新增的快捷键也能被加载
+      for (const [id, shortcut] of Object.entries(defaultShortcuts)) {
+        if (!userShortcuts[id]) {
+          userShortcuts[id] = JSON.parse(JSON.stringify(shortcut))
+        }
       }
     } else {
       console.error('加载默认快捷键配置失败，状态码:', response.status)
