@@ -682,17 +682,18 @@
   padding-top: 0;
 }
 
-.collections-series-card {
-  background-color: #fff;
-  border-radius: 10px;
-  overflow: hidden;
-  cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+.collections-series-item-wrapper {
+  display: flex;
+  flex-direction: column;
 }
 
-.collections-series-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+.collections-series-card {
+  cursor: pointer;
+  width: 100%;
+}
+
+.collections-series-card:hover .collections-series-cover {
+  transform: scale(1.03);
 }
 
 .collections-series-cover {
@@ -700,6 +701,8 @@
   width: 100%;
   aspect-ratio: 16 / 9;
   overflow: hidden;
+  border-radius: 8px;
+  transition: transform 0.25s ease;
 }
 
 .collections-series-cover img {
@@ -750,17 +753,89 @@
 }
 
 .collections-series-info {
-  padding: 12px;
+  padding-top: 10px;
+  border-radius: 0;
+  position: relative;
+}
+
+.collections-series-title-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.collections-series-title-row .collections-series-title {
+  flex: 1;
+  margin-bottom: 4px;
+  padding-right: 32px;
 }
 
 .collections-series-title {
   font-size: 14px;
   font-weight: 500;
   color: #18191c;
-  margin: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+}
+
+.collections-series-title:hover {
+  color: #ff6b9d;
+  cursor: pointer;
+}
+
+.collections-more-wrapper {
+  position: absolute;
+  top: 8px;
+  right: 0;
+}
+
+.collections-more-btn {
+  width: 24px;
+  height: 24px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #999;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 1;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.collections-more-btn:hover {
+  background: #f5f5f5;
+  color: #666;
+}
+
+.collections-more-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.collections-dropdown {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.18);
+  padding: 4px 0;
+  min-width: 120px;
+  z-index: 100;
+  display: none;
+}
+
+.collections-dropdown .dropdown-item {
+  padding: 8px 16px;
+  font-size: 13px;
+  color: #18191c;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.collections-dropdown .dropdown-item:hover {
+  background-color: #f5f5f5;
 }
 
 .collections-series-date {

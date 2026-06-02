@@ -124,6 +124,11 @@
   padding-right: 20px;
 }
 
+.video-title:hover {
+  color: #ff6b9d;
+  cursor: pointer;
+}
+
 .history-more-wrapper {
   position: absolute;
   top: 9px;

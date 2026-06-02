@@ -404,6 +404,11 @@
   padding-right: 20px;
 }
 
+.video-title:hover {
+  color: #ff6b9d;
+  cursor: pointer;
+}
+
 /* 收藏卡片更多按钮 - 与历史记录页面样式一致 */
 .favorites-more-wrapper {
   position: absolute;

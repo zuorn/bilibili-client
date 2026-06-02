@@ -230,6 +230,11 @@ function createHistoryVideoInfo(video, onAuthorClick) {
 
   moreBtn.addEventListener('click', e => {
     e.stopPropagation()
+    document.querySelectorAll('.history-dropdown').forEach(d => {
+      if (d !== dropdown) {
+        d.style.display = 'none'
+      }
+    })
     dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block'
   })
 
@@ -772,23 +777,40 @@ async function loadFavoritesCreated() {
               const privacy = fav.attr === 0 ? '公开' : '私密'
               const dateStr = formatDate(fav.ctime)
               return `
-                <div class="collections-series-card" data-media-id="${fav.id}">
-                  <div class="collections-series-cover">
-                    <img src="${optimizeCoverUrl(fav.cover || '', 672, 378)}" alt="${fav.name}">
-                    <div class="collections-series-stack">
-                      <div class="collections-series-stack-item"></div>
-                      <div class="collections-series-stack-item"></div>
-                      <div class="collections-series-stack-item"></div>
-                    </div>
-                    <div class="collections-series-meta" style="position: absolute; bottom: 8px; left: 8px; display: flex; align-items: center; gap: 4px; color: #fff; font-size: 12px; text-shadow: 0 1px 2px rgba(0,0,0,0.5);">
-                      <span>${fav.media_count}个内容</span>
-                      <span>·</span>
-                      <span>${privacy}</span>
+                <div class="collections-series-item-wrapper">
+                  <div class="collections-series-card" data-media-id="${fav.id}">
+                    <div class="collections-series-cover">
+                      <img src="${optimizeCoverUrl(fav.cover || '', 672, 378)}" alt="${fav.name}">
+                      <div class="collections-series-stack">
+                        <div class="collections-series-stack-item"></div>
+                        <div class="collections-series-stack-item"></div>
+                        <div class="collections-series-stack-item"></div>
+                      </div>
+                      <div class="collections-series-meta">
+                        <span>${fav.media_count}个内容</span>
+                        <span>·</span>
+                        <span>${privacy}</span>
+                      </div>
                     </div>
                   </div>
-                  <div class="collections-series-info">
-                    <h3 class="collections-series-title">${fav.name}</h3>
-                    ${dateStr ? `<p class="collections-series-date" style="font-size: 12px; color: #999; margin-top: 4px;">创建于${dateStr}</p>` : ''}
+                  <div class="collections-series-info" data-media-id="${fav.id}">
+                    <div class="collections-series-title-row">
+                      <h3 class="collections-series-title">${fav.name}</h3>
+                      <div class="collections-more-wrapper">
+                        <button class="collections-more-btn" title="更多操作">
+                          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+                            <circle cx="12" cy="4" r="3"/>
+                            <circle cx="12" cy="12" r="3"/>
+                            <circle cx="12" cy="20" r="3"/>
+                          </svg>
+                        </button>
+                        <div class="collections-dropdown">
+                          <div class="dropdown-item edit-favorites-btn" data-media-id="${fav.id}">编辑信息</div>
+                          <div class="dropdown-item delete-favorites-btn" data-media-id="${fav.id}">删除收藏夹</div>
+                        </div>
+                      </div>
+                    </div>
+                    ${dateStr ? `<p class="collections-series-date">创建于${dateStr}</p>` : ''}
                   </div>
                 </div>
               `
@@ -803,6 +825,49 @@ async function loadFavoritesCreated() {
             const cover = item.querySelector('.collections-series-cover img')?.src || ''
             const count = parseInt(item.querySelector('.collections-series-badge span')?.textContent || '0')
             showFavoritesDetail(mediaId, title, cover, count)
+          })
+        })
+
+        container.querySelectorAll('.collections-more-btn').forEach(btn => {
+          btn.addEventListener('click', e => {
+            e.stopPropagation()
+            const dropdown = btn.nextElementSibling
+            container.querySelectorAll('.collections-dropdown').forEach(d => {
+              if (d !== dropdown) {
+                d.style.display = 'none'
+              }
+            })
+            dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block'
+          })
+        })
+
+        document.addEventListener('click', e => {
+          if (!e.target.closest('.collections-more-wrapper')) {
+            container.querySelectorAll('.collections-dropdown').forEach(dropdown => {
+              dropdown.style.display = 'none'
+            })
+          }
+        })
+
+        container.querySelectorAll('.edit-favorites-btn').forEach(btn => {
+          btn.addEventListener('click', e => {
+            e.stopPropagation()
+            const mediaId = btn.dataset.mediaId
+            showToast(`编辑收藏夹: ${mediaId}`)
+          })
+        })
+
+        container.querySelectorAll('.delete-favorites-btn').forEach(btn => {
+          btn.addEventListener('click', async e => {
+            e.stopPropagation()
+            const mediaId = btn.dataset.mediaId
+            const ok = await showConfirmDialog({
+              title: '删除收藏夹',
+              message: '确定要删除这个收藏夹吗？'
+            })
+            if (ok) {
+              showToast(`删除收藏夹: ${mediaId}`)
+            }
           })
         })
       } else {
