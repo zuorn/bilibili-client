@@ -11,20 +11,28 @@
   gap: 20px;
 }
 
-.video-card {
-  background-color: #fff;
-  border-radius: 4px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  cursor: pointer;
-  transition: all 0.25s;
-  width: 100%;
-  position: relative;
-  overflow: hidden;
+.video-item-wrapper {
+  display: flex;
+  flex-direction: column;
 }
 
-.video-card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+.video-card {
+  cursor: pointer;
+  width: 100%;
+}
+
+.video-card:hover .video-thumbnail {
+  transform: scale(1.03);
+}
+
+.video-info {
+  padding-top: 10px;
+  border-radius: 0;
+  position: relative;
+}
+
+.video-info:hover {
+  background: transparent;
 }
 
 .video-thumbnail {
@@ -33,7 +41,8 @@
   padding-top: 56.25%;
   background: linear-gradient(135deg, #f5f5f5 0%, #e0e0e0 100%);
   overflow: hidden;
-  border-radius: 0;
+  border-radius: 8px;
+  transition: transform 0.25s ease;
 }
 
 .video-thumbnail img {
@@ -99,13 +108,15 @@
   font-weight: 500;
 }
 
-.video-info {
-  padding: 8px 10px 10px;
+.video-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
 }
 
 .video-title {
-  font-size: 14px;
-  font-weight: 500;
+  font-size: 13px;
   color: #18191c;
   line-height: 1.5;
   display: -webkit-box;
@@ -114,14 +125,15 @@
   overflow: hidden;
   text-overflow: ellipsis;
   margin: 0;
-  height: 42px;
+  height: 39px;
+  flex: 1;
 }
 
 .video-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-top: 2px;
+  margin-top: 6px;
 }
 
 .video-author-row {
@@ -131,6 +143,12 @@
   font-size: 12px;
   color: #9499a0;
   flex-shrink: 0;
+}
+
+.video-footer-right {
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .up-icon {
@@ -383,12 +401,15 @@
 .video-title-row .video-title {
   flex: 1;
   margin-bottom: 10px;
+  padding-right: 20px;
 }
 
 /* 收藏卡片更多按钮 - 与历史记录页面样式一致 */
 .favorites-more-wrapper {
-  position: relative;
-  flex-shrink: 0;
+  position: absolute;
+  top: 9px;
+  right: 0;
+  margin-left: 8px;
 }
 
 .favorites-more-btn {

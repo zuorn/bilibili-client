@@ -98,7 +98,6 @@ function createVideoCard(video, onAuthorClick, options = {}) {
   const coverSrc = video.pic ? optimizeCoverUrl(video.pic, COVER_WIDTH, COVER_HEIGHT) : ''
 
   const showAddToView = options.showAddToView !== false
-  const showFavoritesMore = !!options.showFavoritesMore
 
   card.innerHTML = `
     <div class="video-thumbnail">
@@ -114,53 +113,6 @@ function createVideoCard(video, onAuthorClick, options = {}) {
       ` : ''}
       ${rankBadge}
     </div>
-    <div class="video-info">
-      <div class="video-title-row">
-        <h3 class="video-title">${video.title}</h3>
-        ${showFavoritesMore ? `
-        <div class="favorites-more-wrapper">
-          <button class="favorites-more-btn" title="更多操作" data-bvid="${video.bvid}">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="4" r="1.5"></circle>
-              <circle cx="12" cy="12" r="1.5"></circle>
-              <circle cx="12" cy="20" r="1.5"></circle>
-            </svg>
-          </button>
-        </div>
-        ` : ''}
-      </div>
-      <div class="video-footer">
-        <div class="video-author-row">
-          <svg class="up-icon up-clickable" data-mid="${video.owner?.mid || video.mid || ''}" viewBox="0 0 40 28" fill="none">
-            <rect x="2" y="2" width="36" height="24" rx="6" ry="6" stroke="currentColor" stroke-width="1.5" fill="none"/>
-            <text x="20" y="20" text-anchor="middle" font-size="13" font-weight="bold" fill="currentColor" font-family="inherit">U P</text>
-          </svg>
-          ${video.author ? `<span class="video-author-name up-clickable" data-mid="${video.owner?.mid || video.mid || ''}">${video.author}</span>` : ''}
-          ${video.publish_date ? `<span class="video-publish-date up-clickable" data-mid="${video.owner?.mid || video.mid || ''}">${video.publish_date}</span>` : ''}
-        </div>
-        <span class="video-play">${video.play}</span>
-      </div>
-    </div>
-    ${showFavoritesMore ? `
-    <div class="favorites-dropdown" data-bvid="${video.bvid}">
-      <div class="favorites-dropdown-item favorites-select-folder-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"/>
-        </svg>
-        <span>选择收藏夹</span>
-      </div>
-      <div class="favorites-dropdown-divider"></div>
-      <div class="favorites-dropdown-item favorites-unfavorite-btn">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <polyline points="3,6 5,6 21,6"/>
-          <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
-          <path d="M10 11v6M14 11v6"/>
-          <path d="M9 6V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/>
-        </svg>
-        <span>取消收藏</span>
-      </div>
-    </div>
-    ` : ''}
   `
 
   const img = card.querySelector('img')
@@ -172,19 +124,10 @@ function createVideoCard(video, onAuthorClick, options = {}) {
   }
 
   card.addEventListener('click', (e) => {
-    if (e.target.closest('.favorites-more-btn') || e.target.closest('.favorites-dropdown')) {
+    if (e.target.closest('.add-to-view-btn')) {
       return
     }
     if (video.bvid) playVideo(video.bvid, video.cid, video.title)
-  })
-
-  const upClickableElements = card.querySelectorAll('.up-clickable')
-  upClickableElements.forEach(el => {
-    el.addEventListener('click', e => {
-      e.stopPropagation()
-      const mid = el.dataset.mid || video.owner?.mid || video.mid
-      if (mid && onAuthorClick) onAuthorClick(mid)
-    })
   })
 
   if (showAddToView) {
@@ -216,58 +159,118 @@ function createVideoCard(video, onAuthorClick, options = {}) {
     }
   }
 
-  if (showFavoritesMore) {
-    const moreBtn = card.querySelector('.favorites-more-btn')
-    const dropdown = card.querySelector('.favorites-dropdown')
-    
-    // 在移动 dropdown 之前先获取按钮引用
-    const unfavoriteBtn = dropdown?.querySelector('.favorites-unfavorite-btn')
-    const selectFolderBtn = dropdown?.querySelector('.favorites-select-folder-btn')
+  return card
+}
 
-    if (dropdown && dropdown.parentElement !== document.body) {
-      document.body.appendChild(dropdown)
-    }
+function createVideoInfo(video, onAuthorClick, options = {}) {
+  const info = document.createElement('div')
+  info.className = 'video-info'
+
+  const showFavoritesMore = options.showFavoritesMore
+
+  const favoritesMoreBtn = showFavoritesMore ? `
+    <div class="favorites-more-wrapper">
+      <button class="favorites-more-btn" title="更多操作">
+        <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+          <circle cx="12" cy="4" r="3"/>
+          <circle cx="12" cy="12" r="3"/>
+          <circle cx="12" cy="20" r="3"/>
+        </svg>
+      </button>
+    </div>
+  ` : ''
+
+  info.innerHTML = `
+    <div class="video-title-row">
+      <h3 class="video-title">${video.title}</h3>
+      ${favoritesMoreBtn}
+    </div>
+    <div class="video-footer">
+      <div class="video-author-row">
+        <svg class="up-icon up-clickable" data-mid="${video.owner?.mid || video.mid || ''}" viewBox="0 0 40 28" fill="none">
+          <rect x="2" y="2" width="36" height="24" rx="6" ry="6" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          <text x="20" y="20" text-anchor="middle" font-size="13" font-weight="bold" fill="currentColor" font-family="inherit">U P</text>
+        </svg>
+        ${video.author ? `<span class="video-author-name up-clickable" data-mid="${video.owner?.mid || video.mid || ''}">${video.author}</span>` : ''}
+        ${video.publish_date ? `<span class="video-publish-date up-clickable" data-mid="${video.owner?.mid || video.mid || ''}">${video.publish_date}</span>` : ''}
+      </div>
+      <span class="video-play">${video.play}</span>
+    </div>
+  `
+
+  const upClickableElements = info.querySelectorAll('.up-clickable')
+  upClickableElements.forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation()
+      const mid = el.dataset.mid || video.owner?.mid || video.mid
+      if (mid && onAuthorClick) onAuthorClick(mid)
+    })
+  })
+
+  if (showFavoritesMore) {
+    const moreBtn = info.querySelector('.favorites-more-btn')
+    const dropdown = createFavoritesDropdown(video, options)
+    document.body.appendChild(dropdown)
 
     moreBtn.addEventListener('click', e => {
       e.stopPropagation()
-      e.preventDefault()
-      if (dropdown.style.display === 'block' && activeFavoritesDropdown === dropdown) {
+      if (dropdown.style.display === 'block') {
         closeFavoritesDropdown()
       } else {
         openFavoritesDropdown(dropdown, moreBtn)
       }
     })
-
-    dropdown.addEventListener('click', e => e.stopPropagation())
-
-    if (unfavoriteBtn) {
-      unfavoriteBtn.addEventListener('click', async e => {
-        e.stopPropagation()
-        closeFavoritesDropdown()
-        console.log('[VideoCard] 取消收藏按钮被点击，video:', video.bvid, 'has onUnfavorite:', !!options.onUnfavorite)
-        if (options.onUnfavorite) {
-          console.log('[VideoCard] 调用 onUnfavorite')
-          options.onUnfavorite(video, card)
-        } else {
-          console.log('[VideoCard] onUnfavorite 未定义')
-        }
-      })
-    } else {
-      console.log('[VideoCard] 未找到取消收藏按钮')
-    }
-
-    if (selectFolderBtn) {
-      selectFolderBtn.addEventListener('click', e => {
-        e.stopPropagation()
-        closeFavoritesDropdown()
-        if (options.onSelectFolder) {
-          options.onSelectFolder(video, card)
-        }
-      })
-    }
   }
 
-  return card
+  return info
+}
+
+function createFavoritesDropdown(video, options) {
+  const dropdown = document.createElement('div')
+  dropdown.className = 'favorites-dropdown'
+  dropdown.style.display = 'none'
+
+  const onUnfavorite = options.onUnfavorite
+  const onSelectFolder = options.onSelectFolder
+
+  dropdown.innerHTML = `
+    <div class="favorites-dropdown-item select-folder-btn">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
+      </svg>
+      <span>选择收藏夹</span>
+    </div>
+    <div class="favorites-dropdown-divider"></div>
+    <div class="favorites-dropdown-item unfavorite-btn" style="color: #ff5e5e;">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M3 6h18"></path>
+        <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+      </svg>
+      <span>取消收藏</span>
+    </div>
+  `
+
+  const unfavoriteBtn = dropdown.querySelector('.unfavorite-btn')
+  const selectFolderBtn = dropdown.querySelector('.select-folder-btn')
+
+  unfavoriteBtn.addEventListener('click', e => {
+    e.stopPropagation()
+    closeFavoritesDropdown()
+    if (onUnfavorite) {
+      const card = document.querySelector(`.video-card[data-bvid="${video.bvid}"]`)
+      onUnfavorite(video, card)
+    }
+  })
+
+  selectFolderBtn.addEventListener('click', e => {
+    e.stopPropagation()
+    closeFavoritesDropdown()
+    if (onSelectFolder) {
+      onSelectFolder(video)
+    }
+  })
+
+  return dropdown
 }
 
 function renderVideos(videos, containerId, onAuthorClick, options = {}) {
@@ -279,7 +282,13 @@ function renderVideos(videos, containerId, onAuthorClick, options = {}) {
       video.rank = index + 1
     }
     const eager = index < EAGER_COUNT
-    container.appendChild(createVideoCard(video, onAuthorClick, { ...options, eager }))
+    const card = createVideoCard(video, onAuthorClick, { ...options, eager })
+    const info = createVideoInfo(video, onAuthorClick, options)
+    const wrapper = document.createElement('div')
+    wrapper.className = 'video-item-wrapper'
+    wrapper.appendChild(card)
+    wrapper.appendChild(info)
+    container.appendChild(wrapper)
   })
 }
 
@@ -291,7 +300,13 @@ function appendVideos(videos, containerId, onAuthorClick, options = {}) {
     if (options.showRank && !video.rank) {
       video.rank = startRank + index
     }
-    container.appendChild(createVideoCard(video, onAuthorClick, options))
+    const card = createVideoCard(video, onAuthorClick, options)
+    const info = createVideoInfo(video, onAuthorClick, options)
+    const wrapper = document.createElement('div')
+    wrapper.className = 'video-item-wrapper'
+    wrapper.appendChild(card)
+    wrapper.appendChild(info)
+    container.appendChild(wrapper)
   })
 }
 

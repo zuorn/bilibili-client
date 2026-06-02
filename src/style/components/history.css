@@ -107,21 +107,28 @@
   position: relative;
 }
 
+.video-info {
+  position: relative;
+}
+
 .video-title-row {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 8px;
 }
 
 .video-title-row .video-title {
   flex: 1;
-  margin-bottom: 0;
-  margin-right: 8px;
+  margin-bottom: 10px;
+  padding-right: 20px;
 }
 
 .history-more-wrapper {
-  position: relative;
-  flex-shrink: 0;
+  position: absolute;
+  top: 9px;
+  right: 0;
+  margin-left: 8px;
 }
 
 .history-more-btn {

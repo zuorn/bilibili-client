@@ -59,14 +59,18 @@ async function handleFavoritesUnfavorite(video, card, mediaId, mediaName, contai
       console.log('[Favorites] 取消收藏成功')
       showToast('已取消收藏')
 
-      if (card && card.parentNode) {
-        const dropdown = card.querySelector('.favorites-dropdown')
-        card.style.transition = 'opacity 0.25s, transform 0.25s'
-        card.style.opacity = '0'
-        card.style.transform = 'scale(0.95)'
+      if (card) {
+        const wrapper = card.closest('.video-item-wrapper')
+        const targetElement = wrapper || card
+        const dropdown = document.querySelector('.favorites-dropdown[style*="display: block"]')
+        
+        targetElement.style.transition = 'opacity 0.25s, transform 0.25s'
+        targetElement.style.opacity = '0'
+        targetElement.style.transform = 'scale(0.95)'
+        
         setTimeout(() => {
           if (dropdown && dropdown.parentNode) dropdown.parentNode.removeChild(dropdown)
-          if (card.parentNode) card.parentNode.removeChild(card)
+          if (targetElement.parentNode) targetElement.parentNode.removeChild(targetElement)
           checkFavoritesContainerEmpty(containerId)
           console.log('[Favorites] 卡片已移除')
         }, 250)
@@ -134,7 +138,7 @@ function handleFavoritesSelectFolder(video, mediaName) {
 function checkFavoritesContainerEmpty(containerId) {
   const container = document.getElementById(containerId)
   if (!container) return
-  const remaining = container.querySelectorAll('.video-card')
+  const remaining = container.querySelectorAll('.video-item-wrapper')
   if (remaining.length === 0) {
     let msg = '暂无收藏内容'
     if (containerId === 'favoritesDetailList' || containerId === 'favoritesCollectionDetailList') {
@@ -152,7 +156,7 @@ function getFavoritesCardOptions(mediaId, mediaName, containerId) {
   }
 }
 
-function createHistoryCard(video, onAuthorClick, options = {}) {
+function createHistoryCard(video, options = {}) {
   const card = document.createElement('div')
   card.className = 'video-card'
   card.dataset.bvid = video.bvid
@@ -168,40 +172,51 @@ function createHistoryCard(video, onAuthorClick, options = {}) {
         <span class="video-duration">${video.duration}</span>
       ` : ''}
     </div>
-    <div class="video-info">
-      <div class="video-title-row">
-        <h3 class="video-title">${video.title}</h3>
-        <div class="history-more-wrapper">
-          <button class="history-more-btn" title="更多操作">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="12" cy="4" r="1.5"/>
-              <circle cx="12" cy="12" r="1.5"/>
-              <circle cx="12" cy="20" r="1.5"/>
-            </svg>
-          </button>
-          <div class="history-dropdown">
-            <div class="dropdown-item delete-history-btn">删除记录</div>
-          </div>
-        </div>
-      </div>
-      <div class="video-footer">
-        <div class="video-author-row">
-          <svg class="up-icon up-clickable" data-mid="${video.owner?.mid || video.mid || ''}" viewBox="0 0 40 28" fill="none">
-            <rect x="2" y="2" width="36" height="24" rx="6" ry="6" stroke="currentColor" stroke-width="1.5" fill="none"/>
-            <text x="20" y="20" text-anchor="middle" font-size="13" font-weight="bold" fill="currentColor" font-family="inherit">U P</text>
-          </svg>
-          <span class="video-author-name up-clickable" data-mid="${video.owner?.mid || video.mid || ''}">${video.author}</span>
-        </div>
-        <span class="video-play">${video.historyTime || ''}</span>
-      </div>
-    </div>
   `
 
   card.addEventListener('click', () => {
     if (video.bvid) playVideo(video.bvid, video.cid, video.title, video.progress)
   })
 
-  const upClickableElements = card.querySelectorAll('.up-clickable')
+  const img = card.querySelector('.video-thumbnail img')
+  setupLazyImage(img, options.eager)
+
+  return card
+}
+
+function createHistoryVideoInfo(video, onAuthorClick) {
+  const info = document.createElement('div')
+  info.className = 'video-info'
+
+  info.innerHTML = `
+    <div class="video-title-row">
+      <h3 class="video-title">${video.title}</h3>
+      <div class="history-more-wrapper">
+        <button class="history-more-btn" title="更多操作">
+          <svg viewBox="0 0 24 24" fill="currentColor" stroke="none">
+            <circle cx="12" cy="4" r="3"/>
+            <circle cx="12" cy="12" r="3"/>
+            <circle cx="12" cy="20" r="3"/>
+          </svg>
+        </button>
+        <div class="history-dropdown">
+          <div class="dropdown-item delete-history-btn">删除记录</div>
+        </div>
+      </div>
+    </div>
+    <div class="video-footer">
+      <div class="video-author-row">
+        <svg class="up-icon up-clickable" data-mid="${video.owner?.mid || video.mid || ''}" viewBox="0 0 40 28" fill="none">
+          <rect x="2" y="2" width="36" height="24" rx="6" ry="6" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          <text x="20" y="20" text-anchor="middle" font-size="13" font-weight="bold" fill="currentColor" font-family="inherit">U P</text>
+        </svg>
+        <span class="video-author-name up-clickable" data-mid="${video.owner?.mid || video.mid || ''}">${video.author}</span>
+      </div>
+      <span class="video-play">${video.historyTime || ''}</span>
+    </div>
+  `
+
+  const upClickableElements = info.querySelectorAll('.up-clickable')
   upClickableElements.forEach(el => {
     el.addEventListener('click', e => {
       e.stopPropagation()
@@ -210,22 +225,23 @@ function createHistoryCard(video, onAuthorClick, options = {}) {
     })
   })
 
-  const moreBtn = card.querySelector('.history-more-btn')
-  const dropdown = card.querySelector('.history-dropdown')
+  const moreBtn = info.querySelector('.history-more-btn')
+  const dropdown = info.querySelector('.history-dropdown')
 
   moreBtn.addEventListener('click', e => {
     e.stopPropagation()
     dropdown.style.display = dropdown.style.display === 'block' ? 'none' : 'block'
   })
 
-  const deleteBtn = card.querySelector('.delete-history-btn')
+  const deleteBtn = info.querySelector('.delete-history-btn')
   deleteBtn.addEventListener('click', async e => {
     e.stopPropagation()
     dropdown.style.display = 'none'
 
     const result = await ipcRenderer.invoke('delete-history', { kid: video.kid, business: video.business, oid: video.oid, bvid: video.bvid })
     if (result.success) {
-      card.remove()
+      const wrapper = info.parentElement
+      if (wrapper) wrapper.remove()
       const historyGrid = document.getElementById('historyGrid')
       if (historyGrid && historyGrid.children.length === 0) {
         showEmptyMessage('historyGrid', '暂无观看记录')
@@ -236,15 +252,12 @@ function createHistoryCard(video, onAuthorClick, options = {}) {
   })
 
   document.addEventListener('click', e => {
-    if (!card.contains(e.target)) {
+    if (!info.contains(e.target)) {
       dropdown.style.display = 'none'
     }
   })
 
-  const img = card.querySelector('.video-thumbnail img')
-  setupLazyImage(img, options.eager)
-
-  return card
+  return info
 }
 
 function renderHistoryVideos(videos, containerId) {
@@ -252,14 +265,28 @@ function renderHistoryVideos(videos, containerId) {
   if (!container) return
   container.innerHTML = ''
   videos.filter(v => v.bvid || v.title).forEach((video, index) => {
-    container.appendChild(createHistoryCard(video, navigateToUP, { eager: index < EAGER_COUNT }))
+    const card = createHistoryCard(video, { eager: index < EAGER_COUNT })
+    const info = createHistoryVideoInfo(video, navigateToUP)
+    const wrapper = document.createElement('div')
+    wrapper.className = 'video-item-wrapper'
+    wrapper.appendChild(card)
+    wrapper.appendChild(info)
+    container.appendChild(wrapper)
   })
 }
 
 function appendHistoryVideos(videos, containerId) {
   const container = document.getElementById(containerId)
   if (!container) return
-  videos.filter(v => v.bvid || v.title).forEach(video => container.appendChild(createHistoryCard(video, navigateToUP)))
+  videos.filter(v => v.bvid || v.title).forEach(video => {
+    const card = createHistoryCard(video)
+    const info = createHistoryVideoInfo(video, navigateToUP)
+    const wrapper = document.createElement('div')
+    wrapper.className = 'video-item-wrapper'
+    wrapper.appendChild(card)
+    wrapper.appendChild(info)
+    container.appendChild(wrapper)
+  })
 }
 
 async function loadHistory(append = false) {

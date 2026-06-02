@@ -131,7 +131,10 @@
 
   function onMouseOver(e) {
     if (!e.target.closest) return
-    var card = e.target.closest('.video-card')
+    var thumbnail = e.target.closest('.video-thumbnail')
+    if (!thumbnail) return
+    
+    var card = thumbnail.closest('.video-card')
     if (!card || card === currentCard) return
 
     hidePreview()

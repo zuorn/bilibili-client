@@ -121,17 +121,13 @@ function renderFollowingList(followings) {
   })
 }
 
-function createDynamicVideoCard(dynamic, onAuthorClick, options = {}) {
+function createDynamicVideoCard(dynamic, options = {}) {
   const card = document.createElement('div')
   card.className = 'video-card'
 
   const thumbnail = dynamic.thumbnail || dynamic.pic || ''
   const title = dynamic.title || dynamic.desc || '暂无标题'
-  const author = dynamic.authorName || dynamic.author || '未知'
-  const authorMid = dynamic.authorMid || ''
   const duration = dynamic.duration || ''
-  const pubTs = dynamic.pubTs || dynamic.time || 0
-  const pubTime = dynamic.pubTime || ''
   const bvid = dynamic.bvid || ''
   const cid = dynamic.cid || ''
 
@@ -139,21 +135,34 @@ function createDynamicVideoCard(dynamic, onAuthorClick, options = {}) {
   card.dataset.cid = cid
 
   let durationHtml = duration ? '<div class="video-duration">' + duration + '</div>' : ''
-  const videoDate = pubTime || formatDynamicTime(pubTs)
   const coverSrc = optimizeCoverUrl(thumbnail, COVER_WIDTH, COVER_HEIGHT)
 
-  card.innerHTML = '<div class="video-thumbnail"><img src="" alt="' + title + '" data-src="' + coverSrc + '">' + durationHtml + '</div><div class="video-info"><h3 class="video-title">' + title + '</h3><div class="video-footer"><div class="video-author-row"><svg class="up-icon up-clickable" data-mid="' + authorMid + '" viewBox="0 0 40 28" fill="none"><rect x="2" y="2" width="36" height="24" rx="6" ry="6" stroke="currentColor" stroke-width="1.5" fill="none"/><text x="20" y="20" text-anchor="middle" font-size="13" font-weight="bold" fill="currentColor" font-family="inherit">U P</text></svg><span class="video-author-name up-clickable" data-mid="' + authorMid + '">' + author + '</span>' + (videoDate ? '<span class="video-publish-date up-clickable" data-mid="' + authorMid + '">' + videoDate + '</span>' : '') + '</div><span class="video-play">' + (dynamic.view || dynamic.play || '') + '</span></div></div>'
+  card.innerHTML = '<div class="video-thumbnail"><img src="" alt="' + title + '" data-src="' + coverSrc + '">' + durationHtml + '</div>'
 
   const img = card.querySelector('.video-thumbnail img')
   setupLazyImage(img, options.eager)
 
-  if (bvid) {
-    card.addEventListener('click', () => {
-      playVideo(bvid, '', title)
-    })
-  }
+  card.addEventListener('click', () => {
+    if (bvid) playVideo(bvid, '', title)
+  })
 
-  const upClickableElements = card.querySelectorAll('.up-clickable')
+  return card
+}
+
+function createDynamicVideoInfo(dynamic, onAuthorClick) {
+  const info = document.createElement('div')
+  info.className = 'video-info'
+
+  const title = dynamic.title || dynamic.desc || '暂无标题'
+  const author = dynamic.authorName || dynamic.author || '未知'
+  const authorMid = dynamic.authorMid || ''
+  const pubTs = dynamic.pubTs || dynamic.time || 0
+  const pubTime = dynamic.pubTime || ''
+  const videoDate = pubTime || formatDynamicTime(pubTs)
+
+  info.innerHTML = '<h3 class="video-title">' + title + '</h3><div class="video-footer"><div class="video-author-row"><svg class="up-icon up-clickable" data-mid="' + authorMid + '" viewBox="0 0 40 28" fill="none"><rect x="2" y="2" width="36" height="24" rx="6" ry="6" stroke="currentColor" stroke-width="1.5" fill="none"/><text x="20" y="20" text-anchor="middle" font-size="13" font-weight="bold" fill="currentColor" font-family="inherit">U P</text></svg><span class="video-author-name up-clickable" data-mid="' + authorMid + '">' + author + '</span>' + (videoDate ? '<span class="video-publish-date up-clickable" data-mid="' + authorMid + '">' + videoDate + '</span>' : '') + '</div><span class="video-play">' + (dynamic.view || dynamic.play || '') + '</span></div>'
+
+  const upClickableElements = info.querySelectorAll('.up-clickable')
   upClickableElements.forEach(el => {
     el.addEventListener('click', e => {
       e.stopPropagation()
@@ -161,7 +170,7 @@ function createDynamicVideoCard(dynamic, onAuthorClick, options = {}) {
     })
   })
 
-  return card
+  return info
 }
 
 function renderDynamicVideos(dynamics, onAuthorClick) {
@@ -171,7 +180,13 @@ function renderDynamicVideos(dynamics, onAuthorClick) {
   dynamics.forEach((dynamic, index) => {
     if (dynamic.bvid || dynamic.thumbnail) {
       const eager = index < EAGER_COUNT
-      videoContainer.appendChild(createDynamicVideoCard(dynamic, onAuthorClick, { eager }))
+      const card = createDynamicVideoCard(dynamic, { eager })
+      const info = createDynamicVideoInfo(dynamic, onAuthorClick)
+      const wrapper = document.createElement('div')
+      wrapper.className = 'video-item-wrapper'
+      wrapper.appendChild(card)
+      wrapper.appendChild(info)
+      videoContainer.appendChild(wrapper)
     }
   })
 }
