@@ -142,7 +142,7 @@ function createDynamicVideoCard(dynamic, onAuthorClick, options = {}) {
   const videoDate = pubTime || formatDynamicTime(pubTs)
   const coverSrc = optimizeCoverUrl(thumbnail, COVER_WIDTH, COVER_HEIGHT)
 
-  card.innerHTML = '<div class="video-thumbnail"><img src="" alt="' + title + '" data-src="' + coverSrc + '">' + durationHtml + '</div><div class="video-info"><div class="video-title">' + title + '</div><div class="video-meta"><span class="video-author" data-mid="' + authorMid + '">' + author + '</span><span class="video-date">' + videoDate + '</span></div></div>'
+  card.innerHTML = '<div class="video-thumbnail"><img src="" alt="' + title + '" data-src="' + coverSrc + '">' + durationHtml + '</div><div class="video-info"><h3 class="video-title">' + title + '</h3><div class="video-footer"><div class="video-author-row"><svg class="up-icon up-clickable" data-mid="' + authorMid + '" viewBox="0 0 40 28" fill="none"><rect x="2" y="2" width="36" height="24" rx="6" ry="6" stroke="currentColor" stroke-width="1.5" fill="none"/><text x="20" y="20" text-anchor="middle" font-size="13" font-weight="bold" fill="currentColor" font-family="inherit">U P</text></svg><span class="video-author-name up-clickable" data-mid="' + authorMid + '">' + author + '</span>' + (videoDate ? '<span class="video-publish-date up-clickable" data-mid="' + authorMid + '">' + videoDate + '</span>' : '') + '</div><span class="video-play">' + (dynamic.view || dynamic.play || '') + '</span></div></div>'
 
   const img = card.querySelector('.video-thumbnail img')
   setupLazyImage(img, options.eager)
@@ -153,10 +153,12 @@ function createDynamicVideoCard(dynamic, onAuthorClick, options = {}) {
     })
   }
 
-  const authorSpan = card.querySelector('.video-author')
-  authorSpan.addEventListener('click', e => {
-    e.stopPropagation()
-    if (authorMid && onAuthorClick) onAuthorClick(authorMid)
+  const upClickableElements = card.querySelectorAll('.up-clickable')
+  upClickableElements.forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation()
+      if (authorMid && onAuthorClick) onAuthorClick(authorMid)
+    })
   })
 
   return card

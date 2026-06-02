@@ -184,9 +184,15 @@ function createHistoryCard(video, onAuthorClick, options = {}) {
           </div>
         </div>
       </div>
-      <div class="video-meta">
+      <div class="video-footer">
+        <div class="video-author-row">
+          <svg class="up-icon up-clickable" data-mid="${video.owner?.mid || video.mid || ''}" viewBox="0 0 40 28" fill="none">
+            <rect x="2" y="2" width="36" height="24" rx="6" ry="6" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <text x="20" y="20" text-anchor="middle" font-size="13" font-weight="bold" fill="currentColor" font-family="inherit">U P</text>
+          </svg>
+          <span class="video-author-name up-clickable" data-mid="${video.owner?.mid || video.mid || ''}">${video.author}</span>
+        </div>
         <span class="video-play">${video.historyTime || ''}</span>
-        <span class="video-author" data-mid="${video.owner?.mid || ''}">${video.author}</span>
       </div>
     </div>
   `
@@ -195,11 +201,13 @@ function createHistoryCard(video, onAuthorClick, options = {}) {
     if (video.bvid) playVideo(video.bvid, video.cid, video.title, video.progress)
   })
 
-  const authorSpan = card.querySelector('.video-author')
-  authorSpan.addEventListener('click', e => {
-    e.stopPropagation()
-    const mid = video.owner?.mid || video.mid
-    if (mid && onAuthorClick) onAuthorClick(mid)
+  const upClickableElements = card.querySelectorAll('.up-clickable')
+  upClickableElements.forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation()
+      const mid = el.dataset.mid || video.owner?.mid || video.mid
+      if (mid && onAuthorClick) onAuthorClick(mid)
+    })
   })
 
   const moreBtn = card.querySelector('.history-more-btn')
@@ -459,6 +467,31 @@ async function loadDrama() {
   }
 }
 
+function formatPublishTime(timestamp) {
+  if (!timestamp) return ''
+  const date = new Date(timestamp * 1000)
+  const now = new Date()
+  const diff = now - date
+  const oneDay = 24 * 60 * 60 * 1000
+  
+  if (diff < oneDay && date.getDate() === now.getDate()) {
+    return '今天'
+  } else if (diff < 2 * oneDay) {
+    return '昨天'
+  } else if (diff < 7 * oneDay) {
+    return `${Math.floor(diff / oneDay)}天前`
+  } else if (diff < 30 * oneDay) {
+    return `${Math.floor(diff / (7 * oneDay))}周前`
+  } else if (diff < 365 * oneDay) {
+    return `${Math.floor(diff / (30 * oneDay))}个月前`
+  } else {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+}
+
 async function loadFavorites(append = false) {
   const state = pageStates.my
   if (state.isFavoritesLoading) return
@@ -484,7 +517,10 @@ async function loadFavorites(append = false) {
         play: formatPlayCount(item.cnt_info?.play || item.play || 0),
         duration: formatDuration(item.duration || 0),
         author: item.upper?.name || item.author || '未知UP主',
-        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' }
+        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' },
+        pubtime: item.pubtime || 0,
+        fav_time: item.fav_time || 0,
+        publish_date: formatPublishTime(item.pubtime || item.ctime || 0)
       }))
 
       if (videos.length > 0) {
@@ -572,7 +608,10 @@ async function searchFavorites(keyword) {
         play: formatPlayCount(item.cnt_info?.play || item.play || 0),
         duration: formatDuration(item.duration || 0),
         author: item.upper?.name || item.author || '未知UP主',
-        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' }
+        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' },
+        pubtime: item.pubtime || 0,
+        fav_time: item.fav_time || 0,
+        publish_date: formatPublishTime(item.pubtime || item.ctime || 0)
       }))
 
       if (videos.length > 0) {
@@ -651,7 +690,10 @@ async function loadFavoritesDefault(append = false) {
         play: formatPlayCount(item.cnt_info?.play || item.play || 0),
         duration: formatDuration(item.duration || 0),
         author: item.upper?.name || item.author || '未知UP主',
-        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' }
+        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' },
+        pubtime: item.pubtime || 0,
+        fav_time: item.fav_time || 0,
+        publish_date: formatPublishTime(item.pubtime || item.ctime || 0)
       }))
 
       if (videos.length > 0) {
@@ -1125,7 +1167,10 @@ async function loadFavoritesDetailVideos(mediaId, pageNum = 1, pageSize = 36, pl
         play: formatPlayCount(item.cnt_info?.play || item.play || 0),
         duration: formatDuration(item.duration || 0),
         author: item.upper?.name || item.author || '未知UP主',
-        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' }
+        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' },
+        pubtime: item.pubtime || 0,
+        fav_time: item.fav_time || 0,
+        publish_date: formatPublishTime(item.pubtime || item.ctime || 0)
       }))
       
       const cardOptions = getFavoritesCardOptions(mediaId, currentFavoritesDetailTitle || '收藏夹', 'favoritesDetailList')
@@ -1160,7 +1205,9 @@ async function loadFavoritesCollectionDetailVideos(seasonId, pageNum = 1, pageSi
         play: formatPlayCount(item.cnt_info?.play || item.play || 0),
         duration: formatDuration(item.duration || 0),
         author: item.upper?.name || item.author || '未知UP主',
-        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' }
+        owner: item.upper?.mid ? { mid: item.upper.mid, name: item.upper.name || item.author || '未知UP主' } : { mid: item.mid || '', name: item.author || '未知UP主' },
+        pubtime: item.pubtime || 0,
+        publish_date: formatPublishTime(item.pubtime || item.ctime || 0)
       }))
 
       const cardOptions = getFavoritesCardOptions(seasonId, currentFavoritesDetailTitle || '收藏合集', 'favoritesCollectionDetailList')

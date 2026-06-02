@@ -1,5 +1,30 @@
 // 首页模块
 
+function formatPublishTime(timestamp) {
+  if (!timestamp) return ''
+  const date = new Date(timestamp * 1000)
+  const now = new Date()
+  const diff = now - date
+  const oneDay = 24 * 60 * 60 * 1000
+  
+  if (diff < oneDay && date.getDate() === now.getDate()) {
+    return '今天'
+  } else if (diff < 2 * oneDay) {
+    return '昨天'
+  } else if (diff < 7 * oneDay) {
+    return `${Math.floor(diff / oneDay)}天前`
+  } else if (diff < 30 * oneDay) {
+    return `${Math.floor(diff / (7 * oneDay))}周前`
+  } else if (diff < 365 * oneDay) {
+    return `${Math.floor(diff / (30 * oneDay))}个月前`
+  } else {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+}
+
 async function fetchVideos(page = 1, append = false) {
   const state = pageStates.home
   if (state.loading) return
@@ -40,7 +65,8 @@ async function fetchVideos(page = 1, append = false) {
         play: formatPlayCount(item.stat?.view || item.play || item.view || 0),
         duration: formatDuration(item.duration || item.length || 0),
         author: item.owner?.name || item.author || item.uname || '未知UP主',
-        owner: item.owner?.mid ? item.owner : { mid: item.mid || item.author_mid || 0, name: item.author || item.uname || '未知UP主' }
+        owner: item.owner?.mid ? item.owner : { mid: item.mid || item.author_mid || 0, name: item.author || item.uname || '未知UP主' },
+        publish_date: formatPublishTime(item.pubdate || item.pubtime || item.ctime || item.sendtime || 0)
       }))
 
       if (append) {

@@ -694,6 +694,31 @@ function formatDuration(duration) {
   return `${Math.floor(duration / 60)}:${(duration % 60).toString().padStart(2, '0')}`
 }
 
+function formatPublishTime(timestamp) {
+  if (!timestamp) return ''
+  const date = new Date(timestamp * 1000)
+  const now = new Date()
+  const diff = now - date
+  const oneDay = 24 * 60 * 60 * 1000
+  
+  if (diff < oneDay && date.getDate() === now.getDate()) {
+    return '今天'
+  } else if (diff < 2 * oneDay) {
+    return '昨天'
+  } else if (diff < 7 * oneDay) {
+    return `${Math.floor(diff / oneDay)}天前`
+  } else if (diff < 30 * oneDay) {
+    return `${Math.floor(diff / (7 * oneDay))}周前`
+  } else if (diff < 365 * oneDay) {
+    return `${Math.floor(diff / (30 * oneDay))}个月前`
+  } else {
+    const year = date.getFullYear()
+    const month = String(date.getMonth() + 1).padStart(2, '0')
+    const day = String(date.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  }
+}
+
 function mapVideoItem(item, options = {}) {
   const { showPlaySuffix = false, authorFallback = '未知UP主' } = options
   return {
@@ -703,7 +728,8 @@ function mapVideoItem(item, options = {}) {
     play: formatPlayCount(item.stat?.view || item.play || item.view || 0) + (showPlaySuffix ? '播放' : ''),
     duration: formatDuration(item.duration || item.length || 0),
     author: item.owner?.name || item.author || item.uname || authorFallback,
-    owner: item.owner?.mid ? item.owner : { mid: item.mid || item.author_mid || item.owner?.id || '', name: item.author || item.uname || authorFallback }
+    owner: item.owner?.mid ? item.owner : { mid: item.mid || item.author_mid || item.owner?.id || '', name: item.author || item.uname || authorFallback },
+    publish_date: formatPublishTime(item.pubdate || item.pubtime || item.ctime || item.sendtime || 0)
   }
 }
 
@@ -720,9 +746,16 @@ function createVideoCard(video, onAuthorClick) {
     </div>
     <div class="video-info">
       <h3 class="video-title">${video.title}</h3>
-      <div class="video-meta">
+      <div class="video-footer">
+        <div class="video-author-row">
+          <svg class="up-icon up-clickable" data-mid="${video.owner?.mid || video.mid || ''}" viewBox="0 0 40 28" fill="none">
+            <rect x="2" y="2" width="36" height="24" rx="6" ry="6" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <text x="20" y="20" text-anchor="middle" font-size="13" font-weight="bold" fill="currentColor" font-family="inherit">U P</text>
+          </svg>
+          <span class="video-author-name up-clickable" data-mid="${video.owner?.mid || video.mid || ''}">${video.author}</span>
+          ${video.publish_date ? `<span class="video-publish-date up-clickable" data-mid="${video.owner?.mid || video.mid || ''}">${video.publish_date}</span>` : ''}
+        </div>
         <span class="video-play">${video.play}</span>
-        <span class="video-author" data-mid="${video.owner?.mid || ''}">${video.author}</span>
       </div>
     </div>
   `
@@ -731,11 +764,13 @@ function createVideoCard(video, onAuthorClick) {
     if (video.bvid) playVideo(video.bvid, video.cid, video.title)
   })
 
-  const authorSpan = card.querySelector('.video-author')
-  authorSpan.addEventListener('click', e => {
-    e.stopPropagation()
-    const mid = video.owner?.mid || video.mid
-    if (mid && onAuthorClick) onAuthorClick(mid)
+  const upClickableElements = card.querySelectorAll('.up-clickable')
+  upClickableElements.forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation()
+      const mid = el.dataset.mid || video.owner?.mid || video.mid
+      if (mid && onAuthorClick) onAuthorClick(mid)
+    })
   })
 
   return card
@@ -1679,9 +1714,15 @@ function createHistoryCard(video, onAuthorClick) {
           </div>
         </div>
       </div>
-      <div class="video-meta">
+      <div class="video-footer">
+        <div class="video-author-row">
+          <svg class="up-icon up-clickable" data-mid="${video.owner?.mid || video.mid || ''}" viewBox="0 0 40 28" fill="none">
+            <rect x="2" y="2" width="36" height="24" rx="6" ry="6" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <text x="20" y="20" text-anchor="middle" font-size="13" font-weight="bold" fill="currentColor" font-family="inherit">U P</text>
+          </svg>
+          <span class="video-author-name up-clickable" data-mid="${video.owner?.mid || video.mid || ''}">${video.author}</span>
+        </div>
         <span class="video-play">${video.historyTime || ''}</span>
-        <span class="video-author" data-mid="${video.owner?.mid || ''}">${video.author}</span>
       </div>
     </div>
   `
@@ -1690,11 +1731,13 @@ function createHistoryCard(video, onAuthorClick) {
     if (video.bvid) playVideo(video.bvid, video.cid, video.title, video.progress)
   })
 
-  const authorSpan = card.querySelector('.video-author')
-  authorSpan.addEventListener('click', e => {
-    e.stopPropagation()
-    const mid = video.owner?.mid || video.mid
-    if (mid && onAuthorClick) onAuthorClick(mid)
+  const upClickableElements = card.querySelectorAll('.up-clickable')
+  upClickableElements.forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation()
+      const mid = el.dataset.mid || video.owner?.mid || video.mid
+      if (mid && onAuthorClick) onAuthorClick(mid)
+    })
   })
 
   const moreBtn = card.querySelector('.history-more-btn')

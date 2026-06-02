@@ -99,6 +99,82 @@
   font-weight: 500;
 }
 
+.video-info {
+  padding: 8px 10px 10px;
+}
+
+.video-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #18191c;
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin: 0;
+  height: 42px;
+}
+
+.video-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.video-author-row {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 12px;
+  color: #9499a0;
+  flex-shrink: 0;
+}
+
+.up-icon {
+  width: 22px;
+  height: 16px;
+  flex-shrink: 0;
+}
+
+.video-author-name,
+.video-publish-date.up-clickable,
+.up-icon.up-clickable {
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.video-author-row:hover .video-author-name,
+.video-author-row:hover .video-publish-date.up-clickable,
+.video-author-row:hover .up-icon.up-clickable {
+  color: #fb7299;
+}
+
+.video-author-name {
+  flex-shrink: 0;
+  max-width: 100px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.video-publish-date {
+  flex-shrink: 0;
+}
+
+.video-publish-date::before {
+  content: '·';
+  margin: 0 4px;
+}
+
+.video-play {
+  font-size: 12px;
+  color: #9499a0;
+  flex-shrink: 0;
+}
+
 .video-progress {
   position: absolute;
   bottom: 8px;

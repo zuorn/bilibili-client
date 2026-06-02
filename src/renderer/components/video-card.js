@@ -129,9 +129,16 @@ function createVideoCard(video, onAuthorClick, options = {}) {
         </div>
         ` : ''}
       </div>
-      <div class="video-meta">
+      <div class="video-footer">
+        <div class="video-author-row">
+          <svg class="up-icon up-clickable" data-mid="${video.owner?.mid || video.mid || ''}" viewBox="0 0 40 28" fill="none">
+            <rect x="2" y="2" width="36" height="24" rx="6" ry="6" stroke="currentColor" stroke-width="1.5" fill="none"/>
+            <text x="20" y="20" text-anchor="middle" font-size="13" font-weight="bold" fill="currentColor" font-family="inherit">U P</text>
+          </svg>
+          ${video.author ? `<span class="video-author-name up-clickable" data-mid="${video.owner?.mid || video.mid || ''}">${video.author}</span>` : ''}
+          ${video.publish_date ? `<span class="video-publish-date up-clickable" data-mid="${video.owner?.mid || video.mid || ''}">${video.publish_date}</span>` : ''}
+        </div>
         <span class="video-play">${video.play}</span>
-        <span class="video-author" data-mid="${video.owner?.mid || ''}">${video.author}</span>
       </div>
     </div>
     ${showFavoritesMore ? `
@@ -171,11 +178,13 @@ function createVideoCard(video, onAuthorClick, options = {}) {
     if (video.bvid) playVideo(video.bvid, video.cid, video.title)
   })
 
-  const authorSpan = card.querySelector('.video-author')
-  authorSpan.addEventListener('click', e => {
-    e.stopPropagation()
-    const mid = video.owner?.mid || video.mid
-    if (mid && onAuthorClick) onAuthorClick(mid)
+  const upClickableElements = card.querySelectorAll('.up-clickable')
+  upClickableElements.forEach(el => {
+    el.addEventListener('click', e => {
+      e.stopPropagation()
+      const mid = el.dataset.mid || video.owner?.mid || video.mid
+      if (mid && onAuthorClick) onAuthorClick(mid)
+    })
   })
 
   if (showAddToView) {
