@@ -611,6 +611,43 @@ function registerFavoritesHandlers(deps) {
       return { success: false, error: error.message }
     }
   })
+
+  // 删除收藏夹
+  ipcMain.handle('delete-favorites-folder', async (event, mediaIds) => {
+    log('delete-favorites-folder called, mediaIds:', mediaIds)
+    try {
+      if (!mediaIds) {
+        return { success: false, error: '缺少收藏夹ID' }
+      }
+
+      const savedCookies = cookieManager.getSavedCookies()
+      const csrf = savedCookies.bili_jct || ''
+
+      if (!csrf) {
+        return { success: false, error: '缺少CSRF Token' }
+      }
+
+      const bodyParams = {
+        media_ids: String(mediaIds),
+        csrf: csrf,
+        platform: 'web',
+        jsonp: 'jsonp'
+      }
+
+      log('Delete favorites folder API params:', bodyParams)
+      const result = await fetchApiPost('https://api.bilibili.com/x/v3/fav/folder/del', bodyParams)
+      log('Delete favorites folder result code:', result.code, 'message:', result.message)
+
+      if (result.code === 0) {
+        return { success: true, data: result.data }
+      } else {
+        return { success: false, error: result.message || '删除收藏夹失败' }
+      }
+    } catch (error) {
+      log('Error deleting favorites folder:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
 }
 
 module.exports = { registerFavoritesHandlers }

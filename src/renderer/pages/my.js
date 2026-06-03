@@ -1018,12 +1018,48 @@ async function loadFavoritesCreated() {
           btn.addEventListener('click', async e => {
             e.stopPropagation()
             const mediaId = btn.dataset.mediaId
+            const card = btn.closest('.collections-series-card')
+            const wrapper = btn.closest('.collections-series-item-wrapper')
+            const folderName = card?.querySelector('.collections-series-title')?.textContent || '这个收藏夹'
+            
+            // 关闭下拉菜单
+            const dropdown = btn.closest('.collections-dropdown')
+            if (dropdown) dropdown.style.display = 'none'
+            
             const ok = await showConfirmDialog({
               title: '删除收藏夹',
-              message: '确定要删除这个收藏夹吗？'
+              message: `确定要删除「${folderName}」吗？删除后无法恢复。`
             })
             if (ok) {
-              showToast(`删除收藏夹: ${mediaId}`)
+              try {
+                const result = await ipcRenderer.invoke('delete-favorites-folder', mediaId)
+                if (result.success) {
+                  showToast('收藏夹已删除')
+                  // 移除卡片（使用 wrapper 或 card）
+                  const removeElement = wrapper || card
+                  if (removeElement) {
+                    removeElement.style.transition = 'opacity 0.25s, transform 0.25s'
+                    removeElement.style.opacity = '0'
+                    removeElement.style.transform = 'scale(0.95)'
+                    setTimeout(() => {
+                      removeElement.remove()
+                      // 重新获取容器，检查是否为空
+                      const currentContainer = document.getElementById('favoritesCreatedList')
+                      if (currentContainer) {
+                        const remaining = currentContainer.querySelectorAll('.collections-series-card')
+                        if (remaining.length === 0) {
+                          currentContainer.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">暂无创建的收藏夹</div>'
+                        }
+                      }
+                    }, 250)
+                  }
+                } else {
+                  showToast(result.error || '删除失败')
+                }
+              } catch (error) {
+                console.error('删除收藏夹失败:', error)
+                showToast(error.message || '删除失败')
+              }
             }
           })
         })
