@@ -194,6 +194,24 @@ function initEventListeners() {
           document.getElementById('favorites-default-content').style.display = 'block'
           document.querySelectorAll('.favorites-sub-tab').forEach(t => t.classList.remove('active'))
           document.querySelector('.favorites-sub-tab[data-subtab="default"]')?.classList.add('active')
+          
+          // 显示清空失效内容按钮，隐藏其他按钮
+          const clearBtn = document.getElementById('clearExpiredContentBtn')
+          const addBtn = document.getElementById('addFavoriteFolderBtn')
+          const sortBtn = document.getElementById('sortFavoriteFolderBtn')
+          if (clearBtn) {
+            clearBtn.style.display = 'flex'
+            clearBtn.style.visibility = 'visible'
+          }
+          if (addBtn) {
+            addBtn.style.display = 'none'
+            addBtn.style.visibility = 'hidden'
+          }
+          if (sortBtn) {
+            sortBtn.style.display = 'none'
+            sortBtn.style.visibility = 'hidden'
+          }
+          
           loadFavoritesDefault()
         }
       } else if (tabName === 'bangumi') {
@@ -255,6 +273,30 @@ function initEventListeners() {
         } else {
           sortBtn.style.display = 'none'
           sortBtn.style.visibility = 'hidden'
+        }
+      }
+
+      // 控制新建收藏夹按钮显示
+      const addBtn = document.getElementById('addFavoriteFolderBtn')
+      if (addBtn) {
+        if (subTabName === 'created') {
+          addBtn.style.display = 'flex'
+          addBtn.style.visibility = 'visible'
+        } else {
+          addBtn.style.display = 'none'
+          addBtn.style.visibility = 'hidden'
+        }
+      }
+
+      // 控制清空失效内容按钮显示（只在默认收藏夹显示）
+      const clearBtn = document.getElementById('clearExpiredContentBtn')
+      if (clearBtn) {
+        if (subTabName === 'default') {
+          clearBtn.style.display = 'flex'
+          clearBtn.style.visibility = 'visible'
+        } else {
+          clearBtn.style.display = 'none'
+          clearBtn.style.visibility = 'hidden'
         }
       }
       

@@ -573,7 +573,7 @@
               <div class="favorites-sub-tab" data-subtab="created">我创建的收藏夹</div>
               <div class="favorites-sub-tab" data-subtab="collections">我的收藏与订阅</div>
               <div class="favorites-sub-tabs-right">
-                <button class="add-favorite-folder-btn" id="addFavoriteFolderBtn">
+                <button class="add-favorite-folder-btn" id="addFavoriteFolderBtn" style="display: none;">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                     <line x1="12" y1="5" x2="12" y2="19"></line>
                     <line x1="5" y1="12" x2="19" y2="12"></line>
@@ -582,10 +582,19 @@
                 </button>
                 <button class="sort-favorite-folder-btn" id="sortFavoriteFolderBtn" style="display: none;">
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                    <path d="M3 4h18M3 12h18M3 20h18"></path>
-                    <path d="M8 20l4-4 4 4M8 12l4-4 4 4M8 4l4-4 4 4"></path>
+                    <path d="M15 6h6l-3 9H6l-3-9h6z"/>
+                    <path d="M12 19v-6"/>
                   </svg>
                   <span>收藏夹排序</span>
+                </button>
+                <button class="clear-expired-content-btn" id="clearExpiredContentBtn" style="display: none;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <polyline points="3 6 5 6 21 6"></polyline>
+                    <path d="M19 6v14c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2V6m3 0V4c0-1.1.9-2 2-2h4c1.1 0 2 .9 2 2v2"></path>
+                    <line x1="10" y1="11" x2="10" y2="17"></line>
+                    <line x1="14" y1="11" x2="14" y2="17"></line>
+                  </svg>
+                  <span>清空失效内容</span>
                 </button>
               </div>
             </div>

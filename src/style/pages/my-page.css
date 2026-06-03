@@ -826,21 +826,47 @@
   align-items: center;
   gap: 4px;
   padding: 6px 12px;
-  background: linear-gradient(135deg, #fb7299 0%, #ff85ad 100%);
-  color: #fff;
-  border: none;
+  background-color: #fff;
+  color: #333;
+  border: 1px solid #e8e8e8;
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
-  transition: opacity 0.2s, transform 0.2s;
+  transition: background-color 0.2s, border-color 0.2s;
 }
 
 .add-favorite-folder-btn:hover {
-  opacity: 0.9;
-  transform: translateY(-1px);
+  background-color: #f8f8f8;
+  border-color: #d8d8d8;
 }
 
 .add-favorite-folder-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 清空失效内容按钮 */
+.clear-expired-content-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background-color: #fff;
+  color: #333;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+  margin-left: 8px;
+}
+
+.clear-expired-content-btn:hover {
+  background-color: #f8f8f8;
+  border-color: #d8d8d8;
+}
+
+.clear-expired-content-btn svg {
   width: 14px;
   height: 14px;
 }
@@ -1364,64 +1390,75 @@
 }
 
 .sort-favorite-item {
-  width: calc(33.333% - 8px);
+  width: calc(25% - 9px);
   cursor: move;
-  background-color: #f9f9f9;
   border-radius: 8px;
-  padding: 12px;
-  transition: all 0.2s;
-  border: 2px solid transparent;
+  overflow: hidden;
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
 }
 
 .sort-favorite-item:hover {
-  background-color: #f0f0f0;
   transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 
 .sort-favorite-item.dragging {
   opacity: 0.5;
   transform: scale(1.05);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
 }
 
-.sort-favorite-item.drag-over {
-  border-color: #fb7299;
-  background-color: #fff3f5;
+.sort-favorite-item.moving {
+  transition: transform 0.3s ease, margin 0.3s ease;
 }
 
 .sort-favorite-item-cover {
+  position: relative;
   width: 100%;
   aspect-ratio: 16 / 9;
-  border-radius: 6px;
-  overflow: hidden;
-  margin-bottom: 8px;
-  background-color: #e8e8e8;
+  background-color: #f0f0f0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .sort-favorite-item-cover img {
+  position: absolute;
+  top: 0;
+  left: 0;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
 
-.sort-favorite-item-info {
-  text-align: center;
+.sort-favorite-item-cover.no-cover::before {
+  content: '';
+  position: absolute;
+  width: 48px;
+  height: 48px;
+  background-color: #ddd;
+  border-radius: 8px;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%23999'%3E%3Cpath d='M10 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8l-2-2z'/%3E%3Cpath d='M14 2H6c-.55 0-1 .45-1 1s.45 1 1 1h8c.55 0 1-.45 1-1s-.45-1-1-1zm0 3H6c-.55 0-1 .45-1 1s.45 1 1 1h8c.55 0 1-.45 1-1s-.45-1-1-1zM6 7h8c.55 0 1-.45 1-1s-.45-1-1-1H6c-.55 0-1 .45-1 1s.45 1 1 1z'/%3E%3C/svg%3E");
+  background-size: 60%;
+  background-repeat: no-repeat;
+  background-position: center;
 }
 
-.sort-favorite-item-name {
-  font-size: 13px;
-  color: #18191c;
+.sort-favorite-item-cover .sort-favorite-item-name {
+  position: absolute;
+  left: 0;
+  bottom: 4px;
+  right: auto;
+  max-width: 80%;
+  padding: 2px 8px;
+  font-size: 10px;
+  color: #fff;
   font-weight: 500;
+  background-color: rgba(0, 0, 0, 0.6);
+  border-radius: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  display: block;
-}
-
-.sort-favorite-item-count {
-  font-size: 11px;
-  color: #9499a0;
-  margin-top: 2px;
-  display: block;
 }
 
 .sort-favorite-modal-footer {
@@ -1473,19 +1510,19 @@
   align-items: center;
   gap: 4px;
   padding: 6px 12px;
-  background-color: #f5f5f5;
-  color: #666;
-  border: none;
+  background-color: #fff;
+  color: #333;
+  border: 1px solid #e8e8e8;
   border-radius: 6px;
   font-size: 13px;
   cursor: pointer;
-  transition: background-color 0.2s, color 0.2s;
+  transition: background-color 0.2s, border-color 0.2s;
   margin-left: 8px;
 }
 
 .sort-favorite-folder-btn:hover {
-  background-color: #e8e8e8;
-  color: #333;
+  background-color: #f8f8f8;
+  border-color: #d8d8d8;
 }
 
 .sort-favorite-folder-btn svg {

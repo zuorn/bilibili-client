@@ -683,6 +683,38 @@ function registerFavoritesHandlers(deps) {
       return { success: false, error: error.message }
     }
   })
+
+  // 清空失效内容
+  ipcMain.handle('clean-favorites-expired', async (event, mediaId = 166434448) => {
+    log('clean-favorites-expired called, mediaId:', mediaId)
+    try {
+      const savedCookies = cookieManager.getSavedCookies()
+      const csrf = savedCookies.bili_jct || ''
+
+      if (!csrf) {
+        return { success: false, error: '缺少CSRF Token' }
+      }
+
+      const bodyParams = {
+        media_id: mediaId,
+        platform: 'web',
+        csrf: csrf
+      }
+
+      log('Clean favorites expired API params:', bodyParams)
+      const result = await fetchApiPost('https://api.bilibili.com/x/v3/fav/resource/clean', bodyParams)
+      log('Clean favorites expired result code:', result.code, 'message:', result.message)
+
+      if (result.code === 0) {
+        return { success: true, data: result.data }
+      } else {
+        return { success: false, error: result.message || '清空失效内容失败' }
+      }
+    } catch (error) {
+      log('Error cleaning favorites expired:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
 }
 
 module.exports = { registerFavoritesHandlers }

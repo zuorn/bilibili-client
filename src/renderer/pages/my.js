@@ -134,6 +134,44 @@ function showConfirmDialog({ title = '提示', message = '', confirmText = '确�
 // 当前待收藏的视频信息（用于选择收藏夹后收藏）
 let currentVideoToFavorite = null
 
+// 清空失效内容
+async function handleCleanExpiredContent() {
+  const confirmed = await showConfirmDialog({
+    title: '提示',
+    message: '确定要清空默认收藏夹中的失效内容吗？此操作不可撤销。',
+    confirmText: '确定',
+    cancelText: '取消'
+  })
+  
+  if (!confirmed) return
+  
+  try {
+    const result = await ipcRenderer.invoke('clean-favorites-expired', DEFAULT_FAVORITES_ID)
+    if (result.success) {
+      await showConfirmDialog({
+        title: '成功',
+        message: '清空失效内容成功',
+        confirmText: '确定'
+      })
+      // 刷新默认收藏夹内容
+      loadFavoritesDefault()
+    } else {
+      await showConfirmDialog({
+        title: '失败',
+        message: result.error || '清空失效内容失败',
+        confirmText: '确定'
+      })
+    }
+  } catch (error) {
+    console.error('清空失效内容失败:', error)
+    await showConfirmDialog({
+      title: '失败',
+      message: '清空失效内容失败: ' + error.message,
+      confirmText: '确定'
+    })
+  }
+}
+
 // 显示选择收藏夹弹窗
 function showSelectFolderModal(video) {
   currentVideoToFavorite = video
@@ -1551,14 +1589,17 @@ async function renderSortFavoriteList() {
       sortableFolders = [...result.data]
       container.innerHTML = sortableFolders.map((fav, index) => {
         const folderId = fav.fid || fav.id
+        // 转义特殊字符，防止HTML注入
+        const safeName = (fav.name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+        // 如果没有封面，使用默认背景色
+        const coverUrl = fav.cover ? optimizeCoverUrl(fav.cover, 672, 378) : ''
+        const hasCover = !!fav.cover
+        
         return `
           <div class="sort-favorite-item" data-folder-id="${folderId}" draggable="true" data-index="${index}">
-            <div class="sort-favorite-item-cover">
-              <img src="${optimizeCoverUrl(fav.cover || '', 672, 378)}" alt="${fav.name}">
-            </div>
-            <div class="sort-favorite-item-info">
-              <span class="sort-favorite-item-name">${fav.name}</span>
-              <span class="sort-favorite-item-count">${fav.media_count || 0} 个视频</span>
+            <div class="sort-favorite-item-cover${hasCover ? '' : ' no-cover'}">
+              ${hasCover ? `<img src="${coverUrl}" alt="${safeName}">` : ''}
+              <span class="sort-favorite-item-name">${safeName}</span>
             </div>
           </div>
         `
@@ -1572,10 +1613,12 @@ async function renderSortFavoriteList() {
 }
 
 function bindSortDragEvents() {
-  const items = document.querySelectorAll('.sort-favorite-item')
+  const container = document.getElementById('sortFavoriteList')
+  if (!container) return
+  
   let draggedItem = null
   
-  items.forEach(item => {
+  container.querySelectorAll('.sort-favorite-item').forEach(item => {
     item.addEventListener('dragstart', (e) => {
       draggedItem = item
       item.classList.add('dragging')
@@ -1584,35 +1627,55 @@ function bindSortDragEvents() {
     
     item.addEventListener('dragend', () => {
       draggedItem = null
-      item.classList.remove('dragging')
-      items.forEach(i => i.classList.remove('drag-over'))
-    })
-    
-    item.addEventListener('dragover', (e) => {
-      e.preventDefault()
-      if (draggedItem !== item) {
-        item.classList.add('drag-over')
-      }
-    })
-    
-    item.addEventListener('dragleave', () => {
-      item.classList.remove('drag-over')
-    })
-    
-    item.addEventListener('drop', () => {
-      item.classList.remove('drag-over')
-      if (draggedItem && draggedItem !== item) {
-        const draggedIndex = parseInt(draggedItem.dataset.index)
-        const dropIndex = parseInt(item.dataset.index)
-        
-        const draggedFolder = sortableFolders[draggedIndex]
-        sortableFolders.splice(draggedIndex, 1)
-        sortableFolders.splice(dropIndex, 0, draggedFolder)
-        
-        refreshSortList()
-      }
+      container.querySelectorAll('.sort-favorite-item').forEach(i => {
+        i.classList.remove('dragging')
+        i.classList.remove('moving')
+      })
     })
   })
+  
+  container.addEventListener('dragover', (e) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    
+    const targetItem = e.target.closest('.sort-favorite-item')
+    if (draggedItem && targetItem && draggedItem !== targetItem) {
+      const allItems = [...container.querySelectorAll('.sort-favorite-item')]
+      const draggedIndex = allItems.indexOf(draggedItem)
+      const targetIndex = allItems.indexOf(targetItem)
+      
+      if (draggedIndex < targetIndex) {
+        // 拖拽向后：将 draggedItem 移动到 targetItem 之后
+        const nextSibling = targetItem.nextElementSibling
+        container.insertBefore(draggedItem, nextSibling)
+        
+        // 更新 sortableFolders 数组
+        const draggedFolder = sortableFolders.splice(draggedIndex, 1)[0]
+        sortableFolders.splice(targetIndex, 0, draggedFolder)
+      } else if (draggedIndex > targetIndex) {
+        // 拖拽向前：将 draggedItem 移动到 targetItem 之前
+        container.insertBefore(draggedItem, targetItem)
+        
+        // 更新 sortableFolders 数组
+        const draggedFolder = sortableFolders.splice(draggedIndex, 1)[0]
+        sortableFolders.splice(targetIndex, 0, draggedFolder)
+      }
+      
+      // 给所有非拖动中的卡片添加 moving 类触发过渡
+      container.querySelectorAll('.sort-favorite-item').forEach((item, index) => {
+        item.dataset.index = index
+        if (item !== draggedItem) {
+          item.classList.add('moving')
+          // 短暂延迟后移除，让过渡动画触发
+          setTimeout(() => item.classList.remove('moving'), 50)
+        }
+      })
+    }
+  }, true)
+  
+  container.addEventListener('drop', (e) => {
+    e.preventDefault()
+  }, true)
 }
 
 function refreshSortList() {
@@ -1621,14 +1684,17 @@ function refreshSortList() {
   
   container.innerHTML = sortableFolders.map((fav, index) => {
     const folderId = fav.fid || fav.id
+    // 转义特殊字符，防止HTML注入
+    const safeName = (fav.name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
+    // 如果没有封面，使用默认背景色
+    const coverUrl = fav.cover ? optimizeCoverUrl(fav.cover, 672, 378) : ''
+    const hasCover = !!fav.cover
+    
     return `
       <div class="sort-favorite-item" data-folder-id="${folderId}" draggable="true" data-index="${index}">
         <div class="sort-favorite-item-cover">
-          <img src="${optimizeCoverUrl(fav.cover || '', 672, 378)}" alt="${fav.name}">
-        </div>
-        <div class="sort-favorite-item-info">
-          <span class="sort-favorite-item-name">${fav.name}</span>
-          <span class="sort-favorite-item-count">${fav.media_count || 0} 个视频</span>
+          ${hasCover ? `<img src="${coverUrl}" alt="${safeName}">` : ''}
+          <span class="sort-favorite-item-name">${safeName}</span>
         </div>
       </div>
     `
@@ -1780,6 +1846,16 @@ function bindModalEvents() {
   bindAddFavoriteFolderEvents()
   bindSelectFolderEvents()
   bindSortFavoriteEvents()
+  bindCleanExpiredContentEvents()
+}
+
+// 绑定清空失效内容按钮事件
+function bindCleanExpiredContentEvents() {
+  const clearBtn = document.getElementById('clearExpiredContentBtn')
+  
+  if (clearBtn) {
+    clearBtn.addEventListener('click', handleCleanExpiredContent)
+  }
 }
 
 if (document.readyState === 'loading') {
