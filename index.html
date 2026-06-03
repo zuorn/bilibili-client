@@ -580,6 +580,13 @@
                   </svg>
                   <span>新建收藏夹</span>
                 </button>
+                <button class="sort-favorite-folder-btn" id="sortFavoriteFolderBtn" style="display: none;">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M3 4h18M3 12h18M3 20h18"></path>
+                    <path d="M8 20l4-4 4 4M8 12l4-4 4 4M8 4l4-4 4 4"></path>
+                  </svg>
+                  <span>收藏夹排序</span>
+                </button>
               </div>
             </div>
             <div class="favorites-sub-content" id="favorites-default-content" style="display: none;">
@@ -1051,6 +1058,29 @@
       <div class="add-favorite-modal-footer">
         <button class="add-favorite-cancel-btn" id="addFavoriteCancelBtn">取消</button>
         <button class="add-favorite-confirm-btn" id="addFavoriteConfirmBtn">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 收藏夹排序弹窗 -->
+  <div class="sort-favorite-modal" id="sortFavoriteModal" style="display: none;">
+    <div class="sort-favorite-modal-mask"></div>
+    <div class="sort-favorite-modal-content">
+      <div class="sort-favorite-modal-header">
+        <h3>收藏夹排序</h3>
+        <button class="sort-favorite-close-btn" id="sortFavoriteCloseBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="sort-favorite-modal-body">
+        <div class="sort-favorite-list" id="sortFavoriteList"></div>
+      </div>
+      <div class="sort-favorite-modal-footer">
+        <button class="sort-favorite-cancel-btn" id="sortFavoriteCancelBtn">取消</button>
+        <button class="sort-favorite-confirm-btn" id="sortFavoriteConfirmBtn">确定</button>
       </div>
     </div>
   </div>

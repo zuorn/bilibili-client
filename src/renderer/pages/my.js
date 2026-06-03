@@ -1522,6 +1522,180 @@ function bindAddFavoriteFolderEvents() {
   })
 }
 
+// 收藏夹排序弹窗相关函数
+let sortableFolders = []
+
+function showSortFavoriteModal() {
+  const modal = document.getElementById('sortFavoriteModal')
+  if (modal) {
+    modal.style.display = 'block'
+    renderSortFavoriteList()
+  }
+}
+
+function hideSortFavoriteModal() {
+  const modal = document.getElementById('sortFavoriteModal')
+  if (modal) {
+    modal.style.display = 'none'
+    sortableFolders = []
+  }
+}
+
+async function renderSortFavoriteList() {
+  const container = document.getElementById('sortFavoriteList')
+  if (!container) return
+  
+  try {
+    const result = await ipcRenderer.invoke('get-favorites-created')
+    if (result.success && result.data) {
+      sortableFolders = [...result.data]
+      container.innerHTML = sortableFolders.map((fav, index) => {
+        const folderId = fav.fid || fav.id
+        return `
+          <div class="sort-favorite-item" data-folder-id="${folderId}" draggable="true" data-index="${index}">
+            <div class="sort-favorite-item-cover">
+              <img src="${optimizeCoverUrl(fav.cover || '', 672, 378)}" alt="${fav.name}">
+            </div>
+            <div class="sort-favorite-item-info">
+              <span class="sort-favorite-item-name">${fav.name}</span>
+              <span class="sort-favorite-item-count">${fav.media_count || 0} 个视频</span>
+            </div>
+          </div>
+        `
+      }).join('')
+      
+      bindSortDragEvents()
+    }
+  } catch (error) {
+    console.error('加载收藏夹列表失败:', error)
+  }
+}
+
+function bindSortDragEvents() {
+  const items = document.querySelectorAll('.sort-favorite-item')
+  let draggedItem = null
+  
+  items.forEach(item => {
+    item.addEventListener('dragstart', (e) => {
+      draggedItem = item
+      item.classList.add('dragging')
+      e.dataTransfer.effectAllowed = 'move'
+    })
+    
+    item.addEventListener('dragend', () => {
+      draggedItem = null
+      item.classList.remove('dragging')
+      items.forEach(i => i.classList.remove('drag-over'))
+    })
+    
+    item.addEventListener('dragover', (e) => {
+      e.preventDefault()
+      if (draggedItem !== item) {
+        item.classList.add('drag-over')
+      }
+    })
+    
+    item.addEventListener('dragleave', () => {
+      item.classList.remove('drag-over')
+    })
+    
+    item.addEventListener('drop', () => {
+      item.classList.remove('drag-over')
+      if (draggedItem && draggedItem !== item) {
+        const draggedIndex = parseInt(draggedItem.dataset.index)
+        const dropIndex = parseInt(item.dataset.index)
+        
+        const draggedFolder = sortableFolders[draggedIndex]
+        sortableFolders.splice(draggedIndex, 1)
+        sortableFolders.splice(dropIndex, 0, draggedFolder)
+        
+        refreshSortList()
+      }
+    })
+  })
+}
+
+function refreshSortList() {
+  const container = document.getElementById('sortFavoriteList')
+  if (!container) return
+  
+  container.innerHTML = sortableFolders.map((fav, index) => {
+    const folderId = fav.fid || fav.id
+    return `
+      <div class="sort-favorite-item" data-folder-id="${folderId}" draggable="true" data-index="${index}">
+        <div class="sort-favorite-item-cover">
+          <img src="${optimizeCoverUrl(fav.cover || '', 672, 378)}" alt="${fav.name}">
+        </div>
+        <div class="sort-favorite-item-info">
+          <span class="sort-favorite-item-name">${fav.name}</span>
+          <span class="sort-favorite-item-count">${fav.media_count || 0} 个视频</span>
+        </div>
+      </div>
+    `
+  }).join('')
+  
+  bindSortDragEvents()
+}
+
+async function handleSortFavorites() {
+  if (sortableFolders.length === 0) {
+    hideSortFavoriteModal()
+    return
+  }
+  
+  const sortIds = sortableFolders.map(f => f.fid || f.id).join(',')
+  
+  try {
+    const result = await ipcRenderer.invoke('sort-favorites', sortIds)
+    if (result.success) {
+      showToast('排序成功')
+      hideSortFavoriteModal()
+      loadFavoritesCreated()
+    } else {
+      showToast(result.error || '排序失败')
+    }
+  } catch (error) {
+    console.error('排序异常:', error)
+    showToast('排序失败')
+  }
+}
+
+function bindSortFavoriteEvents() {
+  const sortBtn = document.getElementById('sortFavoriteFolderBtn')
+  const closeBtn = document.getElementById('sortFavoriteCloseBtn')
+  const cancelBtn = document.getElementById('sortFavoriteCancelBtn')
+  const confirmBtn = document.getElementById('sortFavoriteConfirmBtn')
+  const modalMask = document.querySelector('.sort-favorite-modal-mask')
+  const modal = document.getElementById('sortFavoriteModal')
+  
+  if (sortBtn) {
+    sortBtn.addEventListener('click', showSortFavoriteModal)
+  }
+  
+  if (closeBtn) {
+    closeBtn.addEventListener('click', hideSortFavoriteModal)
+  }
+  
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', hideSortFavoriteModal)
+  }
+  
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', handleSortFavorites)
+  }
+  
+  if (modalMask) {
+    modalMask.addEventListener('click', hideSortFavoriteModal)
+  }
+  
+  // ESC键关闭弹窗
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal && modal.style.display === 'block') {
+      hideSortFavoriteModal()
+    }
+  })
+}
+
 function playFavoritesCollectionAll(mediaId) {
   loadFavoritesCollectionDetailVideos(mediaId, 1, 36, true)
 }
@@ -1605,6 +1779,7 @@ async function loadFavoritesCollectionDetailVideos(seasonId, pageNum = 1, pageSi
 function bindModalEvents() {
   bindAddFavoriteFolderEvents()
   bindSelectFolderEvents()
+  bindSortFavoriteEvents()
 }
 
 if (document.readyState === 'loading') {

@@ -146,7 +146,7 @@ function createTray() {
       type: 'separator'
     },
     {
-      label: '退出',
+      label: '退出应用',
       click: () => {
         mpv.stopVideo()
         app.quit()

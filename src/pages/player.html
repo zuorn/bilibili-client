@@ -460,10 +460,59 @@
       transform: translate(-50%, -50%);
       opacity: 0;
       transition: opacity 0.2s;
+      box-shadow: 0 0 8px rgba(0, 161, 214, 0.6);
     }
 
     .progress-bar:hover .progress-thumb {
       opacity: 1;
+    }
+
+    /* 进度条悬停预览 —— 始终在布局中（visibility 而非 display:none），避免首次悬停时触发重布局导致尺寸闪烁 */
+    .progress-preview {
+      position: fixed;
+      left: -9999px;
+      top: -9999px;
+      background: rgba(20, 20, 20, 0.95);
+      border-radius: 8px;
+      padding: 4px;
+      visibility: hidden;
+      z-index: 10001;
+      box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      pointer-events: none;
+      box-sizing: border-box;
+    }
+
+    .progress-preview.visible {
+      visibility: visible;
+    }
+
+    .progress-preview-image {
+      width: 160px;
+      height: 90px;
+      border-radius: 4px;
+      background: #1a1a1a;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+    }
+
+    .progress-preview-image canvas {
+      display: block;
+      max-width: 100%;
+      max-height: 100%;
+    }
+
+    .progress-preview-time {
+      font-size: 12px;
+      color: #fff;
+      text-align: center;
+      margin-top: 4px;
+      line-height: 1.4;
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+      white-space: nowrap;
     }
 
     .time-display {
@@ -2270,7 +2319,7 @@
         <div class="progress-fill" id="progressFill"></div>
         <div class="progress-thumb"></div>
       </div>
-      
+
       <div class="time-display" id="timeDisplay">00:00 / 00:00</div>
       
       <div class="volume-control">
@@ -3513,6 +3562,11 @@
       console.log('Loading video, bvid:', bvid, 'cid:', cid, 'progress:', progress, 'preFetch:', !!preFetchResult)
       loadingOverlay.style.display = 'flex'
       errorOverlay.style.display = 'none'
+      
+      // 重置快照缓存，以便加载新视频的缩略图
+      if (typeof resetSnapshotCache === 'function') {
+        resetSnapshotCache()
+      }
 
       try {
         if (!cid) {
@@ -4448,6 +4502,256 @@
       videoPlayer.currentTime = percent * videoPlayer.duration
     })
 
+    // 进度条悬停预览功能
+    let previewTimeout = null
+    let previewCanvas = null
+    let progressPreview = null
+    let progressPreviewImage = null
+    let progressPreviewTime = null
+
+    // 初始化预览元素（元素始终在布局中，无需强制触发布局计算）
+    function initProgressPreview() {
+      progressPreview = document.getElementById('progressPreview')
+      progressPreviewImage = document.getElementById('progressPreviewImage')
+      progressPreviewTime = document.getElementById('progressPreviewTime')
+
+      if (!progressPreview || !progressPreviewImage || !progressPreviewTime) {
+        console.error('Progress preview elements not found')
+        return false
+      }
+
+      console.log('Progress preview elements loaded successfully')
+      return true
+    }
+
+    progressBar.addEventListener('mouseenter', () => {
+      if (!progressPreview) initProgressPreview()
+    })
+
+    progressBar.addEventListener('mouseleave', () => {
+      hideProgressPreview()
+    })
+
+    progressBar.addEventListener('mousemove', (e) => {
+      if (!progressPreview && !initProgressPreview()) return
+      if (!progressPreviewImage || !progressPreviewTime) return
+
+      const rect = progressBar.getBoundingClientRect()
+      const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+      const duration = videoPlayer.duration || 0
+      const time = percent * duration
+
+      // 元素始终在布局中（visibility:hidden 而非 display:none），
+      // offsetHeight/offsetWidth 在任何时候都能返回正确值，无需先显示再测量
+      const actualWidth = progressPreview.offsetWidth || 170
+      const actualHeight = progressPreview.offsetHeight || 125
+      const gap = 8   // 与进度条之间的间距
+      const margin = 4 // 与视口边缘的最小距离
+
+      // 水平位置：居中于鼠标位置
+      let left = e.clientX - actualWidth / 2
+      // 垂直位置：优先显示在进度条上方
+      let top = rect.top - actualHeight - gap
+
+      // 水平边界检测——确保预览图不超出视口左右边缘
+      if (left < margin) {
+        left = margin
+      }
+      if (left + actualWidth > window.innerWidth - margin) {
+        left = window.innerWidth - actualWidth - margin
+      }
+
+      // 垂直边界检测——如果上方空间不够，显示在进度条下方
+      if (top < margin) {
+        top = rect.bottom + gap
+      }
+
+      // 先定位再显示，确保浏览器一次性渲染到正确位置，无闪烁
+      progressPreview.style.left = `${left}px`
+      progressPreview.style.top = `${top}px`
+      progressPreview.classList.add('visible')
+
+      // 更新时间显示
+      progressPreviewTime.textContent = formatTime(time)
+
+      // 获取预览帧
+      updatePreviewFrame(time)
+    })
+
+    function hideProgressPreview() {
+      if (progressPreview) {
+        progressPreview.classList.remove('visible')
+      }
+    }
+
+    // 快照数据缓存
+    let snapshotData = null
+    let snapshotLoading = false
+    
+    // 获取快照数据
+    async function loadSnapshotData(bvid, cid) {
+      if (snapshotData) {
+        console.log('loadSnapshotData: using cached data')
+        return snapshotData
+      }
+      if (snapshotLoading) {
+        console.log('loadSnapshotData: already loading, waiting for completion...')
+        // 等待加载完成
+        while (snapshotLoading) {
+          await new Promise(r => setTimeout(r, 50))
+        }
+        return snapshotData
+      }
+      
+      snapshotLoading = true
+      try {
+        console.log('loadSnapshotData: calling get-video-snapshot with bvid=', bvid, 'cid=', cid)
+        // 由于 contextIsolation: false，可以直接使用 ipcRenderer
+        const { ipcRenderer } = require('electron')
+        const result = await ipcRenderer.invoke('get-video-snapshot', bvid, cid)
+        console.log('loadSnapshotData: result=', result)
+        
+        if (result.success && result.data) {
+          snapshotData = result.data
+          console.log('Snapshot data loaded successfully. Images:', result.data.images?.length, 'Indexes:', result.data.indexes?.length)
+          return snapshotData
+        } else {
+          console.log('loadSnapshotData: API call failed or no data')
+        }
+      } catch (e) {
+        console.error('Failed to load snapshot:', e)
+      } finally {
+        snapshotLoading = false
+      }
+      return null
+    }
+    
+    let lastFrameTime = -1
+    
+    async function updatePreviewFrame(targetTime) {
+      if (!progressPreviewImage) {
+        console.log('updatePreviewFrame: progressPreviewImage not found')
+        return
+      }
+      
+      // 避免频繁更新预览帧
+      if (Math.abs(targetTime - lastFrameTime) < 0.5) return
+      lastFrameTime = targetTime
+      
+      // 获取当前视频的bvid和cid
+      const bvid = currentVideoData?.bvid
+      const cid = currentVideoData?.cid
+      
+      // 尝试使用B站API获取的缩略图
+      if (bvid) {
+        const data = snapshotData || await loadSnapshotData(bvid, cid)
+        
+        if (data && data.images && data.images.length > 0 && data.indexes && data.indexes.length > 0) {
+          // 使用API返回的尺寸，默认为160x90的缩略图，10x10的网格
+          const imgXLen = data.img_x_len || 10
+          const imgYLen = data.img_y_len || 10
+          const imgXSize = data.img_x_size || 160
+          const imgYSize = data.img_y_size || 90
+          const totalPerImage = imgXLen * imgYLen
+          
+          // 找到对应时间的缩略图索引
+          let index = 0
+          for (let i = 0; i < data.indexes.length; i++) {
+            if (data.indexes[i] <= targetTime) {
+              index = i
+            } else {
+              break
+            }
+          }
+          
+          // 计算雪碧图索引和位置
+          const imageIndex = Math.floor(index / totalPerImage)
+          const localIndex = index % totalPerImage
+          const col = localIndex % imgXLen
+          const row = Math.floor(localIndex / imgXLen)
+          
+          if (imageIndex < data.images.length) {
+            let imgUrl = data.images[imageIndex]
+            // 处理URL前缀
+            if (imgUrl.startsWith('//')) {
+              imgUrl = 'https:' + imgUrl
+            }
+            
+            // 直接使用img标签显示完整的雪碧图来测试
+            const img = document.createElement('img')
+            img.crossOrigin = 'anonymous'
+            img.onload = () => {
+              // 图片加载成功后，创建canvas来裁剪
+              const canvas = document.createElement('canvas')
+              canvas.width = imgXSize
+              canvas.height = imgYSize
+              const ctx = canvas.getContext('2d')
+              
+              // 从雪碧图中裁剪正确的缩略图
+              ctx.drawImage(img, col * imgXSize, row * imgYSize, imgXSize, imgYSize, 0, 0, imgXSize, imgYSize)
+              
+              // 显示裁剪后的canvas（容器尺寸由CSS固定为160×90，canvas自适应缩放）
+              progressPreviewImage.innerHTML = ''
+              progressPreviewImage.style.backgroundImage = 'none'
+              progressPreviewImage.appendChild(canvas)
+            }
+            img.onerror = () => {
+              console.error('Failed to load sprite:', imgUrl)
+              drawPlaceholder(targetTime)
+            }
+            img.src = imgUrl
+            return
+          }
+        }
+      }
+      
+      // 如果API不可用，显示占位图
+      drawPlaceholder(targetTime)
+    }
+    
+    function drawPlaceholder(time) {
+      if (!previewCanvas) {
+        previewCanvas = document.createElement('canvas')
+        previewCanvas.width = 160
+        previewCanvas.height = 90
+      }
+      
+      const ctx = previewCanvas.getContext('2d')
+      
+      // 绘制渐变背景
+      const gradient = ctx.createLinearGradient(0, 0, 160, 90)
+      gradient.addColorStop(0, '#3a3a3a')
+      gradient.addColorStop(1, '#1a1a1a')
+      ctx.fillStyle = gradient
+      ctx.fillRect(0, 0, 160, 90)
+      
+      // 绘制播放图标
+      ctx.fillStyle = '#555'
+      ctx.beginPath()
+      ctx.moveTo(72, 36)
+      ctx.lineTo(72, 54)
+      ctx.lineTo(86, 45)
+      ctx.closePath()
+      ctx.fill()
+      
+      // 绘制时间文字
+      ctx.fillStyle = '#666'
+      ctx.font = '12px Arial'
+      ctx.textAlign = 'center'
+      ctx.fillText(formatTime(time), 80, 75)
+      
+      // 正确显示canvas内容到div中（容器尺寸由CSS固定为160×90）
+      progressPreviewImage.innerHTML = ''
+      progressPreviewImage.style.backgroundImage = 'none'
+      progressPreviewImage.appendChild(previewCanvas)
+    }
+    
+    // 重置快照缓存（切换视频时调用）
+    function resetSnapshotCache() {
+      snapshotData = null
+      snapshotLoading = false
+    }
+    
     let timeUpdatePending = false
     let lastAudioSync = 0
     videoPlayer.addEventListener('timeupdate', () => {
@@ -4594,5 +4898,11 @@
       }
     })
   </script>
+
+  <!-- 进度条悬停预览 - 放在body末尾避免transform影响 -->
+  <div class="progress-preview" id="progressPreview">
+    <div class="progress-preview-image" id="progressPreviewImage"></div>
+    <div class="progress-preview-time" id="progressPreviewTime">00:00</div>
+  </div>
 </body>
 </html>

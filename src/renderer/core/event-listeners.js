@@ -245,6 +245,19 @@ function initEventListeners() {
       const subTabName = tab.dataset.subtab
       document.querySelectorAll('.favorites-sub-content').forEach(c => c.style.display = 'none')
       
+      // 控制排序按钮显示
+      const sortBtn = document.getElementById('sortFavoriteFolderBtn')
+      console.log('Sub-tab clicked:', subTabName, 'Sort button:', sortBtn)
+      if (sortBtn) {
+        if (subTabName === 'created') {
+          sortBtn.style.display = 'flex'
+          sortBtn.style.visibility = 'visible'
+        } else {
+          sortBtn.style.display = 'none'
+          sortBtn.style.visibility = 'hidden'
+        }
+      }
+      
       if (subTabName === 'default') {
         document.getElementById('favorites-default-content').style.display = 'block'
         loadFavoritesDefault()

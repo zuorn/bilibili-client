@@ -648,6 +648,41 @@ function registerFavoritesHandlers(deps) {
       return { success: false, error: error.message }
     }
   })
+
+  // 收藏夹排序
+  ipcMain.handle('sort-favorites', async (event, sortIds) => {
+    log('sort-favorites called, sortIds:', sortIds)
+    try {
+      if (!sortIds || sortIds.trim() === '') {
+        return { success: false, error: '缺少排序ID列表' }
+      }
+
+      const savedCookies = cookieManager.getSavedCookies()
+      const csrf = savedCookies.bili_jct || ''
+
+      if (!csrf) {
+        return { success: false, error: '缺少CSRF Token' }
+      }
+
+      const bodyParams = {
+        sort: sortIds,
+        csrf: csrf
+      }
+
+      log('Sort favorites API params:', bodyParams)
+      const result = await fetchApiPost('https://api.bilibili.com/x/v3/fav/folder/sort', bodyParams)
+      log('Sort favorites result code:', result.code, 'message:', result.message)
+
+      if (result.code === 0) {
+        return { success: true, data: result.data }
+      } else {
+        return { success: false, error: result.message || '排序失败' }
+      }
+    } catch (error) {
+      log('Error sorting favorites:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
 }
 
 module.exports = { registerFavoritesHandlers }

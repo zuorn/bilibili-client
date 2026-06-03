@@ -579,6 +579,51 @@ function registerPlayerHandlers(deps) {
     }
   })
 
+  // 获取视频快照（用于进度条预览）
+  ipcMain.handle('get-video-snapshot', async (event, bvid, cid) => {
+    log('get-video-snapshot called with bvid:', bvid, 'cid:', cid)
+    
+    try {
+      let url = `http://api.bilibili.com/x/player/videoshot?bvid=${bvid}&index=1`
+      if (cid) {
+        url += `&cid=${cid}`
+      }
+      
+      log('Getting video snapshot from:', url)
+      
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Referer': `https://www.bilibili.com/video/${bvid}`
+        },
+        timeout: 10000
+      })
+      
+      const data = await response.json()
+      
+      if (data.code === 0 && data.data) {
+        log('Video snapshot fetched successfully')
+        return {
+          success: true,
+          data: {
+            img_x_len: data.data.img_x_len || 10,
+            img_y_len: data.data.img_y_len || 10,
+            img_x_size: data.data.img_x_size || 160,
+            img_y_size: data.data.img_y_size || 90,
+            images: data.data.image || [],
+            indexes: data.data.index || []
+          }
+        }
+      } else {
+        log('Video snapshot API failed:', data.message || 'Unknown error')
+        return { success: false, error: data.message || '获取快照失败' }
+      }
+    } catch (error) {
+      log('Error getting video snapshot:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
   ipcMain.handle('select-mpv-path', async () => {
     log('select-mpv-path called')
 

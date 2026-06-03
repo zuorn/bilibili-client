@@ -816,6 +816,9 @@
 
 .favorites-sub-tabs-right {
   margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .add-favorite-folder-btn {
@@ -1274,4 +1277,218 @@
   font-size: 12px;
   color: #9499a0;
   margin-top: 4px;
+}
+
+/* 收藏夹排序弹窗 */
+.sort-favorite-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+}
+
+.sort-favorite-modal-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.sort-favorite-modal-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 560px;
+  max-height: 600px;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+}
+
+.sort-favorite-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.sort-favorite-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #18191c;
+}
+
+.sort-favorite-close-btn {
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #9499a0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.sort-favorite-close-btn:hover {
+  background-color: #f5f5f5;
+  color: #666;
+}
+
+.sort-favorite-close-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.sort-favorite-modal-body {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+}
+
+.sort-favorite-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.sort-favorite-item {
+  width: calc(33.333% - 8px);
+  cursor: move;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  padding: 12px;
+  transition: all 0.2s;
+  border: 2px solid transparent;
+}
+
+.sort-favorite-item:hover {
+  background-color: #f0f0f0;
+  transform: translateY(-2px);
+}
+
+.sort-favorite-item.dragging {
+  opacity: 0.5;
+  transform: scale(1.05);
+}
+
+.sort-favorite-item.drag-over {
+  border-color: #fb7299;
+  background-color: #fff3f5;
+}
+
+.sort-favorite-item-cover {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  border-radius: 6px;
+  overflow: hidden;
+  margin-bottom: 8px;
+  background-color: #e8e8e8;
+}
+
+.sort-favorite-item-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.sort-favorite-item-info {
+  text-align: center;
+}
+
+.sort-favorite-item-name {
+  font-size: 13px;
+  color: #18191c;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  display: block;
+}
+
+.sort-favorite-item-count {
+  font-size: 11px;
+  color: #9499a0;
+  margin-top: 2px;
+  display: block;
+}
+
+.sort-favorite-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.sort-favorite-cancel-btn {
+  padding: 8px 20px;
+  background-color: #f5f5f5;
+  color: #666;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.sort-favorite-cancel-btn:hover {
+  background-color: #e8e8e8;
+}
+
+.sort-favorite-confirm-btn {
+  padding: 8px 20px;
+  background: linear-gradient(135deg, #fb7299 0%, #ff85ad 100%);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.sort-favorite-confirm-btn:hover {
+  opacity: 0.9;
+}
+
+.sort-favorite-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 排序按钮 */
+.sort-favorite-folder-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background-color: #f5f5f5;
+  color: #666;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s, color 0.2s;
+  margin-left: 8px;
+}
+
+.sort-favorite-folder-btn:hover {
+  background-color: #e8e8e8;
+  color: #333;
+}
+
+.sort-favorite-folder-btn svg {
+  width: 14px;
+  height: 14px;
 }
