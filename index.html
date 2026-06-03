@@ -572,6 +572,15 @@
               <div class="favorites-sub-tab active" data-subtab="default">默认收藏夹</div>
               <div class="favorites-sub-tab" data-subtab="created">我创建的收藏夹</div>
               <div class="favorites-sub-tab" data-subtab="collections">我的收藏与订阅</div>
+              <div class="favorites-sub-tabs-right">
+                <button class="add-favorite-folder-btn" id="addFavoriteFolderBtn">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                  </svg>
+                  <span>新建收藏夹</span>
+                </button>
+              </div>
             </div>
             <div class="favorites-sub-content" id="favorites-default-content" style="display: none;">
               <div class="video-grid" id="favoritesDefaultGrid"></div>
@@ -980,6 +989,68 @@
       <div class="shortcut-modal-footer">
         <button class="shortcut-reset-btn" id="shortcutResetBtn">恢复默认</button>
         <button class="shortcut-save-btn" id="shortcutSaveBtn">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 选择收藏夹弹窗 -->
+  <div class="select-folder-modal" id="selectFolderModal" style="display: none;">
+    <div class="select-folder-modal-mask"></div>
+    <div class="select-folder-modal-content">
+      <div class="select-folder-modal-header">
+        <h3>选择收藏夹</h3>
+        <button class="select-folder-close-btn" id="selectFolderCloseBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="select-folder-modal-body">
+        <div class="select-folder-list" id="selectFolderList"></div>
+      </div>
+      <div class="select-folder-modal-footer">
+        <button class="select-folder-add-btn" id="selectFolderAddBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="12" y1="5" x2="12" y2="19"/>
+            <line x1="5" y1="12" x2="19" y2="12"/>
+          </svg>
+          <span>新建收藏夹</span>
+        </button>
+        <button class="select-folder-cancel-btn" id="selectFolderCancelBtn">取消</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新建收藏夹弹窗 -->
+  <div class="add-favorite-modal" id="addFavoriteModal" style="display: none;">
+    <div class="add-favorite-modal-mask"></div>
+    <div class="add-favorite-modal-content">
+      <div class="add-favorite-modal-header">
+        <h3>新建收藏夹</h3>
+        <button class="add-favorite-close-btn" id="addFavoriteCloseBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="add-favorite-modal-body">
+        <div class="add-favorite-form-group">
+          <label for="favoriteFolderName">收藏夹名称</label>
+          <input type="text" id="favoriteFolderName" class="add-favorite-input" placeholder="不超过20个字" maxlength="20">
+        </div>
+        <div class="add-favorite-form-group">
+          <label class="add-favorite-checkbox-label">
+            <input type="checkbox" id="favoriteFolderPublic" class="add-favorite-checkbox" checked>
+            <span class="add-favorite-checkbox-custom"></span>
+            <span>公开收藏夹</span>
+          </label>
+        </div>
+      </div>
+      <div class="add-favorite-modal-footer">
+        <button class="add-favorite-cancel-btn" id="addFavoriteCancelBtn">取消</button>
+        <button class="add-favorite-confirm-btn" id="addFavoriteConfirmBtn">确定</button>
       </div>
     </div>
   </div>

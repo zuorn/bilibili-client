@@ -808,6 +808,438 @@
   color: #666;
 }
 
+/* 新建收藏夹按钮 */
+.favorites-sub-tabs {
+  display: flex;
+  align-items: center;
+}
+
+.favorites-sub-tabs-right {
+  margin-left: auto;
+}
+
+.add-favorite-folder-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background: linear-gradient(135deg, #fb7299 0%, #ff85ad 100%);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.2s;
+}
+
+.add-favorite-folder-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.add-favorite-folder-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+/* 选择收藏夹弹窗 */
+.select-folder-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+}
+
+.select-folder-modal-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.select-folder-modal-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 380px;
+  max-height: 500px;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+  display: flex;
+  flex-direction: column;
+}
+
+.select-folder-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.select-folder-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #18191c;
+}
+
+.select-folder-close-btn {
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #999;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.select-folder-close-btn:hover {
+  background-color: #f5f5f5;
+  color: #666;
+}
+
+.select-folder-close-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.select-folder-modal-body {
+  flex: 1;
+  padding: 16px 20px;
+  overflow-y: auto;
+}
+
+.select-folder-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.select-folder-item {
+  display: flex;
+  align-items: center;
+  padding: 12px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.select-folder-item:hover {
+  background-color: #f5f5f5;
+}
+
+.select-folder-item.selected {
+  background-color: #fff3f5;
+}
+
+.select-folder-item.selected .select-folder-check {
+  display: inline-flex;
+}
+
+.select-folder-check {
+  display: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background-color: #fb7299;
+  color: #fff;
+  align-items: center;
+  justify-content: center;
+  margin-right: 12px;
+}
+
+.select-folder-check svg {
+  width: 12px;
+  height: 12px;
+}
+
+.select-folder-radio {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #e3e5e7;
+  border-radius: 50%;
+  margin-right: 12px;
+  position: relative;
+}
+
+.select-folder-item.selected .select-folder-radio::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #fb7299;
+}
+
+.select-folder-info {
+  flex: 1;
+}
+
+.select-folder-name {
+  font-size: 14px;
+  color: #18191c;
+}
+
+.select-folder-count {
+  font-size: 12px;
+  color: #999;
+  margin-top: 2px;
+}
+
+.select-folder-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.select-folder-add-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 16px;
+  background: linear-gradient(135deg, #fb7299 0%, #ff85ad 100%);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.select-folder-add-btn:hover {
+  opacity: 0.9;
+}
+
+.select-folder-add-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.select-folder-cancel-btn {
+  padding: 8px 20px;
+  background-color: #f5f5f5;
+  color: #666;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.select-folder-cancel-btn:hover {
+  background-color: #e8e8e8;
+}
+
+/* 新建收藏夹弹窗 */
+.add-favorite-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+}
+
+.add-favorite-modal-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.add-favorite-modal-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 380px;
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.add-favorite-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.add-favorite-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #18191c;
+}
+
+.add-favorite-close-btn {
+  width: 28px;
+  height: 28px;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: #9499a0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.add-favorite-close-btn:hover {
+  background-color: #f5f5f5;
+  color: #666;
+}
+
+.add-favorite-close-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+.add-favorite-modal-body {
+  padding: 20px;
+}
+
+.add-favorite-form-group {
+  margin-bottom: 16px;
+}
+
+.add-favorite-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.add-favorite-form-group label {
+  display: block;
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+}
+
+.add-favorite-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e3e5e7;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #18191c;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.add-favorite-input:focus {
+  border-color: #fb7299;
+}
+
+.add-favorite-input::placeholder {
+  color: #b1b1b1;
+}
+
+.add-favorite-checkbox-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  font-size: 14px;
+  color: #18191c;
+  line-height: 18px;
+}
+
+.add-favorite-checkbox {
+  display: none !important;
+}
+
+.add-favorite-checkbox-custom {
+  display: inline-block !important;
+  width: 18px !important;
+  height: 18px !important;
+  border: 1px solid #e3e5e7 !important;
+  border-radius: 4px !important;
+  background-color: #fff !important;
+  position: relative !important;
+  transition: background-color 0.2s, border-color 0.2s !important;
+  vertical-align: middle !important;
+}
+
+.add-favorite-checkbox:checked + .add-favorite-checkbox-custom {
+  background-color: #fb7299 !important;
+  border-color: #fb7299 !important;
+}
+
+.add-favorite-checkbox:checked + .add-favorite-checkbox-custom::after {
+  content: '' !important;
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  width: 10px !important;
+  height: 6px !important;
+  border: solid #fff !important;
+  border-width: 0 0 2px 2px !important;
+  transform: translate(-50%, -50%) rotate(-45deg) !important;
+}
+
+.add-favorite-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.add-favorite-cancel-btn {
+  padding: 8px 20px;
+  background-color: #f5f5f5;
+  color: #666;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.add-favorite-cancel-btn:hover {
+  background-color: #e8e8e8;
+}
+
+.add-favorite-confirm-btn {
+  padding: 8px 20px;
+  background: linear-gradient(135deg, #fb7299 0%, #ff85ad 100%);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.add-favorite-confirm-btn:hover {
+  opacity: 0.9;
+}
+
+.add-favorite-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .collections-more-btn svg {
   width: 14px;
   height: 14px;

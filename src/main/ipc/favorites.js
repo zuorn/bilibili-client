@@ -567,6 +567,50 @@ function registerFavoritesHandlers(deps) {
       return { success: false, error: error.message }
     }
   })
+
+  ipcMain.handle('add-favorite-folder', async (event, { title, isPublic = true }) => {
+    log('add-favorite-folder called, title:', title, 'isPublic:', isPublic)
+    try {
+      if (!title || title.trim() === '') {
+        return { success: false, error: '收藏夹名称不能为空' }
+      }
+
+      const trimmedTitle = title.trim()
+      if (trimmedTitle.length > 20) {
+        return { success: false, error: '收藏夹名称不能超过20字' }
+      }
+
+      const savedCookies = cookieManager.getSavedCookies()
+      const csrf = savedCookies.bili_jct || ''
+
+      if (!csrf) {
+        return { success: false, error: '缺少CSRF Token' }
+      }
+
+      // privacy: 0 = 公开, 1 = 私密
+      const privacy = isPublic ? 0 : 1
+
+      const bodyParams = {
+        title: trimmedTitle,
+        public: isPublic,
+        privacy: privacy,
+        csrf: csrf
+      }
+
+      log('Add favorite folder API params:', bodyParams)
+      const result = await fetchApiPost('https://api.bilibili.com/x/v3/fav/folder/add', bodyParams)
+      log('Add favorite folder result code:', result.code, 'message:', result.message)
+
+      if (result.code === 0) {
+        return { success: true, data: result.data }
+      } else {
+        return { success: false, error: result.message || '创建收藏夹失败' }
+      }
+    } catch (error) {
+      log('Error adding favorite folder:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
 }
 
 module.exports = { registerFavoritesHandlers }

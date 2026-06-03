@@ -131,8 +131,157 @@ function showConfirmDialog({ title = '提示', message = '', confirmText = '确�
   })
 }
 
+// 当前待收藏的视频信息（用于选择收藏夹后收藏）
+let currentVideoToFavorite = null
+
+// 显示选择收藏夹弹窗
+function showSelectFolderModal(video) {
+  currentVideoToFavorite = video
+  const modal = document.getElementById('selectFolderModal')
+  if (modal) {
+    modal.style.display = 'block'
+    loadFoldersForSelect()
+  }
+}
+
+// 隐藏选择收藏夹弹窗
+function hideSelectFolderModal() {
+  const modal = document.getElementById('selectFolderModal')
+  if (modal) {
+    modal.style.display = 'none'
+    currentVideoToFavorite = null
+  }
+}
+
+// 加载收藏夹列表用于选择
+async function loadFoldersForSelect() {
+  const container = document.getElementById('selectFolderList')
+  if (!container) return
+
+  try {
+    const result = await ipcRenderer.invoke('get-favorites-folders')
+    if (result.success && result.data) {
+      renderFolderList(result.data)
+    } else {
+      container.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">获取收藏夹失败</div>'
+    }
+  } catch (error) {
+    console.error('加载收藏夹列表失败:', error)
+    container.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">加载失败</div>'
+  }
+}
+
+// 渲染收藏夹列表
+function renderFolderList(folders) {
+  const container = document.getElementById('selectFolderList')
+  if (!container) return
+
+  if (!folders || folders.length === 0) {
+    container.innerHTML = '<div style="padding: 40px; text-align: center; color: #999;">暂无收藏夹</div>'
+    return
+  }
+
+  container.innerHTML = folders.map(folder => `
+    <div class="select-folder-item" data-fid="${folder.fid}" data-name="${folder.name}">
+      <div class="select-folder-radio"></div>
+      <div class="select-folder-info">
+        <div class="select-folder-name">${folder.name}</div>
+        <div class="select-folder-count">${folder.media_count} 个视频</div>
+      </div>
+    </div>
+  `).join('')
+
+  // 绑定点击事件
+  container.querySelectorAll('.select-folder-item').forEach(item => {
+    item.addEventListener('click', () => {
+      // 移除其他选中状态
+      container.querySelectorAll('.select-folder-item').forEach(i => i.classList.remove('selected'))
+      // 添加选中状态
+      item.classList.add('selected')
+      
+      // 获取选中的收藏夹信息
+      const fid = item.dataset.fid
+      const name = item.dataset.name
+      
+      // 执行收藏操作
+      handleSelectFolder(fid, name)
+    })
+  })
+}
+
+// 处理选择收藏夹
+async function handleSelectFolder(fid, folderName) {
+  if (!currentVideoToFavorite) {
+    hideSelectFolderModal()
+    return
+  }
+
+  const video = currentVideoToFavorite
+  
+  try {
+    // 调用添加收藏接口
+    const result = await ipcRenderer.invoke('add-to-favorites', {
+      rid: video.aid || video.id || 0,
+      type: 2,
+      add_media_ids: String(fid)
+    })
+
+    if (result.success) {
+      showToast(`已收藏到「${folderName}」`)
+    } else {
+      showToast(result.error || '收藏失败')
+    }
+  } catch (error) {
+    console.error('收藏失败:', error)
+    showToast(error.message || '收藏失败')
+  } finally {
+    hideSelectFolderModal()
+  }
+}
+
+// 从选择收藏夹弹窗打开新建收藏夹弹窗
+function openAddFolderFromSelect() {
+  hideSelectFolderModal()
+  showAddFavoriteModal()
+}
+
+// 绑定选择收藏夹弹窗事件
+function bindSelectFolderEvents() {
+  const closeBtn = document.getElementById('selectFolderCloseBtn')
+  const cancelBtn = document.getElementById('selectFolderCancelBtn')
+  const addBtn = document.getElementById('selectFolderAddBtn')
+  const modalMask = document.querySelector('.select-folder-modal-mask')
+  const modal = document.getElementById('selectFolderModal')
+  
+  if (closeBtn) {
+    closeBtn.addEventListener('click', hideSelectFolderModal)
+  }
+  
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', hideSelectFolderModal)
+  }
+  
+  if (addBtn) {
+    addBtn.addEventListener('click', openAddFolderFromSelect)
+  }
+  
+  if (modalMask) {
+    modalMask.addEventListener('click', hideSelectFolderModal)
+  }
+  
+  // ESC键关闭
+  if (modal) {
+    modal.addEventListener('keydown', e => {
+      if (e.key === 'Escape') {
+        hideSelectFolderModal()
+      }
+    })
+  }
+}
+
+// 原有的handleFavoritesSelectFolder函数改为显示选择收藏夹弹窗
 function handleFavoritesSelectFolder(video, mediaName) {
-  showToast(`当前收藏夹：${mediaName || DEFAULT_FAVORITES_NAME}`)
+  showSelectFolderModal(video)
 }
 
 function checkFavoritesContainerEmpty(containerId) {
@@ -1248,6 +1397,95 @@ function playFavoritesAll(mediaId) {
   loadFavoritesDetailVideos(mediaId, 1, 36, true)
 }
 
+// 新建收藏夹弹窗相关函数
+function showAddFavoriteModal() {
+  const modal = document.getElementById('addFavoriteModal')
+  if (modal) {
+    modal.style.display = 'block'
+    document.getElementById('favoriteFolderName').value = ''
+    document.getElementById('favoriteFolderPublic').checked = true
+    document.getElementById('favoriteFolderName').focus()
+  }
+}
+
+function hideAddFavoriteModal() {
+  const modal = document.getElementById('addFavoriteModal')
+  if (modal) {
+    modal.style.display = 'none'
+  }
+}
+
+async function handleAddFavoriteFolder() {
+  const titleInput = document.getElementById('favoriteFolderName')
+  const publicCheckbox = document.getElementById('favoriteFolderPublic')
+  
+  const title = titleInput.value.trim()
+  const isPublic = publicCheckbox.checked
+  
+  if (!title) {
+    showToast('请输入收藏夹名称')
+    return
+  }
+  
+  if (title.length > 20) {
+    showToast('收藏夹名称不能超过20字')
+    return
+  }
+  
+  try {
+    const result = await ipcRenderer.invoke('add-favorite-folder', { title, isPublic })
+    
+    if (result.success) {
+      showToast('创建收藏夹成功')
+      hideAddFavoriteModal()
+      // 刷新"我创建的收藏夹"列表
+      loadFavoritesCreated()
+    } else {
+      showToast(result.error || '创建收藏夹失败')
+    }
+  } catch (error) {
+    console.error('创建收藏夹异常:', error)
+    showToast(error.message || '创建收藏夹失败')
+  }
+}
+
+// 绑定新建收藏夹弹窗事件
+function bindAddFavoriteFolderEvents() {
+  const addBtn = document.getElementById('addFavoriteFolderBtn')
+  const closeBtn = document.getElementById('addFavoriteCloseBtn')
+  const cancelBtn = document.getElementById('addFavoriteCancelBtn')
+  const confirmBtn = document.getElementById('addFavoriteConfirmBtn')
+  const modalMask = document.querySelector('.add-favorite-modal-mask')
+  const modal = document.getElementById('addFavoriteModal')
+  
+  if (addBtn) {
+    addBtn.addEventListener('click', showAddFavoriteModal)
+  }
+  
+  if (closeBtn) {
+    closeBtn.addEventListener('click', hideAddFavoriteModal)
+  }
+  
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', hideAddFavoriteModal)
+  }
+  
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', handleAddFavoriteFolder)
+  }
+  
+  if (modalMask) {
+    modalMask.addEventListener('click', hideAddFavoriteModal)
+  }
+  
+  // ESC键关闭弹窗
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal && modal.style.display === 'block') {
+      hideAddFavoriteModal()
+    }
+  })
+}
+
 function playFavoritesCollectionAll(mediaId) {
   loadFavoritesCollectionDetailVideos(mediaId, 1, 36, true)
 }
@@ -1325,5 +1563,17 @@ async function loadFavoritesCollectionDetailVideos(seasonId, pageNum = 1, pageSi
     console.error('加载收藏合集内容失败:', error)
     showEmptyMessage('favoritesCollectionDetailList', '加载失败')
   }
+}
+
+// 在DOM加载完成后绑定弹窗事件
+function bindModalEvents() {
+  bindAddFavoriteFolderEvents()
+  bindSelectFolderEvents()
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bindModalEvents)
+} else {
+  bindModalEvents()
 }
 
