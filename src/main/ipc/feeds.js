@@ -9,7 +9,7 @@ function getHotTagFromData(item) {
 }
 
 function registerFeedsHandlers(deps) {
-  const { ipcMain, fetchWithRetry, buildRecommendUrl, fetchApi, log } = deps
+  const { ipcMain, fetchWithRetry, buildRecommendUrl, fetchApi, log, fetchWbiKeys, getMixKey, signParams } = deps
 
   ipcMain.handle('test-ipc', async () => {
     console.log('Test IPC called')
@@ -88,7 +88,15 @@ function registerFeedsHandlers(deps) {
         log('Using ranking/v2 endpoint:', endpoint)
         result = await fetchWithRetry(endpoint)
       } else if (tab === 'weekly') {
-        endpoint = `https://api.bilibili.com/x/web-interface/popular/series/one?number=373&web_location=bilibili-electron`
+        // 每周必看接口需要 WBI 签名
+        const params = {
+          number: 375,
+          web_location: 'bilibili-electron'
+        }
+        const keys = await fetchWbiKeys()
+        const mixKey = getMixKey(keys.imgKey, keys.subKey)
+        const signed = signParams(params, mixKey)
+        endpoint = `https://api.bilibili.com/x/web-interface/popular/series/one?number=375&web_location=bilibili-electron&w_rid=${signed.w_rid}&wts=${signed.wts}`
         log('Using weekly endpoint:', endpoint)
         result = await fetchWithRetry(endpoint)
       } else if (tab === 'precious') {

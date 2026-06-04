@@ -517,7 +517,7 @@ function initEventListeners() {
       pageStates.popular.videos = []
       const popularGrid = document.getElementById('popularGrid')
       if (popularGrid) popularGrid.innerHTML = ''
-      fetchPopularVideos(1, false)
+      fetchPopularVideosByTab('comprehensive', 1, false)
     } else if (currentPage === 'dynamic') {
       // 动态页面刷新
       if (typeof selectAllDynamic === 'function') {
@@ -567,7 +567,7 @@ function refreshCurrentPage() {
     pageStates.popular.videos = []
     const popularGrid = document.getElementById('popularGrid')
     if (popularGrid) popularGrid.innerHTML = ''
-    fetchPopularVideos(1, false)
+    fetchPopularVideosByTab('comprehensive', 1, false)
   } else if (currentPage === 'dynamic') {
     if (typeof selectAllDynamic === 'function') {
       selectAllDynamic()
@@ -877,43 +877,11 @@ async function fetchVideos(page = 1, append = false) {
   state.loading = false
 }
 
+// 旧版函数，保持兼容性，调用新版函数
 async function fetchPopularVideos(page = 1, append = false) {
   const state = pageStates.popular
-  if (state.loading) return
-  state.loading = true
-
-  try {
-    console.log('Fetching popular videos via IPC, page:', page)
-
-    const result = await ipcRenderer.invoke('fetch-popular-videos-v2', page)
-    console.log('Popular videos result:', result.success, result.error || '')
-    
-    let items = []
-
-    if (result.success && result.data && result.data.code === 0) {
-      items = result.data.data?.list || (Array.isArray(result.data.data) ? result.data.data : []) || []
-    }
-
-    if (items.length > 0) {
-      state.hasMore = items.length >= 20
-      const newVideos = items.map(item => mapVideoItem(item, { showPlaySuffix: true }))
-
-      if (append) {
-        state.videos = [...state.videos, ...newVideos]
-        appendVideos(newVideos, 'popularGrid', navigateToUP)
-      } else {
-        state.videos = newVideos
-        renderVideos(newVideos, 'popularGrid', navigateToUP)
-      }
-    } else if (!append) {
-      showEmptyMessage('popularGrid', '暂无视频')
-    }
-  } catch (error) {
-    console.error('获取热门视频失败:', error)
-    if (!append) showEmptyMessage('popularGrid', '获取视频失败')
-  }
-
-  state.loading = false
+  // 使用当前tab和rid调用新版函数
+  return fetchPopularVideosByTab(state.currentTab || 'comprehensive', page, append, state.currentRid || 0)
 }
 
 function handleSearchFocus() {
@@ -2402,7 +2370,7 @@ function handleScroll() {
     if (scrollTop + clientHeight >= scrollHeight - 300) {
       const states = {
         home: { state: pageStates.home, action: p => fetchVideos(p, true) },
-        popular: { state: pageStates.popular, action: p => fetchPopularVideos(p, true) },
+        popular: { state: pageStates.popular, action: p => fetchPopularVideosByTab(pageStates.popular.currentTab, p, true, pageStates.popular.currentRid) },
         search: { state: pageStates.search, action: p => searchVideos(pageStates.search.keyword, p, true) }
       }
 
@@ -2893,7 +2861,7 @@ function loadPageContent(page) {
   console.log('loadPageContent called with page:', page)
   const actions = {
     home: () => { pageStates.home.pageNum = 1; pageStates.home.hasMore = true; fetchVideos(1, false) },
-    popular: () => { pageStates.popular.pageNum = 1; pageStates.popular.hasMore = true; fetchPopularVideos(1, false) },
+    popular: () => { pageStates.popular.pageNum = 1; pageStates.popular.hasMore = true; fetchPopularVideosByTab('comprehensive', 1, false) },
     bangumi: () => loadBangumiPage(),
     'bangumi-all': () => {
       bangumiAllState.page = 1

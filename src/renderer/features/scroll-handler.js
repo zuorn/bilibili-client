@@ -223,7 +223,7 @@ function handleOtherPageScroll(scrollTop, scrollHeight, clientHeight) {
   if (nearBottom) {
     const states = {
       home: { state: pageStates.home, action: p => fetchVideos(p, true) },
-      popular: { state: pageStates.popular, action: p => fetchPopularVideos(pageStates.popular.currentTab, p, true, pageStates.popular.currentRid) },
+      popular: { state: pageStates.popular, action: p => fetchPopularVideosByTab(pageStates.popular.currentTab, p, true, pageStates.popular.currentRid) },
       search: { state: pageStates.search, action: p => searchVideos(pageStates.search.keyword, p, true) }
     }
 

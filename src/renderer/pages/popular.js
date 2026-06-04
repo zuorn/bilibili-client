@@ -1,6 +1,5 @@
-// 热门视频模块
-
-async function fetchPopularVideos(tab = 'comprehensive', page = 1, append = false, rid = 0) {
+// 热门视频模块 - 确保函数名唯一，避免覆盖
+async function fetchPopularVideosByTab(tab = 'comprehensive', page = 1, append = false, rid = 0) {
   const state = pageStates.popular
   if (state.loading) return
   state.loading = true
@@ -14,12 +13,16 @@ async function fetchPopularVideos(tab = 'comprehensive', page = 1, append = fals
     let items = []
 
     if (result.success && result.data && result.data.code === 0) {
-      if (tab === 'precious' || tab === 'weekly') {
-        // 入站必刷、每周必看数据格式
-        items = result.data.data?.list || []
+      const data = result.data.data
+      if (tab === 'precious') {
+        // 入站必刷数据格式：{ list: [...] }
+        items = data?.list || []
+      } else if (tab === 'weekly') {
+        // 每周必看数据格式：直接是数组或嵌套结构
+        items = Array.isArray(data) ? data : (data?.list || data?.result || [])
       } else {
-        // 其他tab数据格式
-        items = result.data.data?.list || (Array.isArray(result.data.data) ? result.data.data : []) || []
+        // 综合热门、排行榜数据格式
+        items = data?.list || (Array.isArray(data) ? data : []) || []
       }
     }
 
@@ -33,6 +36,9 @@ async function fetchPopularVideos(tab = 'comprehensive', page = 1, append = fals
         appendVideos(newVideos, 'popularGrid', navigateToUP, { showRank })
       } else {
         state.videos = newVideos
+        // 清空容器再渲染
+        const container = document.getElementById('popularGrid')
+        if (container) container.innerHTML = ''
         renderVideos(newVideos, 'popularGrid', navigateToUP, { showRank })
       }
     } else if (!append) {
@@ -41,9 +47,9 @@ async function fetchPopularVideos(tab = 'comprehensive', page = 1, append = fals
   } catch (error) {
     console.error('获取热门视频失败:', error)
     if (!append) showEmptyMessage('popularGrid', '获取视频失败')
+  } finally {
+    state.loading = false
   }
-
-  state.loading = false
 }
 
 function initPopularTabs() {
@@ -74,7 +80,8 @@ function initPopularTabs() {
       state.currentTab = tabType
       state.currentRid = tabType === 'ranking' ? 0 : 0
       
-      fetchPopularVideos(tabType, 1, false, state.currentRid)
+      // 使用正确的函数名
+      fetchPopularVideosByTab(tabType, 1, false, state.currentRid)
     })
   })
 }
@@ -100,7 +107,8 @@ function initRankingFilters() {
       state.hasMore = true
       state.currentRid = rid
       
-      fetchPopularVideos('ranking', 1, false, rid)
+      // 使用正确的函数名
+      fetchPopularVideosByTab('ranking', 1, false, rid)
     })
   })
 }

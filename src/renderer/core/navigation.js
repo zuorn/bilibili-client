@@ -29,7 +29,7 @@ function refreshCurrentPage() {
         if (index === 0) t.classList.add('active')
       })
     }
-    fetchPopularVideos('comprehensive', 1, false)
+    fetchPopularVideosByTab('comprehensive', 1, false)
   } else if (currentPage === 'dynamic') {
     if (typeof selectAllDynamic === 'function') {
       selectAllDynamic()

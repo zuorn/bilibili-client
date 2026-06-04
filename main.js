@@ -96,7 +96,7 @@ function registerAllHandlers() {
   registerDynamicsHandlers(apiDeps)
 
   // 带更多依赖的处理器
-  registerFeedsHandlers({ ipcMain, fetchWithRetry, buildRecommendUrl, fetchApi, log })
+  registerFeedsHandlers({ ipcMain, fetchWithRetry, buildRecommendUrl, fetchApi, log, fetchWbiKeys, getMixKey, signParams })
   registerBangumiHandlers({ ipcMain, fetchApiWithHeaders, fetchApi, buildRecommendUrl, log, cookieManager, mainWindow: mw, fetchWithRetry })
   registerMediaHandlers({ ipcMain, fetchApiWithHeaders, fetchApi, buildRecommendUrl, log, cookieManager, mainWindow: mw })
   registerHistoryHandlers({ ipcMain, fetchApi, log, cookieManager, state: sharedState })
