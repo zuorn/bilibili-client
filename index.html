@@ -1071,6 +1071,39 @@
     </div>
   </div>
 
+  <!-- 编辑收藏夹弹窗 -->
+  <div class="edit-favorite-modal" id="editFavoriteModal" style="display: none;">
+    <div class="edit-favorite-modal-mask"></div>
+    <div class="edit-favorite-modal-content">
+      <div class="edit-favorite-modal-header">
+        <h3>编辑收藏夹</h3>
+        <button class="edit-favorite-close-btn" id="editFavoriteCloseBtn">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <div class="edit-favorite-modal-body">
+        <div class="add-favorite-form-group">
+          <label for="editFavoriteFolderName">收藏夹名称</label>
+          <input type="text" id="editFavoriteFolderName" class="add-favorite-input" placeholder="不超过20个字" maxlength="20">
+        </div>
+        <div class="add-favorite-form-group">
+          <label class="add-favorite-checkbox-label">
+            <input type="checkbox" id="editFavoriteFolderPublic" class="add-favorite-checkbox">
+            <span class="add-favorite-checkbox-custom"></span>
+            <span>公开收藏夹</span>
+          </label>
+        </div>
+      </div>
+      <div class="edit-favorite-modal-footer">
+        <button class="edit-favorite-cancel-btn" id="editFavoriteCancelBtn">取消</button>
+        <button class="edit-favorite-confirm-btn" id="editFavoriteConfirmBtn">确定</button>
+      </div>
+    </div>
+  </div>
+
   <!-- 收藏夹排序弹窗 -->
   <div class="sort-favorite-modal" id="sortFavoriteModal" style="display: none;">
     <div class="sort-favorite-modal-mask"></div>

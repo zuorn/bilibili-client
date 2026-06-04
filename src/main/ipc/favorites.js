@@ -132,28 +132,51 @@ function registerFavoritesHandlers(deps) {
 
         if (medias.length > 0) {
           log('First favorite title:', medias[0].title)
+          log('First favorite id (raw):', medias[0].id, 'type:', typeof medias[0].id)
+          log('First favorite aid (raw):', medias[0].aid, 'type:', typeof medias[0].aid)
           log('First favorite bvid:', medias[0].bvid || medias[0].bv_id)
           log('First favorite upper:', JSON.stringify(medias[0].upper))
           log('First favorite cnt_info:', JSON.stringify(medias[0].cnt_info))
+          if (medias[0].resource) {
+            log('First favorite resource.id:', medias[0].resource.id, 'resource.aid:', medias[0].resource.aid)
+          } else {
+            log('First favorite has NO resource field')
+          }
+        }
+
+        // 验证映射：打印第一个 item 的 aid/id 对照
+        if (medias.length > 0) {
+          const f = medias[0]
+          const fres = f.resource || f
+          log('=== get-favorites mapping: fav_entry_id=', f.id, 'video_aid=', fres.aid || f.aid || '(none)', 'bvid=', fres.bvid || f.bv_id || '')
         }
 
         return {
           success: true,
-          data: medias.map(item => ({
-            aid: item.id || 0,
-            bvid: item.bvid || item.bv_id || '',
-            title: item.title || '',
-            pic: item.cover || '',
-            duration: item.duration || 0,
-            upper: item.upper || null,
-            cnt_info: item.cnt_info || null,
-            page: item.page || 1,
-            intro: item.intro || '',
-            ctime: item.ctime || 0,
-            pubtime: item.pubtime || 0,
-            fav_time: item.fav_time || 0,
-            media_id: item.id || mediaId
-          })),
+          data: medias.map(item => {
+            // item.id 是收藏条目的内部ID（用于取消收藏等操作），不是视频AV号
+            // 视频的真实信息在 item.resource 或 item 本身中
+            // aid（视频AV号）优先从 resource.aid 或 item.aid 取，不能取 item.id（那是收藏条目ID）
+            const resource = item.resource || item
+            const videoAid = resource.aid || item.aid || 0
+            const favEntryId = item.id || 0
+            return {
+              id: favEntryId,           // 收藏条目ID（取消收藏/批量删除时需要）
+              aid: videoAid,            // 视频AV号（添加到收藏夹时需要）
+              bvid: resource.bvid || resource.bv_id || '',
+              title: item.title || resource.title || '',
+              pic: item.cover || resource.cover || '',
+              duration: item.duration || resource.duration || 0,
+              upper: item.upper || resource.upper || null,
+              cnt_info: item.cnt_info || resource.cnt_info || null,
+              page: item.page || resource.page || 1,
+              intro: item.intro || resource.intro || '',
+              ctime: item.ctime || resource.ctime || 0,
+              pubtime: item.pubtime || resource.pubtime || 0,
+              fav_time: item.fav_time || 0,
+              media_id: mediaId
+            }
+          }),
           hasMore: result.data.has_more || false,
           nextPage: result.data.has_more ? pageNum + 1 : null,
           mediaInfo: result.data.info || null
@@ -712,6 +735,58 @@ function registerFavoritesHandlers(deps) {
       }
     } catch (error) {
       log('Error cleaning favorites expired:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  // 编辑收藏夹
+  ipcMain.handle('edit-favorites-folder', async (event, { mediaId, title, isPublic = true }) => {
+    log('edit-favorites-folder called, mediaId:', mediaId, 'title:', title, 'isPublic:', isPublic)
+    try {
+      if (!mediaId) {
+        return { success: false, error: '缺少收藏夹ID' }
+      }
+
+      if (!title || title.trim() === '') {
+        return { success: false, error: '收藏夹名称不能为空' }
+      }
+
+      const trimmedTitle = title.trim()
+      if (trimmedTitle.length > 20) {
+        return { success: false, error: '收藏夹名称不能超过20字' }
+      }
+
+      const savedCookies = cookieManager.getSavedCookies()
+      const csrf = savedCookies.bili_jct || ''
+
+      if (!csrf) {
+        return { success: false, error: '缺少CSRF Token' }
+      }
+
+      // privacy: 0 = 公开, 1 = 私密
+      const privacy = isPublic ? 0 : 1
+
+      const bodyParams = {
+        title: trimmedTitle,
+        public: isPublic,
+        media_id: mediaId,
+        privacy: privacy,
+        csrf: csrf,
+        platform: 'web',
+        jsonp: 'jsonp'
+      }
+
+      log('Edit favorites folder API params:', bodyParams)
+      const result = await fetchApiPost('https://api.bilibili.com/x/v3/fav/folder/edit', bodyParams)
+      log('Edit favorites folder result code:', result.code, 'message:', result.message)
+
+      if (result.code === 0) {
+        return { success: true, data: result.data }
+      } else {
+        return { success: false, error: result.message || '编辑收藏夹失败' }
+      }
+    } catch (error) {
+      log('Error editing favorites folder:', error.message)
       return { success: false, error: error.message }
     }
   })

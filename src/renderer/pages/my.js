@@ -46,8 +46,9 @@ async function handleFavoritesUnfavorite(video, card, mediaId, mediaName, contai
   console.log('[Favorites] 用户确认结果:', ok)
   if (!ok) return
 
-  const resourceId = video.aid || video.bvid
-  console.log('[Favorites] 调用 unfavorite-video API:', { resources: `${resourceId}:2`, media_id: mediaId, aid: video.aid, bvid: video.bvid })
+  // 取消收藏需要使用收藏条目ID（video.id），不是视频AV号（video.aid）
+  const resourceId = video.id || video.aid || video.bvid
+  console.log('[Favorites] 调用 unfavorite-video API:', { resources: `${resourceId}:2`, media_id: mediaId, favId: video.id, aid: video.aid, bvid: video.bvid })
   try {
     const result = await ipcRenderer.invoke('unfavorite-video', {
       resources: `${resourceId}:2`,
@@ -133,6 +134,11 @@ function showConfirmDialog({ title = '提示', message = '', confirmText = '确�
 
 // 当前待收藏的视频信息（用于选择收藏夹后收藏）
 let currentVideoToFavorite = null
+// 当前视频所在的原收藏夹信息
+let currentSourceMediaId = null
+let currentSourceContainerId = null
+// 当前视频在原收藏夹中的条目ID（用于取消收藏步骤）
+let currentSourceFavEntryId = null
 
 // 清空失效内容
 async function handleCleanExpiredContent() {
@@ -173,8 +179,11 @@ async function handleCleanExpiredContent() {
 }
 
 // 显示选择收藏夹弹窗
-function showSelectFolderModal(video) {
+function showSelectFolderModal(video, mediaId, containerId) {
   currentVideoToFavorite = video
+  currentSourceMediaId = mediaId
+  currentSourceContainerId = containerId
+  currentSourceFavEntryId = video.id || 0  // 收藏条目ID，用于从原收藏夹移除
   const modal = document.getElementById('selectFolderModal')
   if (modal) {
     modal.style.display = 'block'
@@ -188,6 +197,9 @@ function hideSelectFolderModal() {
   if (modal) {
     modal.style.display = 'none'
     currentVideoToFavorite = null
+    currentSourceMediaId = null
+    currentSourceContainerId = null
+    currentSourceFavEntryId = null
   }
 }
 
@@ -247,7 +259,7 @@ function renderFolderList(folders) {
   })
 }
 
-// 处理选择收藏夹
+// 处理选择收藏夹（移动收藏逻辑）
 async function handleSelectFolder(fid, folderName) {
   if (!currentVideoToFavorite) {
     hideSelectFolderModal()
@@ -255,23 +267,77 @@ async function handleSelectFolder(fid, folderName) {
   }
 
   const video = currentVideoToFavorite
+  const sourceMediaId = currentSourceMediaId
+  const containerId = currentSourceContainerId
+  
+  // 如果目标收藏夹和原收藏夹相同，不执行操作
+  if (sourceMediaId !== null && String(fid) === String(sourceMediaId)) {
+    showToast('已在该收藏夹中')
+    hideSelectFolderModal()
+    return
+  }
   
   try {
-    // 调用添加收藏接口
-    const result = await ipcRenderer.invoke('add-to-favorites', {
-      rid: video.aid || video.id || 0,
+    // 步骤1：先将视频添加到新收藏夹
+    // rid 参数：优先使用 aid，如果没有则使用 bvid（视频类型时 bvid 也可以作为 rid）
+    const resourceId = video.aid || video.bvid
+    if (!resourceId) {
+      showToast('无法获取视频ID')
+      hideSelectFolderModal()
+      return
+    }
+    
+    const addResult = await ipcRenderer.invoke('add-to-favorites', {
+      rid: resourceId,
       type: 2,
       add_media_ids: String(fid)
     })
 
-    if (result.success) {
-      showToast(`已收藏到「${folderName}」`)
+    if (!addResult.success) {
+      showToast(addResult.error || '添加到收藏夹失败')
+      hideSelectFolderModal()
+      return
+    }
+
+    // 步骤2：如果视频来自某个收藏夹，从原收藏夹中移除
+    // 这里需要使用收藏条目ID（video.id），而不是视频AV号（video.aid）
+    if (sourceMediaId !== null) {
+      const favEntryId = currentSourceFavEntryId || video.id || 0
+      const removeResult = await ipcRenderer.invoke('unfavorite-video', {
+        resources: `${favEntryId}:2`,
+        media_id: sourceMediaId
+      })
+
+      if (!removeResult.success) {
+        showToast('添加成功，但从原收藏夹移除失败')
+      } else {
+        showToast(`已移动到「${folderName}」`)
+        
+        // 从当前列表中移除视频卡片
+        const card = document.querySelector(`.video-card[data-bvid="${video.bvid}"]`)
+        if (card) {
+          const wrapper = card.closest('.video-item-wrapper')
+          const targetElement = wrapper || card
+          
+          targetElement.style.transition = 'opacity 0.25s, transform 0.25s'
+          targetElement.style.opacity = '0'
+          targetElement.style.transform = 'scale(0.95)'
+          
+          setTimeout(() => {
+            if (targetElement.parentNode) {
+              targetElement.parentNode.removeChild(targetElement)
+              checkFavoritesContainerEmpty(containerId)
+            }
+          }, 250)
+        }
+      }
     } else {
-      showToast(result.error || '收藏失败')
+      // 如果没有原收藏夹（比如从其他地方收藏），只提示添加成功
+      showToast(`已收藏到「${folderName}」`)
     }
   } catch (error) {
-    console.error('收藏失败:', error)
-    showToast(error.message || '收藏失败')
+    console.error('移动收藏失败:', error)
+    showToast(error.message || '移动收藏失败')
   } finally {
     hideSelectFolderModal()
   }
@@ -318,8 +384,8 @@ function bindSelectFolderEvents() {
 }
 
 // 原有的handleFavoritesSelectFolder函数改为显示选择收藏夹弹窗
-function handleFavoritesSelectFolder(video, mediaName) {
-  showSelectFolderModal(video)
+function handleFavoritesSelectFolder(video, mediaName, mediaId, containerId) {
+  showSelectFolderModal(video, mediaId, containerId)
 }
 
 function checkFavoritesContainerEmpty(containerId) {
@@ -339,7 +405,7 @@ function getFavoritesCardOptions(mediaId, mediaName, containerId) {
   return {
     showFavoritesMore: true,
     onUnfavorite: (video, card) => handleFavoritesUnfavorite(video, card, mediaId, mediaName, containerId),
-    onSelectFolder: (video, card) => handleFavoritesSelectFolder(video, mediaName)
+    onSelectFolder: (video, card) => handleFavoritesSelectFolder(video, mediaName, mediaId, containerId)
   }
 }
 
@@ -736,6 +802,7 @@ async function loadFavorites(append = false) {
     const result = await ipcRenderer.invoke('get-favorites', DEFAULT_FAVORITES_ID, state.favoritesPageNum, 36)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
+        id: item.id || 0,
         aid: item.aid || 0,
         bvid: item.bvid || '',
         cid: item.cid || '',
@@ -827,6 +894,7 @@ async function searchFavorites(keyword) {
     const result = await ipcRenderer.invoke('get-favorites', DEFAULT_FAVORITES_ID, 1, 36, keyword)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
+        id: item.id || 0,
         aid: item.aid || 0,
         bvid: item.bvid || '',
         cid: item.cid || '',
@@ -910,6 +978,7 @@ async function loadFavoritesDefault(append = false) {
     const result = await ipcRenderer.invoke('get-favorites', DEFAULT_FAVORITES_ID, state.favoritesDefaultPageNum, pageSize)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
+        id: item.id || 0,
         aid: item.aid || 0,
         bvid: item.bvid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
@@ -970,10 +1039,11 @@ async function loadFavoritesCreated() {
           <div class="collections-series-grid">
             ${createdFavorites.map(fav => {
               const privacy = fav.attr === 0 ? '公开' : '私密'
+              const isPublic = fav.attr === 0
               const dateStr = formatDate(fav.ctime)
               return `
                 <div class="collections-series-item-wrapper">
-                  <div class="collections-series-card" data-media-id="${fav.id}">
+                  <div class="collections-series-card" data-media-id="${fav.id}" data-title="${fav.name}" data-public="${isPublic}">
                     <div class="collections-series-cover">
                       <img src="${optimizeCoverUrl(fav.cover || '', 672, 378)}" alt="${fav.name}">
                       <div class="collections-series-stack">
@@ -1048,7 +1118,18 @@ async function loadFavoritesCreated() {
           btn.addEventListener('click', e => {
             e.stopPropagation()
             const mediaId = btn.dataset.mediaId
-            showToast(`编辑收藏夹: ${mediaId}`)
+            const card = btn.closest('.collections-series-card')
+            const wrapper = btn.closest('.collections-series-item-wrapper')
+            // 从标题元素获取收藏夹名称
+            const title = wrapper?.querySelector('.collections-series-title')?.textContent || card?.dataset.title || ''
+            const isPublic = card?.dataset.public === 'true'
+
+            // 关闭下拉菜单
+            const dropdown = btn.closest('.collections-dropdown')
+            if (dropdown) dropdown.style.display = 'none'
+
+            // 显示编辑弹窗
+            showEditFavoriteModal(mediaId, title, isPublic)
           })
         })
 
@@ -1560,6 +1641,103 @@ function bindAddFavoriteFolderEvents() {
   })
 }
 
+// 编辑收藏夹弹窗相关函数
+let currentEditMediaId = null
+
+function showEditFavoriteModal(mediaId, title, isPublic) {
+  const modal = document.getElementById('editFavoriteModal')
+  if (modal) {
+    currentEditMediaId = mediaId
+    modal.style.display = 'block'
+    document.getElementById('editFavoriteFolderName').value = title
+    document.getElementById('editFavoriteFolderPublic').checked = isPublic
+    document.getElementById('editFavoriteFolderName').focus()
+  }
+}
+
+function hideEditFavoriteModal() {
+  const modal = document.getElementById('editFavoriteModal')
+  if (modal) {
+    modal.style.display = 'none'
+    currentEditMediaId = null
+  }
+}
+
+async function handleEditFavoriteFolder() {
+  if (!currentEditMediaId) {
+    showToast('收藏夹信息缺失')
+    return
+  }
+
+  const titleInput = document.getElementById('editFavoriteFolderName')
+  const publicCheckbox = document.getElementById('editFavoriteFolderPublic')
+
+  const title = titleInput.value.trim()
+  const isPublic = publicCheckbox.checked
+
+  if (!title) {
+    showToast('请输入收藏夹名称')
+    return
+  }
+
+  if (title.length > 20) {
+    showToast('收藏夹名称不能超过20字')
+    return
+  }
+
+  try {
+    const result = await ipcRenderer.invoke('edit-favorites-folder', {
+      mediaId: currentEditMediaId,
+      title: title,
+      isPublic: isPublic
+    })
+
+    if (result.success) {
+      showToast('编辑收藏夹成功')
+      hideEditFavoriteModal()
+      // 刷新"我创建的收藏夹"列表
+      loadFavoritesCreated()
+    } else {
+      showToast(result.error || '编辑收藏夹失败')
+    }
+  } catch (error) {
+    console.error('编辑收藏夹异常:', error)
+    showToast(error.message || '编辑收藏夹失败')
+  }
+}
+
+// 绑定编辑收藏夹弹窗事件
+function bindEditFavoriteFolderEvents() {
+  const closeBtn = document.getElementById('editFavoriteCloseBtn')
+  const cancelBtn = document.getElementById('editFavoriteCancelBtn')
+  const confirmBtn = document.getElementById('editFavoriteConfirmBtn')
+  const modalMask = document.querySelector('.edit-favorite-modal-mask')
+  const modal = document.getElementById('editFavoriteModal')
+
+  if (closeBtn) {
+    closeBtn.addEventListener('click', hideEditFavoriteModal)
+  }
+
+  if (cancelBtn) {
+    cancelBtn.addEventListener('click', hideEditFavoriteModal)
+  }
+
+  if (confirmBtn) {
+    confirmBtn.addEventListener('click', handleEditFavoriteFolder)
+  }
+
+  if (modalMask) {
+    modalMask.addEventListener('click', hideEditFavoriteModal)
+  }
+
+  // ESC键关闭弹窗
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && modal && modal.style.display === 'block') {
+      hideEditFavoriteModal()
+    }
+  })
+}
+
 // 收藏夹排序弹窗相关函数
 let sortableFolders = []
 
@@ -1774,6 +1952,7 @@ async function loadFavoritesDetailVideos(mediaId, pageNum = 1, pageSize = 36, pl
     const result = await ipcRenderer.invoke('get-favorites', mediaId, pageNum, pageSize)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
+        id: item.id || 0,
         aid: item.aid || 0,
         bvid: item.bvid || '',
         title: (item.title || '').replace(/<[^>]+>/g, ''),
@@ -1786,7 +1965,7 @@ async function loadFavoritesDetailVideos(mediaId, pageNum = 1, pageSize = 36, pl
         fav_time: item.fav_time || 0,
         publish_date: formatPublishTime(item.pubtime || item.ctime || 0)
       }))
-      
+
       const cardOptions = getFavoritesCardOptions(mediaId, currentFavoritesDetailTitle || '收藏夹', 'favoritesDetailList')
       if (videos.length > 0) {
         if (pageNum === 1) {
@@ -1844,6 +2023,7 @@ async function loadFavoritesCollectionDetailVideos(seasonId, pageNum = 1, pageSi
 // 在DOM加载完成后绑定弹窗事件
 function bindModalEvents() {
   bindAddFavoriteFolderEvents()
+  bindEditFavoriteFolderEvents()
   bindSelectFolderEvents()
   bindSortFavoriteEvents()
   bindCleanExpiredContentEvents()

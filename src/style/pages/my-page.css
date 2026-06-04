@@ -1201,12 +1201,14 @@
   display: inline-block !important;
   width: 18px !important;
   height: 18px !important;
+  min-width: 18px !important;
   border: 1px solid #e3e5e7 !important;
   border-radius: 4px !important;
   background-color: #fff !important;
   position: relative !important;
   transition: background-color 0.2s, border-color 0.2s !important;
-  vertical-align: middle !important;
+  flex-shrink: 0 !important;
+  transform: translateY(4px);
 }
 
 .add-favorite-checkbox:checked + .add-favorite-checkbox-custom {
@@ -1313,6 +1315,260 @@
   width: 100%;
   height: 100%;
   z-index: 1000;
+}
+
+/* 编辑收藏夹弹窗 */
+.edit-favorite-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 1000;
+}
+
+.edit-favorite-modal-mask {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.edit-favorite-modal-content {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 400px;
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+}
+
+.edit-favorite-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid #f0f0f0;
+}
+
+.edit-favorite-modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: #18191c;
+}
+
+.edit-favorite-close-btn {
+  width: 28px;
+  height: 28px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  color: #9499a0;
+  transition: background-color 0.2s, color 0.2s;
+}
+
+.edit-favorite-close-btn:hover {
+  background-color: #f5f5f5;
+  color: #18191c;
+}
+
+.edit-favorite-close-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+.edit-favorite-modal-body {
+  padding: 20px;
+}
+
+.edit-favorite-form-group {
+  margin-bottom: 16px;
+}
+
+.edit-favorite-form-group:last-child {
+  margin-bottom: 0;
+}
+
+.edit-favorite-form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: #18191c;
+  margin-bottom: 8px;
+}
+
+.edit-favorite-input {
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid #e3e5e7;
+  border-radius: 6px;
+  font-size: 14px;
+  color: #18191c;
+  outline: none;
+  transition: border-color 0.2s;
+  box-sizing: border-box;
+}
+
+.edit-favorite-input:focus {
+  border-color: #fb7299;
+}
+
+.edit-favorite-input::placeholder {
+  color: #9499a0;
+}
+
+.edit-favorite-checkbox-label {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  font-size: 14px;
+  color: #18191c;
+}
+
+.edit-favorite-checkbox {
+  display: none;
+}
+
+.edit-favorite-checkbox-custom {
+  width: 18px;
+  height: 18px;
+  border: 1px solid #e3e5e7;
+  border-radius: 4px;
+  margin-right: 8px;
+  position: relative;
+  transition: background-color 0.2s, border-color 0.2s;
+}
+
+.edit-favorite-checkbox:checked + .edit-favorite-checkbox-custom {
+  background-color: #fb7299;
+  border-color: #fb7299;
+}
+
+.edit-favorite-checkbox:checked + .edit-favorite-checkbox-custom::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 5px;
+  width: 5px;
+  height: 9px;
+  border: solid #fff;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.edit-favorite-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid #f0f0f0;
+}
+
+.edit-favorite-cancel-btn {
+  padding: 8px 20px;
+  background-color: #f5f5f5;
+  color: #666;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.edit-favorite-cancel-btn:hover {
+  background-color: #e8e8e8;
+}
+
+.edit-favorite-confirm-btn {
+  padding: 8px 20px;
+  background: linear-gradient(135deg, #fb7299 0%, #ff85ad 100%);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.edit-favorite-confirm-btn:hover {
+  opacity: 0.9;
+}
+
+.edit-favorite-confirm-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* 暗色主题适配 */
+[data-theme="dark"] .edit-favorite-modal-content {
+  background: #2a2a2a;
+  border: 1px solid #3a3a3a;
+}
+
+[data-theme="dark"] .edit-favorite-modal-header {
+  border-bottom-color: #3a3a3a;
+}
+
+[data-theme="dark"] .edit-favorite-modal-header h3 {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .edit-favorite-close-btn {
+  color: #808080;
+}
+
+[data-theme="dark"] .edit-favorite-close-btn:hover {
+  background-color: #3a3a3a;
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .edit-favorite-form-group label {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .edit-favorite-input {
+  background: #1a1a1a;
+  border-color: #3a3a3a;
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .edit-favorite-input:focus {
+  border-color: #fb7299;
+}
+
+[data-theme="dark"] .edit-favorite-input::placeholder {
+  color: #808080;
+}
+
+[data-theme="dark"] .edit-favorite-checkbox-label {
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .edit-favorite-checkbox-custom {
+  border-color: #3a3a3a;
+  background: #1a1a1a;
+}
+
+[data-theme="dark"] .edit-favorite-modal-footer {
+  border-top-color: #3a3a3a;
+}
+
+[data-theme="dark"] .edit-favorite-cancel-btn {
+  background-color: #3a3a3a;
+  color: #e0e0e0;
+}
+
+[data-theme="dark"] .edit-favorite-cancel-btn:hover {
+  background-color: #4a4a4a;
 }
 
 .sort-favorite-modal-mask {

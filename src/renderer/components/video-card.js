@@ -274,7 +274,8 @@ function createFavoritesDropdown(video, options) {
     e.stopPropagation()
     closeFavoritesDropdown()
     if (onSelectFolder) {
-      onSelectFolder(video)
+      const card = document.querySelector(`.video-card[data-bvid="${video.bvid}"]`)
+      onSelectFolder(video, card)
     }
   })
 

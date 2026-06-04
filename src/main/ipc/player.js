@@ -2,6 +2,7 @@
 const cookieManager = require('../cookieManager')
 const path = require('path')
 const fs = require('fs')
+const https = require('https')
 
 // Module-level deps reference, set by registerPlayerHandlers
 let _deps = null
@@ -802,6 +803,14 @@ function registerPlayerHandlers(deps) {
       const params = {
         aid: aid,
         like: like,
+        eab_x: 2,
+        ramval: 0,
+        referer: '',
+        source: 'pc_client_normal',
+        spmid: 'main.play-detail.0.0.pv',
+        from_spmid: '',
+        statistics: JSON.stringify({ appId: 112, platform: 4 }),
+        ga: 1,
         csrf: cookieManager.getSavedCookies().bili_jct || ''
       }
 
@@ -812,7 +821,48 @@ function registerPlayerHandlers(deps) {
         wts: signed.wts
       }
 
-      const result = await fetchApiPost('https://api.bilibili.com/x/web-interface/archive/like', bodyParams)
+      // 按键名字母顺序构建 body，确保与 WBI 签名顺序一致
+      const sortedKeys = Object.keys(bodyParams).sort()
+      const body = sortedKeys.map(k => `${encodeURIComponent(k)}=${encodeURIComponent(String(bodyParams[k]))}`).join('&')
+
+      // 直接使用 https 发送 POST 请求，确保参数顺序与签名一致
+      const urlObj = new URL('https://api.bilibili.com/x/web-interface/archive/like')
+      const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.bilibili.com/client',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(body),
+        'Origin': 'https://www.bilibili.com'
+      }
+      const savedCookies = cookieManager.getSavedCookies()
+      if (savedCookies.SESSDATA) {
+        headers['Cookie'] = `SESSDATA=${savedCookies.SESSDATA}; DedeUserID=${savedCookies.DedeUserID || ''}; bili_jct=${savedCookies.bili_jct || ''}`
+      }
+
+      const result = await new Promise((resolve, reject) => {
+        const req = https.request({
+          hostname: urlObj.hostname,
+          port: 443,
+          path: urlObj.pathname,
+          method: 'POST',
+          headers,
+          rejectUnauthorized: false
+        }, (res) => {
+          let data = ''
+          res.on('data', chunk => { data += chunk })
+          res.on('end', () => {
+            try {
+              resolve(JSON.parse(data))
+            } catch (e) { reject(e) }
+          })
+        })
+        req.on('error', reject)
+        req.setTimeout(15000, () => { req.destroy(); reject(new Error('请求超时')) })
+        req.write(body)
+        req.end()
+      })
       log('Like API result code:', result.code, 'message:', result.message)
       if (result.code === 0) {
         return { success: true, data: result.data }
