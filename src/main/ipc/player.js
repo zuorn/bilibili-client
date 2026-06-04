@@ -837,8 +837,8 @@ function registerPlayerHandlers(deps) {
         'Origin': 'https://www.bilibili.com'
       }
       const savedCookies = cookieManager.getSavedCookies()
-      if (savedCookies.SESSDATA) {
-        headers['Cookie'] = `SESSDATA=${savedCookies.SESSDATA}; DedeUserID=${savedCookies.DedeUserID || ''}; bili_jct=${savedCookies.bili_jct || ''}`
+      if (Object.keys(savedCookies).length > 0) {
+        headers['Cookie'] = cookieManager.getCookieString()
       }
 
       const result = await new Promise((resolve, reject) => {
