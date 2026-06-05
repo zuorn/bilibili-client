@@ -266,14 +266,13 @@
 }
 
 .sidebar-back-btn {
-  display: none;
+  display: flex;
   width: 100%;
   height: auto;
   border-radius: 10px;
   border: none;
   background: transparent;
   cursor: pointer;
-  display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -288,13 +287,15 @@
   height: 28px;
 }
 
-.sidebar-back-btn:hover {
+.sidebar-back-btn:hover:not(.disabled) {
   background-color: #f0f0f0;
   color: #18191c;
 }
 
-.sidebar-back-btn.visible {
-  display: flex;
+.sidebar-back-btn.disabled {
+  color: #c9ccd0;
+  cursor: default;
+  opacity: 0.4;
 }
 
 .sidebar-item {

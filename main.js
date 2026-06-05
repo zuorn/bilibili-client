@@ -156,9 +156,9 @@ function createTray() {
   
   sharedState.tray.setContextMenu(contextMenu)
   sharedState.tray.setToolTip('Bilibili Client')
-  
-  // 双击托盘显示窗口
-  sharedState.tray.on('double-click', () => {
+
+  // 点击托盘显示窗口
+  sharedState.tray.on('click', () => {
     if (sharedState.mainWindow) {
       sharedState.mainWindow.show()
     }
@@ -223,19 +223,8 @@ app.whenReady().then(async () => {
   app.quit()
 })
 
-// 监听全局快捷键 Q 键
-app.on('web-contents-created', (event, contents) => {
-  contents.on('before-input-event', (event, input) => {
-    if (input.type === 'keyDown' && input.key.toLowerCase() === 'q') {
-      if (sharedState.mainWindow && !sharedState.mainWindow.isDestroyed() && contents === sharedState.mainWindow.webContents) {
-        sharedState.mainWindow.hide()
-      }
-      if (sharedState.playerWindow && !sharedState.playerWindow.isDestroyed() && contents === sharedState.playerWindow.webContents) {
-        sharedState.playerWindow.close()
-      }
-    }
-  })
-})
+// Q 键关闭窗口的快捷键已由渲染进程的 shortcuts.js 统一处理，
+// 避免主进程全局监听与访问键 (access-keys) 等功能冲突
 
 app.on('window-all-closed', () => {
   // 保持应用运行，等待用户从托盘退出

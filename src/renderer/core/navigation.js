@@ -132,7 +132,7 @@ function goBack() {
       return
     }
   }
-  
+
   const favoritesCreatedList = document.getElementById('favoritesCreatedList')
   if (favoritesCreatedList && favoritesCreatedList.classList.contains('season-detail-mode')) {
     if (typeof backToFavoritesCreated === 'function') {
@@ -149,15 +149,22 @@ function goBack() {
     }
   }
 
-  if (pageHistory.length > 0) {
-    const prevPage = pageHistory.pop()
-    navigateToPage(prevPage)
-  }
+  // 已回到首页，不允许继续返回
+  if (pageHistory.length === 0) return
+
+  const prevPage = pageHistory.pop()
+  navigateToPage(prevPage)
 }
 
 function updateBackButton() {
   const backBtn = document.getElementById('sidebarBackBtn')
   if (backBtn) {
-    backBtn.style.display = pageHistory.length > 0 ? 'flex' : 'none'
+    if (pageHistory.length > 0) {
+      backBtn.classList.remove('disabled')
+      backBtn.title = '返回上一页'
+    } else {
+      backBtn.classList.add('disabled')
+      backBtn.title = '已回到首页'
+    }
   }
 }

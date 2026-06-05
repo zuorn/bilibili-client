@@ -324,50 +324,37 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 6px;
-      padding: 6px 12px;
       background: transparent;
-      border-radius: 20px;
-      transition: all 0.3s ease;
-      width: auto;
+      border-radius: 4px;
+      transition: all 0.2s ease;
+      width: 32px;
+      height: 32px;
     }
 
     .danmaku-control:hover {
-      transform: scale(1.02);
       background-color: rgba(255,255,255,0.1);
-      padding: 6px 16px;
     }
 
-    .danmaku-icon {
-      width: 16px;
-      height: 16px;
+    .danmaku-control.on {
+      color: #00a1d6;
+    }
+
+    .danmaku-control.off {
+      color: #ccc;
+    }
+
+    .danmaku-text {
+      font-size: 14px;
+      font-weight: 700;
+      color: inherit;
     }
 
     .danmaku-label {
-      font-size: 13px;
-      font-weight: 500;
-      color: #fff;
+      display: none;
     }
 
     .danmaku-status {
-      font-size: 11px;
-      padding: 2px 8px;
-      border-radius: 12px;
-      font-weight: 600;
-      transition: all 0.3s ease;
-      min-width: 24px;
-      text-align: center;
-    }
-
-    .danmaku-status.on {
-      background: linear-gradient(135deg, #00a1d6, #00c853);
-      color: #fff;
-      box-shadow: 0 2px 8px rgba(0, 161, 214, 0.4);
-    }
-
-    .danmaku-status.off {
-      background: rgba(255, 255, 255, 0.2);
-      color: rgba(255, 255, 255, 0.6);
+      display: none;
     }
 
     .danmaku-item {
@@ -524,33 +511,93 @@
     }
 
     .volume-control {
+      position: relative;
       display: flex;
       align-items: center;
-      gap: 6px;
-      width: 100px;
     }
 
-    .volume-bar {
-      flex: 1;
-      height: 4px;
-      background-color: #333;
-      border-radius: 2px;
-      cursor: pointer;
+    .volume-selector {
+      position: absolute;
+      bottom: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #1a1a1a;
+      border-radius: 4px;
+      padding: 8px 10px;
+      margin-bottom: 0px;
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      z-index: 1000;
+      min-width: 40px;
+    }
+
+    .volume-selector.visible {
+      display: flex;
+    }
+
+    .volume-selector-value {
+      color: #00a1d6;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 6px;
+      min-width: 32px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .volume-slider-container {
+      width: 6px;
+      height: 80px;
+      background: rgba(255, 255, 255, 0.2);
+      border-radius: 3px;
       position: relative;
+      cursor: ns-resize;
+      overflow: visible;
     }
 
-    .volume-fill {
-      height: 100%;
-      background-color: #00a1d6;
-      border-radius: 2px;
+    .volume-slider-container:hover {
+      background: rgba(255, 255, 255, 0.3);
     }
 
+    .volume-slider-fill {
+      width: 100%;
+      background: linear-gradient(to top, #00a1d6, #00b5e5);
+      border-radius: 3px;
+      position: absolute;
+      bottom: 0;
+    }
+
+    .volume-slider-thumb {
+      width: 12px;
+      height: 12px;
+      background: #fff;
+      border-radius: 50%;
+      position: absolute;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 0;
+      box-shadow: 0 0 4px rgba(0, 0, 0, 0.5);
+      pointer-events: none;
+      transition: transform 0.15s ease;
+    }
+
+    .volume-slider-container:hover .volume-slider-thumb {
+      transform: translateX(-50%) scale(1.2);
+    }
+
+    .volume-slider-container.dragging .volume-slider-thumb {
+      transform: translateX(-50%) scale(1.3);
+    }
+
+    /* 左上角音量面板 */
     .volume-panel {
       position: fixed;
       left: 20px;
       top: 70px;
       width: 60px;
-      height: 140px;
       background: rgba(20, 20, 20, 0.9);
       border-radius: 12px;
       opacity: 0;
@@ -570,38 +617,38 @@
       visibility: visible;
     }
 
-    .volume-icon {
-      color: #fff;
-      font-size: 18px;
-      margin-top: 8px;
-      text-align: center;
-    }
-
-    .volume-slider-container {
+    .volume-panel-slider {
       width: 24px;
-      height: 120px;
+      height: 100px;
       background: rgba(255, 255, 255, 0.1);
-      border-radius: 0;
+      border-radius: 4px;
       position: relative;
       cursor: pointer;
       overflow: hidden;
     }
 
-    .volume-slider-fill {
+    .volume-panel-fill {
       width: 100%;
       background: linear-gradient(to top, #00a1d6, #00b5e5);
-      border-radius: 0;
+      border-radius: 4px;
       position: absolute;
       bottom: 0;
       transition: height 0.1s ease;
     }
 
-    .volume-value {
+    .volume-panel-value {
       color: #00a1d6;
       font-size: 14px;
       font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    .volume-panel-icon {
+      color: #fff;
       margin-top: 8px;
     }
+
+
 
     .video-info-panel {
       position: fixed;
@@ -1964,14 +2011,14 @@
       background: #1a1a1a;
       border-radius: 4px;
       padding: 4px;
-      margin-bottom: 8px;
+      margin-bottom: 0px;
       display: none;
       flex-direction: column;
       min-width: 80px;
+      z-index: 1000;
     }
 
-    .playback-speed:hover .speed-selector,
-    .speed-selector:hover {
+    .speed-selector.visible {
       display: flex;
     }
 
@@ -1994,6 +2041,58 @@
 
     .speed-option.active {
       color: #00a1d6;
+    }
+
+    /* 播放设置选择器 */
+    .playback-settings {
+      position: relative;
+    }
+
+    .settings-selector {
+      position: absolute;
+      bottom: 100%;
+      right: 0;
+      background: #1a1a1a;
+      border-radius: 4px;
+      padding: 4px;
+      margin-bottom: 0px;
+      display: none;
+      flex-direction: column;
+      min-width: 120px;
+      z-index: 1000;
+    }
+
+    .settings-selector.visible {
+      display: flex;
+    }
+
+    .setting-option {
+      padding: 6px 12px;
+      background: transparent;
+      border: none;
+      color: #999;
+      font-size: 12px;
+      cursor: pointer;
+      text-align: left;
+      border-radius: 2px;
+      transition: all 0.2s;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .setting-option:hover {
+      background: rgba(255,255,255,0.1);
+      color: #fff;
+    }
+
+    .setting-option.active {
+      color: #00a1d6;
+    }
+
+    .setting-option svg {
+      width: 14px;
+      height: 14px;
     }
 
     .fullscreen-btn {
@@ -2300,13 +2399,21 @@
       </div>
     </div>
 
+    <!-- 左上角音量面板（用于键盘快捷键调整音量时显示） -->
     <div class="volume-panel" id="volumePanel">
-      <div class="volume-slider-container" id="volumeSlider">
-        <div class="volume-slider-fill" id="volumeSliderFill"></div>
+      <div class="volume-panel-value" id="volumePanelValue">80%</div>
+      <div class="volume-panel-slider" id="volumePanelSlider">
+        <div class="volume-panel-fill" id="volumePanelFill"></div>
       </div>
-      <div class="volume-icon" id="volumeIcon">🔊</div>
+      <div class="volume-panel-icon" id="volumePanelIcon">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/>
+          <path d="M19.07 4.93a10 10 0 0 1 0 14.14"/>
+          <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
+        </svg>
+      </div>
     </div>
-    
+
     <div class="player-controls">
       <button class="control-btn" id="playPauseBtn">
         <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2330,8 +2437,12 @@
             <path d="M15.54 8.46a5 5 0 0 1 0 7.07"/>
           </svg>
         </button>
-        <div class="volume-bar" id="volumeBar">
-          <div class="volume-fill" id="volumeFill"></div>
+        <div class="volume-selector">
+          <div class="volume-selector-value" id="volumeSelectorValue">80%</div>
+          <div class="volume-slider-container" id="volumeSlider">
+            <div class="volume-slider-fill" id="volumeSliderFill"></div>
+            <div class="volume-slider-thumb"></div>
+          </div>
         </div>
       </div>
 
@@ -2349,13 +2460,42 @@
         </div>
       </div>
 
-      <button class="control-btn danmaku-control" id="danmakuToggleBtn">
-        <svg class="danmaku-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
-        </svg>
-        <span class="danmaku-label">弹</span>
-        <span class="danmaku-status on" id="danmakuStatus">开</span>
+      <button class="control-btn danmaku-control on" id="danmakuToggleBtn">
+        <span class="danmaku-text">弹</span>
       </button>
+
+      <div class="playback-settings">
+        <button class="control-btn" id="settingsBtn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
+        <div class="settings-selector">
+          <button class="setting-option active" data-mode="sequential">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M8 5v14l11-7z"/>
+            </svg>
+            <span>顺序播放</span>
+          </button>
+          <button class="setting-option" data-mode="single">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polyline points="1 4 1 10 7 10"/>
+              <path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/>
+            </svg>
+            <span>单集循环</span>
+          </button>
+          <button class="setting-option" data-mode="list">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+              <path d="M3 3v5h5"/>
+              <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+              <path d="M16 21h5v-5"/>
+            </svg>
+            <span>列表循环</span>
+          </button>
+        </div>
+      </div>
 
       <button class="control-btn fullscreen-btn" id="fullscreenBtn">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
@@ -2400,11 +2540,13 @@
     const progressFill = document.getElementById('progressFill')
     const progressBuffered = document.getElementById('progressBuffered')
     const timeDisplay = document.getElementById('timeDisplay')
-    const volumeBar = document.getElementById('volumeBar')
-    const volumeFill = document.getElementById('volumeFill')
-    const volumePanel = document.getElementById('volumePanel')
     const volumeSliderFill = document.getElementById('volumeSliderFill')
-    const volumeIcon = document.getElementById('volumeIcon')
+    const volumeSliderThumb = document.querySelector('.volume-slider-thumb')
+    const volumeSelectorValue = document.getElementById('volumeSelectorValue')
+    const volumePanel = document.getElementById('volumePanel')
+    const volumePanelFill = document.getElementById('volumePanelFill')
+    const volumePanelValue = document.getElementById('volumePanelValue')
+    const volumePanelIcon = document.getElementById('volumePanelIcon')
     const muteBtn = document.getElementById('muteBtn')
     const speedBtn = document.getElementById('speedBtn')
     const danmakuToggleBtn = document.getElementById('danmakuToggleBtn')
@@ -2499,15 +2641,12 @@
 
     // 初始化弹幕按钮状态
     const initDanmakuStatus = () => {
-      const danmakuStatus = document.getElementById('danmakuStatus')
       if (danmakuEnabled) {
-        danmakuStatus.textContent = '开'
-        danmakuStatus.classList.remove('off')
-        danmakuStatus.classList.add('on')
+        danmakuToggleBtn.classList.remove('off')
+        danmakuToggleBtn.classList.add('on')
       } else {
-        danmakuStatus.textContent = '关'
-        danmakuStatus.classList.remove('on')
-        danmakuStatus.classList.add('off')
+        danmakuToggleBtn.classList.remove('on')
+        danmakuToggleBtn.classList.add('off')
       }
     }
     initDanmakuStatus()
@@ -4792,91 +4931,257 @@
       return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
     }
 
-    volumeBar.addEventListener('click', (e) => {
-      const rect = volumeBar.getBoundingClientRect()
-      const percent = (e.clientX - rect.left) / rect.width
-      videoPlayer.volume = percent
-      volumeFill.style.width = `${percent * 100}%`
-      saveVolume(percent)
-    })
+    // 音量选择器交互逻辑
+    const volumeSelector = document.querySelector('.volume-selector')
+    const volumeControl = document.querySelector('.volume-control')
+    let hideVolumeSelectorTimer = null
 
-    muteBtn.addEventListener('click', () => {
-      videoPlayer.muted = !videoPlayer.muted
-      if (videoPlayer.muted) {
-        muteBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`
-        videoPlayer.volume = 0
-        updateVolumeDisplay()
-      } else {
-        muteBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>`
-        const savedVol = localStorage.getItem('playerVolume')
-        videoPlayer.volume = savedVol !== null ? parseFloat(savedVol) : 0.8
-        updateVolumeDisplay()
+    const showVolumeSelector = () => {
+      if (hideVolumeSelectorTimer) {
+        clearTimeout(hideVolumeSelectorTimer)
+        hideVolumeSelectorTimer = null
       }
-    })
-
-    let hideVolumePanelTimer = null
-
-    const updateVolumeDisplay = () => {
-      const volume = videoPlayer.volume
-      const percentage = Math.round(volume * 100)
-      
-      volumeFill.style.width = `${percentage}%`
-      volumeSliderFill.style.height = `${percentage}%`
-      volumeIcon.textContent = percentage === 0 ? '🔇' : '🔊'
-    }
-
-    const showVolumePanel = () => {
-      volumePanel.classList.add('visible')
+      volumeSelector.classList.add('visible')
       updateVolumeDisplay()
-      
-      if (hideVolumePanelTimer) {
-        clearTimeout(hideVolumePanelTimer)
-      }
-      
-      hideVolumePanelTimer = setTimeout(() => {
-        volumePanel.classList.remove('visible')
-      }, 2000)
     }
 
-    const updateVerticalVolumeDisplay = updateVolumeDisplay
-    const showVerticalVolumeBar = showVolumePanel
+    const hideVolumeSelector = () => {
+      if (hideVolumeSelectorTimer) {
+        clearTimeout(hideVolumeSelectorTimer)
+      }
+      hideVolumeSelectorTimer = setTimeout(() => {
+        volumeSelector.classList.remove('visible')
+      }, 150)
+    }
+
+    muteBtn.addEventListener('mouseenter', showVolumeSelector)
+    muteBtn.addEventListener('mouseleave', hideVolumeSelector)
+    volumeSelector.addEventListener('mouseenter', showVolumeSelector)
+    volumeSelector.addEventListener('mouseleave', hideVolumeSelector)
 
     const volumeSlider = document.getElementById('volumeSlider')
-    volumeSlider.addEventListener('click', (e) => {
+
+    const setVolumeFromEvent = (e) => {
       const rect = volumeSlider.getBoundingClientRect()
       const percent = 1 - (e.clientY - rect.top) / rect.height
       const volume = Math.max(0, Math.min(1, percent))
       videoPlayer.volume = volume
       updateVolumeDisplay()
       saveVolume(volume)
+    }
+
+    volumeSlider.addEventListener('click', setVolumeFromEvent)
+
+    let isDraggingVolume = false
+    volumeSlider.addEventListener('mousedown', (e) => {
+      e.preventDefault()
+      isDraggingVolume = true
+      volumeSlider.classList.add('dragging')
+      setVolumeFromEvent(e)
     })
+
+    document.addEventListener('mousemove', (e) => {
+      if (isDraggingVolume) {
+        e.preventDefault()
+        setVolumeFromEvent(e)
+      }
+    })
+
+    const stopDraggingVolume = () => {
+      if (isDraggingVolume) {
+        isDraggingVolume = false
+        volumeSlider.classList.remove('dragging')
+      }
+    }
+
+    document.addEventListener('mouseup', stopDraggingVolume)
+    document.addEventListener('mouseleave', stopDraggingVolume)
+    window.addEventListener('blur', stopDraggingVolume)
+
+    muteBtn.addEventListener('click', () => {
+      videoPlayer.muted = !videoPlayer.muted
+      if (videoPlayer.muted) {
+        updateVolumeDisplay()
+      } else {
+        const savedVol = localStorage.getItem('playerVolume')
+        videoPlayer.volume = savedVol !== null ? parseFloat(savedVol) : 0.8
+        updateVolumeDisplay()
+      }
+    })
+
+    const updateVolumeDisplay = () => {
+      const volume = videoPlayer.volume
+      const percentage = Math.round(volume * 100)
+
+      // 更新控制栏音量滑块
+      volumeSliderFill.style.height = `${percentage}%`
+      // 手柄位置：根据百分比计算，确保在容器范围内
+      // 容器高度80px，手柄高度12px，手柄底部最大位置为68px
+      const thumbBottom = Math.max(0, Math.min(68, (percentage / 100) * 68))
+      volumeSliderThumb.style.bottom = `${thumbBottom}px`
+      volumeSelectorValue.textContent = `${percentage}%`
+
+      // 更新左上角音量面板
+      volumePanelFill.style.height = `${percentage}%`
+      volumePanelValue.textContent = `${percentage}%`
+
+      // 根据音量大小选择图标
+      let iconSvg
+      if (videoPlayer.muted || volume === 0) {
+        iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><line x1="23" y1="9" x2="17" y2="15"/><line x1="17" y1="9" x2="23" y2="15"/></svg>`
+      } else if (volume < 0.5) {
+        iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>`
+      } else {
+        iconSvg = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>`
+      }
+
+      // 更新控制栏音量按钮图标
+      muteBtn.innerHTML = iconSvg
+
+      // 更新左上角音量面板图标
+      volumePanelIcon.innerHTML = iconSvg
+    }
+
+    // 用于键盘快捷键调整音量时显示左上角音量面板
+    const updateVerticalVolumeDisplay = updateVolumeDisplay
+    let hideVolumePanelTimer = null
+    
+    const showVerticalVolumeBar = () => {
+      if (hideVolumePanelTimer) {
+        clearTimeout(hideVolumePanelTimer)
+      }
+      volumePanel.classList.add('visible')
+      updateVolumeDisplay()
+      
+      hideVolumePanelTimer = setTimeout(() => {
+        volumePanel.classList.remove('visible')
+      }, 1500)
+    }
+
+    // 倍速选择器交互逻辑
+    const speedSelector = document.querySelector('.speed-selector')
+    const playbackSpeed = document.querySelector('.playback-speed')
+    let hideSpeedSelectorTimer = null
+
+    const showSpeedSelector = () => {
+      if (hideSpeedSelectorTimer) {
+        clearTimeout(hideSpeedSelectorTimer)
+        hideSpeedSelectorTimer = null
+      }
+      speedSelector.classList.add('visible')
+    }
+
+    const hideSpeedSelector = () => {
+      if (hideSpeedSelectorTimer) {
+        clearTimeout(hideSpeedSelectorTimer)
+      }
+      hideSpeedSelectorTimer = setTimeout(() => {
+        speedSelector.classList.remove('visible')
+      }, 150)
+    }
+
+    speedBtn.addEventListener('mouseenter', showSpeedSelector)
+    speedBtn.addEventListener('mouseleave', hideSpeedSelector)
+    speedSelector.addEventListener('mouseenter', showSpeedSelector)
+    speedSelector.addEventListener('mouseleave', hideSpeedSelector)
 
     document.querySelectorAll('.speed-option').forEach(option => {
       option.addEventListener('click', (e) => {
         e.stopPropagation()
         const speed = parseFloat(option.dataset.speed)
         videoPlayer.playbackRate = speed
-        speedBtn.textContent = speed + 'x'
+        speedBtn.querySelector('span').textContent = speed + 'x'
         document.querySelectorAll('.speed-option').forEach(opt => opt.classList.remove('active'))
         option.classList.add('active')
+        speedSelector.classList.remove('visible')
       })
+    })
+
+    // 播放设置选择器交互逻辑
+    const settingsBtn = document.getElementById('settingsBtn')
+    const settingsSelector = document.querySelector('.settings-selector')
+    let hideSettingsSelectorTimer = null
+    let currentPlayMode = 'sequential' // 'sequential'、'single' 或 'list'
+
+    const showSettingsSelector = () => {
+      if (hideSettingsSelectorTimer) {
+        clearTimeout(hideSettingsSelectorTimer)
+        hideSettingsSelectorTimer = null
+      }
+      settingsSelector.classList.add('visible')
+    }
+
+    const hideSettingsSelector = () => {
+      if (hideSettingsSelectorTimer) {
+        clearTimeout(hideSettingsSelectorTimer)
+      }
+      hideSettingsSelectorTimer = setTimeout(() => {
+        settingsSelector.classList.remove('visible')
+      }, 150)
+    }
+
+    settingsBtn.addEventListener('mouseenter', showSettingsSelector)
+    settingsBtn.addEventListener('mouseleave', hideSettingsSelector)
+    settingsSelector.addEventListener('mouseenter', showSettingsSelector)
+    settingsSelector.addEventListener('mouseleave', hideSettingsSelector)
+
+    document.querySelectorAll('.setting-option').forEach(option => {
+      option.addEventListener('click', (e) => {
+        e.stopPropagation()
+        const mode = option.dataset.mode
+        currentPlayMode = mode
+        document.querySelectorAll('.setting-option').forEach(opt => opt.classList.remove('active'))
+        option.classList.add('active')
+        settingsSelector.classList.remove('visible')
+        
+        // 根据模式设置视频循环
+        if (mode === 'single') {
+          videoPlayer.loop = true
+        } else {
+          videoPlayer.loop = false
+        }
+      })
+    })
+
+    // 视频播放结束处理
+    videoPlayer.addEventListener('ended', () => {
+      switch (currentPlayMode) {
+        case 'single':
+          // 单集循环：重新播放当前视频
+          videoPlayer.currentTime = 0
+          videoPlayer.play()
+          break
+        case 'list':
+          // 列表循环：播放下一集，如果没有下一集则从头开始
+          if (currentEpisodeData && currentEpisodeData.episodes && currentEpisodeData.episodes.length > 0) {
+            const nextIndex = (currentEpisodeData.currentIndex + 1) % currentEpisodeData.episodes.length
+            switchEpisode(nextIndex)
+          }
+          break
+        case 'sequential':
+          // 顺序播放：播放下一集，如果没有下一集则停止
+          if (currentEpisodeData && currentEpisodeData.episodes && currentEpisodeData.episodes.length > 0) {
+            const nextIndex = currentEpisodeData.currentIndex + 1
+            if (nextIndex < currentEpisodeData.episodes.length) {
+              switchEpisode(nextIndex)
+            }
+          }
+          break
+      }
     })
 
     danmakuToggleBtn.addEventListener('click', () => {
       danmakuEnabled = !danmakuEnabled
       localStorage.setItem('showDanmaku', danmakuEnabled.toString())
-      const danmakuStatus = document.getElementById('danmakuStatus')
       if (danmakuEnabled) {
-        danmakuStatus.textContent = '开'
-        danmakuStatus.classList.remove('off')
-        danmakuStatus.classList.add('on')
+        danmakuToggleBtn.classList.remove('off')
+        danmakuToggleBtn.classList.add('on')
         if (currentVideoData?.cid) {
           loadDanmaku(currentVideoData.cid)
         }
       } else {
-        danmakuStatus.textContent = '关'
-        danmakuStatus.classList.remove('on')
-        danmakuStatus.classList.add('off')
+        danmakuToggleBtn.classList.remove('on')
+        danmakuToggleBtn.classList.add('off')
         if (danmakuTimer) clearInterval(danmakuTimer)
         danmakuContainer.innerHTML = ''
       }

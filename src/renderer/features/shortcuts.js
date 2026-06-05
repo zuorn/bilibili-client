@@ -367,6 +367,9 @@ async function resetShortcuts() {
 function applyShortcuts(e) {
   if (!shortcutsEnabled) return
 
+  // 如果访问键标签正在显示，不处理任何快捷键（让 access-keys.js 处理）
+  if (typeof accesskeyEnabled !== 'undefined' && accesskeyEnabled) return
+
   const searchInput = document.getElementById('searchInput')
   const isSearchFocused = searchInput && document.activeElement === searchInput
   const header = document.querySelector('.header')
@@ -399,6 +402,7 @@ function applyShortcuts(e) {
     }
   }
 
+  // 返回上一页时，排除搜索下拉框打开和访问键标签显示的情况
   if (backMatch && !isSearchDropdownOpen) {
     e.preventDefault()
     goBack()
@@ -518,6 +522,7 @@ function matchAnyShortcut(e, keyCombinations) {
 }
 
 document.addEventListener('keydown', e => {
+  // 如果访问键标签正在显示，让 access-keys.js 处理键盘事件
   if (typeof accesskeyEnabled !== 'undefined' && accesskeyEnabled) return
 
   const closeWindowShortcut = userShortcuts.closeWindow

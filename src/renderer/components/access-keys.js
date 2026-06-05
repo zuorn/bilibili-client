@@ -50,7 +50,7 @@ function getClickableElements() {
     '#sidebarUserAvatar',
     '.sidebar-item',
     '.video-card',
-    '.video-card a',
+    '.up-clickable',
     '.hot-item',
     '.history-tag',
     '.my-tab',
@@ -58,10 +58,17 @@ function getClickableElements() {
     '.nav-link',
     '.bangumi-card',
     '.bangumi-all-card',
+    '.collections-series-card',
+    '.my-anime-card',
     '.following-card',
+    '.following-item',
     '.waterfall-item',
     '.filter-options span',
-    '.view-all'
+    '.view-all',
+    '.page-tab',
+    '.filter-tag',
+    '.favorites-sub-tab',
+    '.dynamic-all-btn'
   ]
 
   const elements = []
@@ -73,13 +80,31 @@ function getClickableElements() {
       // 使用元素对象本身作为 key，确保每个元素只出现一次
       if (seen.has(el)) return
 
-      // 对于可见元素，检查位置
+      // 跳过 video-card 内部的子元素（如 button、a 等），只保留 video-card 本身的标签
+      if (!el.classList.contains('video-card') && el.closest('.video-card')) {
+        return
+      }
+
+      // 对于 up-clickable，如果它所在的 video-item-wrapper 内部有 video-card
+      // 只在 up 名称上显示一个标签，跳过 up 图标和发布时间
+      if (el.classList.contains('up-clickable')) {
+        const wrapper = el.closest('.video-item-wrapper')
+        if (wrapper && wrapper.querySelector('.video-card')) {
+          // 只保留 video-author-name（up名称），跳过 up-icon 和 video-publish-date
+          if (!el.classList.contains('video-author-name')) {
+            return
+          }
+        }
+      }
+
+      // 所有元素都必须通过基本可见性检查（会过滤 display:none 祖先的情况）
+      if (!isElementVisible(el)) return
+
+      // 非 nav-link 元素额外检查：完全在视口上方的不显示
       const isNavLink = el.classList.contains('nav-link')
       if (!isNavLink) {
-        if (!isElementVisible(el)) return
-
         const rect = el.getBoundingClientRect()
-        if (rect.top < -50) return // 完全在视口上方的不显示
+        if (rect.top < -50) return
       }
 
       seen.add(el)
@@ -268,16 +293,18 @@ document.addEventListener('keydown', e => {
   // 按下 f 键开启访问键
   if (e.key === 'f' && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
     e.preventDefault()
+    e.stopImmediatePropagation()
     showAccesskeyLabels()
     return
   }
 
-  // 如果访问键已开启
+  // 如果访问键已开启，阻止事件传播到其他监听器
   if (accesskeyEnabled) {
     e.preventDefault()
+    e.stopImmediatePropagation()
 
-    // 按 Escape 关闭
-    if (e.key === 'Escape') {
+    // 按 Escape 关闭；按 q 键仅在未输入时关闭（已输入时当作普通字母处理，支持含 q 的标签如 AQ）
+    if (e.key === 'Escape' || (e.key === 'q' && accesskeyInput === '')) {
       hideAccesskeyLabels()
       return
     }
@@ -289,7 +316,7 @@ document.addEventListener('keydown', e => {
       return
     }
 
-    // 只处理字母键
+    // 处理字母键（q 键在已输入时作为普通字母处理）
     if (/^[a-zA-Z]$/.test(e.key)) {
       handleAccesskeyInput(e.key)
     }

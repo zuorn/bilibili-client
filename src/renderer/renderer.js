@@ -671,16 +671,23 @@ function updateNavLinks(page) {
 }
 
 function goBack() {
-  if (pageHistory.length > 0) {
-    const prevPage = pageHistory.pop()
-    navigateToPage(prevPage)
-  }
+  // 已回到首页，不允许继续返回
+  if (pageHistory.length === 0) return
+
+  const prevPage = pageHistory.pop()
+  navigateToPage(prevPage)
 }
 
 function updateBackButton() {
   const backBtn = document.getElementById('sidebarBackBtn')
   if (backBtn) {
-    backBtn.style.display = pageHistory.length > 0 ? 'flex' : 'none'
+    if (pageHistory.length > 0) {
+      backBtn.classList.remove('disabled')
+      backBtn.title = '返回上一页'
+    } else {
+      backBtn.classList.add('disabled')
+      backBtn.title = '已回到首页'
+    }
   }
 }
 
@@ -4881,7 +4888,7 @@ function getClickableElements() {
     '#sidebarUserAvatar',
     '.sidebar-item',
     '.video-card',
-    '.video-card a',
+    '.up-clickable',
     '.hot-item',
     '.history-tag',
     '.my-tab',
@@ -4889,10 +4896,14 @@ function getClickableElements() {
     '.nav-link',
     '.bangumi-card',
     '.bangumi-all-card',
+    '.collections-series-card',
+    '.my-anime-card',
     '.following-card',
+    '.following-item',
     '.waterfall-item',
     '.filter-options span',
-    '.view-all'
+    '.view-all',
+    '.dynamic-all-btn'
   ]
   
   const elements = []
@@ -4903,16 +4914,31 @@ function getClickableElements() {
     document.querySelectorAll(selector).forEach(el => {
       // 使用元素对象本身作为 key，确保每个元素只出现一次
       if (seen.has(el)) return
-      
-      // 对于可见元素，检查位置
+
+      // 跳过 video-card 内部的子元素（如 button、a 等），只保留 video-card 本身的标签
+      if (!el.classList.contains('video-card') && el.closest('.video-card')) {
+        return
+      }
+
+      // 对于 up-clickable，如果它所在的 video-item-wrapper 内部有 video-card，则跳过
+      // 因为 video-card 已经会显示标签，不需要 up-clickable 再显示
+      if (el.classList.contains('up-clickable')) {
+        const wrapper = el.closest('.video-item-wrapper')
+        if (wrapper && wrapper.querySelector('.video-card')) {
+          return
+        }
+      }
+
+      // 所有元素都必须通过基本可见性检查（会过滤 display:none 祖先的情况）
+      if (!isElementVisible(el)) return
+
+      // 非 nav-link 元素额外检查：完全在视口上方的不显示
       const isNavLink = el.classList.contains('nav-link')
       if (!isNavLink) {
-        if (!isElementVisible(el)) return
-        
         const rect = el.getBoundingClientRect()
-        if (rect.top < -50) return // 完全在视口上方的不显示
+        if (rect.top < -50) return
       }
-      
+
       seen.add(el)
       elements.push(el)
     })
@@ -5099,6 +5125,7 @@ document.addEventListener('keydown', e => {
   // 按下 f 键开启访问键
   if (e.key === 'f' && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
     e.preventDefault()
+    e.stopImmediatePropagation()
     showAccesskeyLabels()
     return
   }
@@ -5106,21 +5133,22 @@ document.addEventListener('keydown', e => {
   // 如果访问键已开启
   if (accesskeyEnabled) {
     e.preventDefault()
-    
-    // 按 Escape 关闭
-    if (e.key === 'Escape') {
+    e.stopImmediatePropagation()
+
+    // 按 Escape 关闭；按 q 键仅在未输入时关闭（已输入时当作普通字母处理，支持含 q 的标签如 AQ）
+    if (e.key === 'Escape' || (e.key === 'q' && accesskeyInput === '')) {
       hideAccesskeyLabels()
       return
     }
-    
+
     // 按退格键删除最后一个字符
     if (e.key === 'Backspace') {
       accesskeyInput = accesskeyInput.slice(0, -1)
       updateAccesskeyHighlight()
       return
     }
-    
-    // 只处理字母键
+
+    // 处理字母键（q 键在已输入时作为普通字母处理）
     if (/^[a-zA-Z]$/.test(e.key)) {
       handleAccesskeyInput(e.key)
     }

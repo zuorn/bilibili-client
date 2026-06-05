@@ -80,6 +80,20 @@ body.dark-theme .sidebar-item.active {
   color: #fb7299;
 }
 
+body.dark-theme .sidebar-back-btn {
+  color: #a0a0a0;
+}
+
+body.dark-theme .sidebar-back-btn:hover:not(.disabled) {
+  background-color: transparent;
+  color: #fb7299;
+}
+
+body.dark-theme .sidebar-back-btn.disabled {
+  color: #555;
+  opacity: 0.3;
+}
+
 /* 动态图标使用fill而非stroke，需要单独处理选中状态 */
 body.dark-theme .sidebar-item[data-page="dynamic"].active svg path {
   fill: #fb7299;
