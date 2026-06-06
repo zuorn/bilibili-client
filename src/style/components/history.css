@@ -188,6 +188,61 @@
   background-color: #f5f5f5;
 }
 
+/* 历史记录分组标题 */
+.history-section-header {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 14px;
+  font-weight: 600;
+  color: #18191c;
+  padding: 12px 0 8px 0;
+}
+
+.history-section-title {
+  flex: 1;
+}
+
+/* 清空历史记录按钮 */
+.clear-history-btn {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 12px;
+  background-color: #fff;
+  color: #000;
+  border: 1px solid #e8e8e8;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background-color 0.2s, border-color 0.2s;
+  margin-left: 8px;
+}
+
+.clear-history-btn:hover {
+  background-color: #f8f8f8;
+  border-color: #d8d8d8;
+}
+
+.clear-history-btn svg {
+  width: 14px;
+  height: 14px;
+}
+
+.video-history-time {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
 .delete-history-btn {
   color: #ff4d4f;
 }

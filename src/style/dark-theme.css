@@ -245,7 +245,88 @@ body.dark-theme .dropdown-title {
 }
 
 body.dark-theme .clear-history-btn {
-  color: #808080;
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+  border-color: #444;
+}
+
+body.dark-theme .clear-history-btn:hover {
+  background-color: #333;
+  border-color: #555;
+}
+
+body.dark-theme .history-section-header {
+  color: #e0e0e0;
+}
+
+body.dark-theme .history-section-title {
+  color: #e0e0e0;
+}
+
+body.dark-theme .clear-expired-content-btn {
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+  border-color: #444;
+}
+
+body.dark-theme .clear-expired-content-btn:hover {
+  background-color: #333;
+  border-color: #555;
+}
+
+body.dark-theme .add-favorite-folder-btn {
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+  border-color: #444;
+}
+
+body.dark-theme .add-favorite-folder-btn:hover {
+  background-color: #333;
+  border-color: #555;
+}
+
+body.dark-theme .sort-favorite-folder-btn {
+  background-color: #2a2a2a;
+  color: #e0e0e0;
+  border-color: #444;
+}
+
+body.dark-theme .sort-favorite-folder-btn:hover {
+  background-color: #333;
+  border-color: #555;
+}
+
+body.dark-theme .season-detail-card {
+  background-color: #2a2a2a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-theme .season-detail-title {
+  color: #e0e0e0;
+}
+
+body.dark-theme .season-detail-meta {
+  color: #a0a0a0;
+}
+
+body.dark-theme .favorites-item {
+  background-color: #2a2a2a;
+}
+
+body.dark-theme .favorites-item:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-theme .favorites-item-cover {
+  background-color: #333;
+}
+
+body.dark-theme .favorites-item-name {
+  color: #e0e0e0;
+}
+
+body.dark-theme .favorites-item-up {
+  color: #a0a0a0;
 }
 
 body.dark-theme .history-tag {

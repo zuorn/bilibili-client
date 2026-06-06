@@ -432,6 +432,72 @@ function registerHistoryHandlers(deps) {
       return { success: false, error: error.message }
     }
   })
+
+  ipcMain.handle('clear-history', async (event) => {
+    log('clear-history called')
+    try {
+      const savedCookies = cookieManager.getSavedCookies()
+      const csrf = savedCookies.bili_jct || ''
+      if (!csrf) {
+        return { success: false, error: '缺少 bili_jct，无法清空历史记录' }
+      }
+
+      return new Promise((resolve) => {
+        const params = new URLSearchParams({ csrf })
+        const data = params.toString()
+        const path = '/x/v2/history/clear'
+        log('Clear history path:', path, 'body:', data)
+        const options = {
+          hostname: 'api.bilibili.com',
+          port: 443,
+          path: path,
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'Content-Length': Buffer.byteLength(data),
+            'Cookie': cookieManager.getCookieString(),
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Referer': 'https://www.bilibili.com/',
+            'Origin': 'https://www.bilibili.com',
+            'Accept': 'application/json, text/javascript, */*; q=0.01',
+            'X-Requested-With': 'XMLHttpRequest'
+          },
+          rejectUnauthorized: false
+        }
+
+        const req = https.request(options, (res) => {
+          let body = ''
+          log('Clear history response status:', res.statusCode)
+          res.on('data', (chunk) => { body += chunk })
+          res.on('end', () => {
+            log('Clear history response:', body)
+            try {
+              const result = JSON.parse(body)
+              if (result.code === 0) {
+                resolve({ success: true, data: result.data })
+              } else {
+                resolve({ success: false, error: result.message || '清空历史记录失败' })
+              }
+            } catch (e) {
+              log('Error parsing response:', e.message)
+              resolve({ success: false, error: '响应解析失败' })
+            }
+          })
+        })
+
+        req.on('error', (e) => {
+          log('Clear history request error:', e.message)
+          resolve({ success: false, error: e.message })
+        })
+
+        req.write(data)
+        req.end()
+      })
+    } catch (error) {
+      log('Error clearing history:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
 }
 
 module.exports = { formatProgressTime, reportPlayHistory, registerHistoryHandlers }

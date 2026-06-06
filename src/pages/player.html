@@ -325,6 +325,7 @@
       align-items: center;
       justify-content: center;
       background: transparent;
+      border: none;
       border-radius: 4px;
       transition: all 0.2s ease;
       width: 32px;
@@ -340,7 +341,7 @@
     }
 
     .danmaku-control.off {
-      color: #ccc;
+      color: #fff;
     }
 
     .danmaku-text {
@@ -400,7 +401,7 @@
       justify-content: center;
       background: transparent;
       border: none;
-      color: #ccc;
+      color: #fff;
       cursor: pointer;
       border-radius: 4px;
       transition: all 0.2s;
@@ -537,7 +538,7 @@
     }
 
     .volume-selector-value {
-      color: #00a1d6;
+      color: #fff;
       font-size: 12px;
       font-weight: 600;
       margin-bottom: 6px;
@@ -637,7 +638,7 @@
     }
 
     .volume-panel-value {
-      color: #00a1d6;
+      color: #fff;
       font-size: 14px;
       font-weight: 600;
       margin-bottom: 8px;
@@ -767,7 +768,7 @@
     }
 
     .panel-tab.active {
-      color: #00a1d6;
+      color: #fff;
     }
 
     .panel-tab.active::after {
@@ -789,7 +790,7 @@
     }
 
     .panel-tab.active .panel-tab-count {
-      color: #00a1d6;
+      color: #fff;
     }
 
     /* Panel inner content area */
@@ -886,7 +887,7 @@
     }
 
     .author-name:hover {
-      color: #00a1d6;
+      color: #fff;
     }
 
     .author-fans {
@@ -897,7 +898,7 @@
     .follow-btn {
       background: rgba(0, 161, 214, 0.15);
       border: 1px solid #00a1d6;
-      color: #00a1d6;
+      color: #fff;
       padding: 5px 14px;
       border-radius: 6px;
       font-size: 12px;
@@ -969,7 +970,7 @@
     }
 
     .action-btn.share:hover {
-      color: #00a1d6;
+      color: #fff;
     }
 
     .action-btn.coin:hover {
@@ -1001,7 +1002,7 @@
     .panel-desc-toggle {
       background: none;
       border: none;
-      color: #00a1d6;
+      color: #fff;
       font-size: 12px;
       cursor: pointer;
       padding: 4px 0 0;
@@ -1189,7 +1190,7 @@
     .comments-sort-btn.active,
     .comments-sort-btn:hover {
       background: rgba(0, 161, 214, 0.15);
-      color: #00a1d6;
+      color: #fff;
     }
 
     .comments-list {
@@ -1277,7 +1278,7 @@
     }
 
     .comment-content a {
-      color: #00a1d6;
+      color: #fff;
       text-decoration: none;
     }
 
@@ -1307,7 +1308,7 @@
     }
 
     .comment-action-btn:hover {
-      color: #00a1d6;
+      color: #fff;
     }
 
     .comment-action-btn.like:hover {
@@ -1340,7 +1341,7 @@
     }
 
     .reply-content .reply-author {
-      color: #00a1d6;
+      color: #fff;
       margin-right: 6px;
     }
 
@@ -1409,7 +1410,7 @@
     }
 
     .loading-more-comments:hover {
-      color: #00a1d6;
+      color: #fff;
     }
 
     .loading-more-comments.loading {
@@ -1984,7 +1985,7 @@
     }
 
     .season-ep-item.active .season-ep-title {
-      color: #00a1d6;
+      color: #fff;
     }
 
     .season-ep-meta {
@@ -2040,7 +2041,7 @@
     }
 
     .speed-option.active {
-      color: #00a1d6;
+      color: #fff;
     }
 
     /* 播放设置选择器 */
@@ -2087,7 +2088,7 @@
     }
 
     .setting-option.active {
-      color: #00a1d6;
+      color: #fff;
     }
 
     .setting-option svg {
@@ -2815,7 +2816,7 @@
     function showDownloadToast(msg, isProgress) {
       if (!downloadToastEl) {
         downloadToastEl = document.createElement('div')
-        downloadToastEl.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;padding:14px 24px;border-radius:8px;font-size:14px;z-index:10000;min-width:240px;text-align:center;'
+        downloadToastEl.style.cssText = 'position:fixed;top:70px;left:20px;background:rgba(0,0,0,0.85);color:#fff;padding:12px 20px;border-radius:8px;font-size:14px;z-index:10000;max-width:360px;word-break:break-all;'
         document.body.appendChild(downloadToastEl)
       }
       downloadToastEl.textContent = msg
@@ -2853,8 +2854,8 @@
     // 监听下载进度
     ipcRenderer.on('download-progress', function(event, data) {
       var pct = data.percent != null ? data.percent.toFixed(0) + '%' : ''
-      var msg = data.step === 'video' ? '正在下载视频 ' + pct :
-                data.step === 'audio' ? '正在下载音频 ' + pct :
+      var msg = data.step === 'video' ? '正在下载视频  ' + pct :
+                data.step === 'audio' ? '正在下载音频  ' + pct :
                 data.step === 'merge' ? '正在合并音视频...' : data.step
       showDownloadToast(msg, true)
     })
@@ -3065,7 +3066,7 @@
           border-radius: 4px;
           font-family: monospace;
           font-size: 13px;
-          color: #00a1d6;
+          color: #fff;
         `
         key.textContent = item.key
 
@@ -3778,6 +3779,9 @@
         }
 
         videoPlayer.load()
+
+        // 异步预加载进度条快照数据，不阻塞视频播放
+        loadSnapshotData(bvid, cid)
 
         let hasLoaded = false
         let hasError = false

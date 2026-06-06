@@ -21,6 +21,25 @@ function formatHistoryTime(timestamp) {
   }
 }
 
+function getHistoryGroup(timestamp) {
+  if (!timestamp) return null
+  const now = new Date()
+  const historyDate = new Date(timestamp * 1000)
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const yesterdayStart = new Date(todayStart - 24 * 60 * 60 * 1000)
+  const weekStart = new Date(todayStart - 7 * 24 * 60 * 60 * 1000)
+
+  if (historyDate >= todayStart) {
+    return '今天'
+  } else if (historyDate >= yesterdayStart) {
+    return '昨天'
+  } else if (historyDate >= weekStart) {
+    return '近一周'
+  } else {
+    return '一周前'
+  }
+}
+
 let currentFavoritesDetailTitle = ''
 
 async function handleFavoritesUnfavorite(video, card, mediaId, mediaName, containerId) {
@@ -173,6 +192,44 @@ async function handleCleanExpiredContent() {
     await showConfirmDialog({
       title: '失败',
       message: '清空失效内容失败: ' + error.message,
+      confirmText: '确定'
+    })
+  }
+}
+
+// 清空历史记录
+async function handleClearHistory() {
+  const confirmed = await showConfirmDialog({
+    title: '提示',
+    message: '确定要清空所有历史记录吗？此操作不可撤销。',
+    confirmText: '确定',
+    cancelText: '取消'
+  })
+  
+  if (!confirmed) return
+  
+  try {
+    const result = await ipcRenderer.invoke('clear-history')
+    if (result.success) {
+      await showConfirmDialog({
+        title: '成功',
+        message: '清空历史记录成功',
+        confirmText: '确定'
+      })
+      // 刷新历史记录
+      loadHistory()
+    } else {
+      await showConfirmDialog({
+        title: '失败',
+        message: result.error || '清空历史记录失败',
+        confirmText: '确定'
+      })
+    }
+  } catch (error) {
+    console.error('清空历史记录失败:', error)
+    await showConfirmDialog({
+      title: '失败',
+      message: '清空历史记录失败: ' + error.message,
       confirmText: '确定'
     })
   }
@@ -418,6 +475,7 @@ function createHistoryCard(video, options = {}) {
   card.innerHTML = `
     <div class="video-thumbnail">
       <img src="" alt="${video.title}" data-src="${video.pic}">
+      ${video.historyTime ? `<span class="video-history-time">${video.historyTime}</span>` : ''}
       ${video.progress !== undefined && video.progress !== null && video.durationSeconds ? `
         <span class="video-progress">${formatDuration(video.progress)} / ${video.duration}</span>
       ` : ''}
@@ -465,7 +523,6 @@ function createHistoryVideoInfo(video, onAuthorClick) {
         </svg>
         <span class="video-author-name up-clickable" data-mid="${video.owner?.mid || video.mid || ''}">${video.author}</span>
       </div>
-      <span class="video-play">${video.historyTime || ''}</span>
     </div>
   `
 
@@ -530,28 +587,176 @@ function renderHistoryVideos(videos, containerId) {
   const container = document.getElementById(containerId)
   if (!container) return
   container.innerHTML = ''
-  videos.filter(v => v.bvid || v.title).forEach((video, index) => {
-    const card = createHistoryCard(video, { eager: index < EAGER_COUNT })
-    const info = createHistoryVideoInfo(video, navigateToUP)
-    const wrapper = document.createElement('div')
-    wrapper.className = 'video-item-wrapper'
-    wrapper.appendChild(card)
-    wrapper.appendChild(info)
-    container.appendChild(wrapper)
+
+  const filteredVideos = videos.filter(v => v.bvid || v.title)
+
+  // Group videos by history group
+  const groups = { '今天': [], '昨天': [], '近一周': [], '一周前': [] }
+  const groupOrder = ['今天', '昨天', '近一周', '一周前']
+
+  filteredVideos.forEach((video, index) => {
+    const group = getHistoryGroup(video.viewAt) || '一周前'
+    if (groups[group]) {
+      groups[group].push({ video, index })
+    }
+  })
+
+  // Render groups with headers
+  groupOrder.forEach(groupName => {
+    const groupVideos = groups[groupName]
+    if (groupVideos.length > 0) {
+      // Add section header
+      const header = document.createElement('div')
+      header.className = 'history-section-header'
+      
+      // Create header content with title and clear button for "今天" group
+      const titleSpan = document.createElement('span')
+      titleSpan.className = 'history-section-title'
+      titleSpan.textContent = groupName
+      header.appendChild(titleSpan)
+      
+      if (groupName === '今天') {
+        const clearBtn = document.createElement('button')
+        clearBtn.className = 'clear-history-btn'
+        clearBtn.innerHTML = `
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <polyline points="3 6 5 6 21 6"></polyline>
+            <path d="M19 6v14c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2V6m3 0V4c0-1.1.9-2 2-2h4c1.1 0 2 .9 2 2v2"></path>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+          <span>清空历史记录</span>
+        `
+        clearBtn.addEventListener('click', handleClearHistory)
+        header.appendChild(clearBtn)
+      }
+      
+      container.appendChild(header)
+
+      // Add videos in this group
+      groupVideos.forEach(({ video, index }) => {
+        const card = createHistoryCard(video, { eager: index < EAGER_COUNT })
+        const info = createHistoryVideoInfo(video, navigateToUP)
+        const wrapper = document.createElement('div')
+        wrapper.className = 'video-item-wrapper'
+        wrapper.appendChild(card)
+        wrapper.appendChild(info)
+        container.appendChild(wrapper)
+      })
+    }
   })
 }
 
 function appendHistoryVideos(videos, containerId) {
   const container = document.getElementById(containerId)
   if (!container) return
-  videos.filter(v => v.bvid || v.title).forEach(video => {
-    const card = createHistoryCard(video)
-    const info = createHistoryVideoInfo(video, navigateToUP)
-    const wrapper = document.createElement('div')
-    wrapper.className = 'video-item-wrapper'
-    wrapper.appendChild(card)
-    wrapper.appendChild(info)
-    container.appendChild(wrapper)
+
+  const filteredVideos = videos.filter(v => v.bvid || v.title)
+  const groupOrder = ['今天', '昨天', '近一周', '一周前']
+
+  // Get existing headers in container
+  const existingHeaders = Array.from(container.querySelectorAll('.history-section-header'))
+    .map(h => h.textContent)
+  const existingGroups = new Set(existingHeaders)
+
+  // Group new videos by history group
+  const groups = { '今天': [], '昨天': [], '近一周': [], '一周前': [] }
+  filteredVideos.forEach(video => {
+    const group = getHistoryGroup(video.viewAt) || '一周前'
+    if (groups[group]) {
+      groups[group].push(video)
+    }
+  })
+
+  // For each group, append videos to the appropriate section
+  groupOrder.forEach(groupName => {
+    const groupVideos = groups[groupName]
+    if (groupVideos.length === 0) return
+
+    if (existingGroups.has(groupName)) {
+      // Find the last video wrapper of this group and append after it
+      const headers = container.querySelectorAll('.history-section-header')
+      let lastWrapper = null
+      for (const header of headers) {
+        if (header.textContent === groupName) {
+          // Find all video wrappers after this header until next header
+          let sibling = header.nextElementSibling
+          while (sibling) {
+            if (sibling.classList && sibling.classList.contains('history-section-header')) {
+              break
+            }
+            if (sibling.classList && sibling.classList.contains('video-item-wrapper')) {
+              lastWrapper = sibling
+            }
+            sibling = sibling.nextElementSibling
+          }
+          break
+        }
+      }
+
+      // Append videos after lastWrapper or header
+      groupVideos.forEach(video => {
+        const card = createHistoryCard(video)
+        const info = createHistoryVideoInfo(video, navigateToUP)
+        const wrapper = document.createElement('div')
+        wrapper.className = 'video-item-wrapper'
+        wrapper.appendChild(card)
+        wrapper.appendChild(info)
+        if (lastWrapper) {
+          lastWrapper.after(wrapper)
+          lastWrapper = wrapper
+        } else {
+          // Find the header and insert after it
+          for (const header of headers) {
+            if (header.textContent === groupName) {
+              header.after(wrapper)
+              lastWrapper = wrapper
+              break
+            }
+          }
+        }
+      })
+    } else {
+      // Insert new header and videos before the next existing group
+      const header = document.createElement('div')
+      header.className = 'history-section-header'
+      header.textContent = groupName
+
+      const groupIndex = groupOrder.indexOf(groupName)
+      let insertBefore = null
+      for (let i = groupIndex + 1; i < groupOrder.length; i++) {
+        const nextGroup = groupOrder[i]
+        if (existingGroups.has(nextGroup)) {
+          // Find this header to insert before
+          for (const h of container.querySelectorAll('.history-section-header')) {
+            if (h.textContent === nextGroup) {
+              insertBefore = h
+              break
+            }
+          }
+          break
+        }
+      }
+
+      if (insertBefore) {
+        insertBefore.before(header)
+      } else {
+        container.appendChild(header)
+      }
+
+      // Append videos
+      let lastInserted = header
+      groupVideos.forEach(video => {
+        const card = createHistoryCard(video)
+        const info = createHistoryVideoInfo(video, navigateToUP)
+        const wrapper = document.createElement('div')
+        wrapper.className = 'video-item-wrapper'
+        wrapper.appendChild(card)
+        wrapper.appendChild(info)
+        lastInserted.after(wrapper)
+        lastInserted = wrapper
+      })
+    }
   })
 }
 
@@ -585,7 +790,8 @@ async function loadHistory(append = false) {
         author: item.author || '未知UP主',
         mid: item.authorMid || '',
         owner: item.authorMid ? { mid: item.authorMid, name: item.author || '未知UP主' } : null,
-        historyTime: formatHistoryTime(item.viewAt)
+        historyTime: formatHistoryTime(item.viewAt),
+        viewAt: item.viewAt
       }))
 
       if (videos.length > 0) {
