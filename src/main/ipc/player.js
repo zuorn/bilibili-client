@@ -873,6 +873,169 @@ function registerPlayerHandlers(deps) {
       return { success: false, error: error.message }
     }
   })
+
+  ipcMain.handle('post-comment', async (event, oid, message, root, parent) => {
+    log('post-comment called with oid:', oid, 'message length:', message?.length, 'root:', root, 'parent:', parent)
+    try {
+      if (!oid) {
+        throw new Error('缺少视频ID')
+      }
+      if (!message || !message.trim()) {
+        throw new Error('评论内容不能为空')
+      }
+
+      const keys = await fetchWbiKeys()
+      if (!keys || !keys.imgKey || !keys.subKey) {
+        throw new Error('获取WBI密钥失败')
+      }
+      const mixKey = getMixKey(keys.imgKey, keys.subKey)
+
+      const params = {
+        oid: oid,
+        type: 1,
+        message: message.trim(),
+        plat: 1,
+        csrf: cookieManager.getSavedCookies().bili_jct || ''
+      }
+
+      // 回复评论时需要 root 和 parent 参数
+      if (root) params.root = root
+      if (parent) params.parent = parent
+
+      const signed = signParams(params, mixKey)
+      const bodyParams = {
+        ...params,
+        w_rid: signed.w_rid,
+        wts: signed.wts
+      }
+
+      // 按键名字母顺序构建 body，确保与 WBI 签名顺序一致
+      const sortedKeys = Object.keys(bodyParams).sort()
+      const body = sortedKeys.map(k => `${encodeURIComponent(k)}=${encodeURIComponent(String(bodyParams[k]))}`).join('&')
+
+      const urlObj = new URL('https://api.bilibili.com/x/v2/reply/add')
+      const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.bilibili.com/client',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(body),
+        'Origin': 'https://www.bilibili.com'
+      }
+      const savedCookies = cookieManager.getSavedCookies()
+      if (Object.keys(savedCookies).length > 0) {
+        headers['Cookie'] = cookieManager.getCookieString()
+      }
+
+      const result = await new Promise((resolve, reject) => {
+        const req = https.request({
+          hostname: urlObj.hostname,
+          port: 443,
+          path: urlObj.pathname,
+          method: 'POST',
+          headers,
+          rejectUnauthorized: false
+        }, (res) => {
+          let data = ''
+          res.on('data', chunk => { data += chunk })
+          res.on('end', () => {
+            try {
+              resolve(JSON.parse(data))
+            } catch (e) { reject(e) }
+          })
+        })
+        req.on('error', reject)
+        req.setTimeout(15000, () => { req.destroy(); reject(new Error('请求超时')) })
+        req.write(body)
+        req.end()
+      })
+      log('Post comment result code:', result.code, 'message:', result.message)
+      if (result.code === 0) {
+        return { success: true, data: result.data, reply: result.data?.reply || null }
+      }
+      throw new Error(result.message || '评论发送失败')
+    } catch (error) {
+      log('Error posting comment:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  ipcMain.handle('delete-comment', async (event, oid, rpid) => {
+    log('delete-comment called with oid:', oid, 'rpid:', rpid)
+    try {
+      if (!oid || !rpid) {
+        throw new Error('缺少必要参数')
+      }
+
+      const keys = await fetchWbiKeys()
+      if (!keys || !keys.imgKey || !keys.subKey) {
+        throw new Error('获取WBI密钥失败')
+      }
+      const mixKey = getMixKey(keys.imgKey, keys.subKey)
+
+      const params = {
+        oid: oid,
+        type: 1,
+        rpid: rpid,
+        csrf: cookieManager.getSavedCookies().bili_jct || ''
+      }
+
+      const signed = signParams(params, mixKey)
+      const bodyParams = {
+        ...params,
+        w_rid: signed.w_rid,
+        wts: signed.wts
+      }
+
+      const sortedKeys = Object.keys(bodyParams).sort()
+      const body = sortedKeys.map(k => `${encodeURIComponent(k)}=${encodeURIComponent(String(bodyParams[k]))}`).join('&')
+
+      const urlObj = new URL('https://api.bilibili.com/x/v2/reply/del')
+      const headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Referer': 'https://www.bilibili.com/client',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Content-Length': Buffer.byteLength(body),
+        'Origin': 'https://www.bilibili.com'
+      }
+      const savedCookies = cookieManager.getSavedCookies()
+      if (Object.keys(savedCookies).length > 0) {
+        headers['Cookie'] = cookieManager.getCookieString()
+      }
+
+      const result = await new Promise((resolve, reject) => {
+        const req = https.request({
+          hostname: urlObj.hostname,
+          port: 443,
+          path: urlObj.pathname,
+          method: 'POST',
+          headers,
+          rejectUnauthorized: false
+        }, (res) => {
+          let data = ''
+          res.on('data', chunk => { data += chunk })
+          res.on('end', () => {
+            try { resolve(JSON.parse(data)) } catch (e) { reject(e) }
+          })
+        })
+        req.on('error', reject)
+        req.setTimeout(15000, () => { req.destroy(); reject(new Error('请求超时')) })
+        req.write(body)
+        req.end()
+      })
+      log('Delete comment result code:', result.code, 'message:', result.message)
+      if (result.code === 0) {
+        return { success: true }
+      }
+      throw new Error(result.message || '删除评论失败')
+    } catch (error) {
+      log('Error deleting comment:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
 }
 
 module.exports = { getVideoInfo, registerPlayerHandlers }

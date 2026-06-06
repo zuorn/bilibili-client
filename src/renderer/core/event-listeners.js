@@ -404,7 +404,11 @@ function initEventListeners() {
   document.getElementById('myLoginBtn')?.addEventListener('click', openLoginModal)
   document.getElementById('myLoginBtn2')?.addEventListener('click', openLoginModal)
   document.getElementById('dynamicLoginBtn')?.addEventListener('click', openLoginModal)
-  document.getElementById('logoutBtn')?.addEventListener('click', handleLogout)
+  document.getElementById('mySpaceBtn')?.addEventListener('click', () => {
+    if (currentUser?.isLogin && currentUser?.mid) {
+      navigateToUP(currentUser.mid, true)
+    }
+  })
   document.getElementById('settingsLogoutBtn')?.addEventListener('click', handleLogout)
 
   document.querySelector('.content')?.addEventListener('scroll', handleScroll)

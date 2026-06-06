@@ -229,6 +229,80 @@
       }
     }
 
+    .confirm-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 10000;
+      animation: confirmOverlayIn 0.2s ease;
+    }
+
+    @keyframes confirmOverlayIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .confirm-dialog {
+      background: #2a2a2a;
+      border-radius: 12px;
+      padding: 24px;
+      min-width: 300px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+      animation: confirmDialogIn 0.2s ease;
+    }
+
+    @keyframes confirmDialogIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+
+    .confirm-dialog-message {
+      color: #e0e0e0;
+      font-size: 14px;
+      line-height: 1.6;
+      margin-bottom: 20px;
+      text-align: center;
+    }
+
+    .confirm-dialog-buttons {
+      display: flex;
+      gap: 12px;
+      justify-content: center;
+    }
+
+    .confirm-dialog-btn {
+      padding: 8px 28px;
+      border-radius: 6px;
+      border: none;
+      font-size: 14px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .confirm-dialog-btn.cancel {
+      background: rgba(255,255,255,0.1);
+      color: #ccc;
+    }
+
+    .confirm-dialog-btn.cancel:hover {
+      background: rgba(255,255,255,0.2);
+    }
+
+    .confirm-dialog-btn.danger {
+      background: #ff4d4f;
+      color: #fff;
+    }
+
+    .confirm-dialog-btn.danger:hover {
+      background: #ff7875;
+    }
+
     .video-area {
       flex: 1;
       position: relative;
@@ -1320,6 +1394,43 @@
       height: 14px;
     }
 
+    .comment-actions {
+      position: relative;
+    }
+
+    .comment-delete-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      background: none;
+      border: none;
+      color: #666;
+      cursor: pointer;
+      border-radius: 50%;
+      transition: color 0.2s, background 0.2s, opacity 0.15s, visibility 0.15s;
+      padding: 0;
+      visibility: hidden;
+      opacity: 0;
+      flex-shrink: 0;
+    }
+
+    .comment-item:hover .comment-delete-btn {
+      visibility: visible;
+      opacity: 1;
+    }
+
+    .comment-delete-btn:hover {
+      color: #ff6b6b;
+      background: rgba(255,107,107,0.15);
+    }
+
+    .comment-delete-btn svg {
+      width: 16px;
+      height: 16px;
+    }
+
     .comment-replies {
       padding-left: 46px;
       margin-top: 8px;
@@ -1397,6 +1508,41 @@
     .send-comment-btn:disabled {
       background: #666;
       cursor: not-allowed;
+    }
+
+    .reply-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 10px;
+      background: rgba(0,161,214,0.12);
+      border-radius: 6px;
+      margin-bottom: 8px;
+      color: #00a1d6;
+      font-size: 13px;
+    }
+
+    .reply-target-name {
+      color: #00b5e5;
+      font-weight: 500;
+    }
+
+    .cancel-reply-btn {
+      background: none;
+      border: none;
+      color: #888;
+      cursor: pointer;
+      padding: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      transition: color 0.2s, background 0.2s;
+    }
+
+    .cancel-reply-btn:hover {
+      color: #fff;
+      background: rgba(255,255,255,0.1);
     }
 
     .loading-more-comments {
@@ -2330,6 +2476,15 @@
               <div class="loading-more-comments" id="commentsLoading">加载中...</div>
             </div>
             <div class="comment-input-area">
+              <div class="reply-indicator" id="replyIndicator" style="display:none;">
+                <span>回复 <span class="reply-target-name" id="replyTargetName"></span></span>
+                <button class="cancel-reply-btn" id="cancelReplyBtn" title="取消回复">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="16" height="16">
+                    <line x1="18" y1="6" x2="6" y2="18"/>
+                    <line x1="6" y1="6" x2="18" y2="18"/>
+                  </svg>
+                </button>
+              </div>
               <div class="comment-input-row">
                 <input type="text" class="comment-input" id="commentInput" placeholder="评论千万条，等你来发一条" maxlength="2000">
                 <button class="send-comment-btn" id="sendCommentBtn" disabled>发布</button>
@@ -2570,6 +2725,9 @@
     const commentsSortNew = document.getElementById('commentsSortNew')
     const commentInput = document.getElementById('commentInput')
     const sendCommentBtn = document.getElementById('sendCommentBtn')
+    const replyIndicator = document.getElementById('replyIndicator')
+    const replyTargetName = document.getElementById('replyTargetName')
+    const cancelReplyBtn = document.getElementById('cancelReplyBtn')
     
     const minBtn = document.getElementById('minBtn')
     const maxBtn = document.getElementById('maxBtn')
@@ -2581,6 +2739,7 @@
     let pendingPrefetchData = null
     let loadVideoTimeout = null
     let currentOwnerMid = null
+    let currentUserMid = null
     let isLiked = false
 
     // Comments related state
@@ -2589,6 +2748,7 @@
     let commentsData = []
     let isLoadingComments = false
     let hasMoreComments = true
+    let replyingTo = null  // { rpid, username }
 
     // Named DASH audio sync handlers so we can remove them before re-adding
     const dashSyncHandlers = {
@@ -2960,6 +3120,37 @@
         toast.style.animation = 'toastFadeOutDown 0.3s ease'
         setTimeout(() => toast.remove(), 300)
       }, 2000)
+    }
+
+    function showConfirm(message) {
+      return new Promise((resolve) => {
+        const overlay = document.createElement('div')
+        overlay.className = 'confirm-overlay'
+        overlay.innerHTML = `
+          <div class="confirm-dialog">
+            <div class="confirm-dialog-message">${escapeHtml(message)}</div>
+            <div class="confirm-dialog-buttons">
+              <button class="confirm-dialog-btn cancel">取消</button>
+              <button class="confirm-dialog-btn danger">确认</button>
+            </div>
+          </div>
+        `
+        overlay.querySelector('.cancel').addEventListener('click', () => {
+          overlay.remove()
+          resolve(false)
+        })
+        overlay.querySelector('.danger').addEventListener('click', () => {
+          overlay.remove()
+          resolve(true)
+        })
+        overlay.addEventListener('click', (e) => {
+          if (e.target === overlay) {
+            overlay.remove()
+            resolve(false)
+          }
+        })
+        document.body.appendChild(overlay)
+      })
     }
 
     function showShortcutsDialog() {
@@ -3490,6 +3681,16 @@
       currentVideoData = data
       videoTitle.textContent = data.title
       infoTitle.textContent = data.title
+
+      // 获取当前用户信息（用于判断评论是否属于自己）
+      if (!currentUserMid) {
+        try {
+          const userResult = await ipcRenderer.invoke('get-user-info')
+          if (userResult.success && userResult.data?.mid) {
+            currentUserMid = userResult.data.mid
+          }
+        } catch (e) {}
+      }
       
       // 确保信息面板初始状态是隐藏的
       const videoInfoPanel = document.getElementById('videoInfoPanel')
@@ -4242,6 +4443,64 @@
       }
     })
 
+    // 回复评论：事件委托，捕获评论列表中所有回复按钮的点击
+    commentsList.addEventListener('click', (e) => {
+      const btn = e.target.closest('.reply-btn')
+      if (!btn) return
+      const rpid = btn.dataset.rpid
+      const username = btn.dataset.username
+      const root = btn.dataset.root
+      if (!rpid || !username) return
+      replyingTo = { rpid, root, username }
+      replyTargetName.textContent = '@' + username
+      replyIndicator.style.display = 'flex'
+      commentInput.placeholder = '输入回复内容...'
+      commentInput.focus()
+    })
+
+    // 取消回复
+    cancelReplyBtn.addEventListener('click', () => {
+      replyingTo = null
+      replyIndicator.style.display = 'none'
+      commentInput.placeholder = '评论千万条，等你来发一条'
+    })
+
+    // 删除评论
+    commentsList.addEventListener('click', (e) => {
+      const deleteBtn = e.target.closest('.delete-comment-btn')
+      if (deleteBtn) {
+        e.stopPropagation()
+        handleDeleteComment(deleteBtn.dataset.rpid)
+      }
+    })
+
+    async function handleDeleteComment(rpid) {
+      const oid = currentVideoData?.aid || currentVideoData?.cid
+      if (!oid || !rpid) return
+      const confirmed = await showConfirm('确定要删除这条评论吗？')
+      if (!confirmed) return
+      try {
+        const result = await ipcRenderer.invoke('delete-comment', oid, rpid)
+        if (result.success) {
+          showToast('评论已删除')
+          // 从列表中移除该评论
+          const idx = commentsData.findIndex(c => String(c.rpid) === String(rpid))
+          if (idx !== -1) {
+            commentsData.splice(idx, 1)
+            // 更新评论数
+            const currentCount = parseInt(commentCount.textContent) || 0
+            commentCount.textContent = formatNumber(Math.max(0, currentCount - 1))
+            renderComments()
+          }
+        } else {
+          showToast(result.error || '删除评论失败')
+        }
+      } catch (error) {
+        console.error('删除评论失败:', error)
+        showToast('删除评论失败: ' + (error.message || '未知错误'))
+      }
+    }
+
     let commentsError = false
     let commentsObserver = null
 
@@ -4412,6 +4671,9 @@
         repliesHtml += '</div>'
       }
       
+      // 判断是否是自己的评论
+      const isOwn = currentUserMid && String(comment.member?.mid) === String(currentUserMid)
+
       return `
         <div class="comment-item">
           <div class="comment-header">
@@ -4429,7 +4691,7 @@
               </svg>
               <span>${formatNumber(likeCount)}</span>
             </button>
-            <button class="comment-action-btn">
+            <button class="comment-action-btn reply-btn" data-rpid="${comment.rpid}" data-username="${escapeHtml(userName)}" data-root="${comment.root || comment.rpid}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
               </svg>
@@ -4444,6 +4706,16 @@
                 <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
               </svg>
             </button>
+            ${isOwn ? `
+            <button class="comment-delete-btn delete-comment-btn" data-rpid="${comment.rpid}" title="删除评论">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <polyline points="3 6 5 6 21 6"></polyline>
+                <path d="M19 6v14c0 1.1-.9 2-2 2H7c-1.1 0-2-.9-2-2V6m3 0V4c0-1.1.9-2 2-2h4c1.1 0 2 .9 2 2v2"></path>
+                <line x1="10" y1="11" x2="10" y2="17"></line>
+                <line x1="14" y1="11" x2="14" y2="17"></line>
+              </svg>
+            </button>
+            ` : ''}
           </div>
           ${repliesHtml}
         </div>
@@ -4463,13 +4735,63 @@
       return date.getMonth() + 1 + '月' + date.getDate() + '日'
     }
 
-    function submitComment() {
+    async function submitComment() {
       const content = commentInput.value.trim()
       if (!content) return
-      
-      showToast('评论功能开发中')
-      commentInput.value = ''
+
+      const oid = currentVideoData?.aid || currentVideoData?.cid
+      if (!oid) {
+        showToast('无法获取视频信息')
+        return
+      }
+
+      const isReply = !!replyingTo
+      const root = isReply ? replyingTo.root : undefined
+      const parent = isReply ? replyingTo.rpid : undefined
+
+      // 禁用按钮防止重复提交
       sendCommentBtn.disabled = true
+      sendCommentBtn.textContent = '发送中...'
+
+      try {
+        const result = await ipcRenderer.invoke('post-comment', oid, content, root, parent)
+        if (result.success) {
+          showToast(isReply ? '回复发送成功' : '评论发送成功')
+          commentInput.value = ''
+          // 清除回复状态
+          if (isReply) {
+            replyingTo = null
+            replyIndicator.style.display = 'none'
+            commentInput.placeholder = '评论千万条，等你来发一条'
+            // 如果 API 返回了回复数据，插入到对应评论的回复列表中
+            if (result.reply) {
+              const rootComment = commentsData.find(c => String(c.rpid) === String(root))
+              if (rootComment) {
+                if (!rootComment.replies) rootComment.replies = []
+                rootComment.replies.push(result.reply)
+                rootComment.count = (rootComment.count || 0) + 1
+                renderComments()
+              }
+            }
+          }
+          // 如果 API 返回了新评论数据，直接插入到列表最前面（仅顶层评论）
+          if (!isReply && result.reply) {
+            commentsData.unshift(result.reply)
+            // 更新评论数
+            const currentCount = parseInt(commentCount.textContent) || 0
+            commentCount.textContent = formatNumber(currentCount + 1)
+            renderComments()
+          }
+        } else {
+          showToast(result.error || (isReply ? '回复发送失败' : '评论发送失败'))
+        }
+      } catch (error) {
+        console.error('发送评论失败:', error)
+        showToast('发送失败: ' + (error.message || '未知错误'))
+      } finally {
+        sendCommentBtn.textContent = '发布'
+        sendCommentBtn.disabled = !commentInput.value.trim()
+      }
     }
 
     async function loadVideoInfo(bvid) {

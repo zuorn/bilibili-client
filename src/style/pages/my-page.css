@@ -228,13 +228,35 @@
 .favorites-sub-content {
   background-color: #fff;
   border-radius: 8px;
-  padding: 8px;
+  padding: 0 8px 8px 8px;
 }
 
 .favorites-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
   gap: 15px;
+}
+
+#favoritesDefaultGrid.video-grid {
+  padding-top: 16px;
+}
+
+#favoritesCreatedList {
+  padding-top: 0px;
+}
+
+#favoritesCollectionsGrid {
+  padding-top: 0px;
+}
+
+#bangumi-content.my-tab-content,
+#drama-content.my-tab-content,
+#toview-content.my-tab-content {
+  padding-top: 16px;
+}
+
+#historyGrid .history-section-header {
+  margin-bottom: -12px;
 }
 
 .favorites-item {
@@ -408,7 +430,7 @@
   height: 20px;
 }
 
-.logout-btn {
+.my-space-btn {
   padding: 8px 16px;
   background-color: #ffffff;
   border: none;
@@ -419,7 +441,7 @@
   transition: all 0.2s;
 }
 
-.logout-btn:hover {
+.my-space-btn:hover {
   background-color: #ffe6eb;
   color: #fb7299;
 }
@@ -673,7 +695,7 @@
   display: grid;
   grid-template-columns: repeat(6, 1fr);
   gap: 16px;
-  padding: 16px 0;
+  padding: 0 0 16px 0;
 }
 
 .collections-series-grid.season-detail-mode {

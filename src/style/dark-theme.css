@@ -457,12 +457,12 @@ body.dark-theme .my-coins {
   color: #808080;
 }
 
-body.dark-theme .logout-btn {
+body.dark-theme .my-space-btn {
   background-color: #333;
   color: #a0a0a0;
 }
 
-body.dark-theme .logout-btn:hover {
+body.dark-theme .my-space-btn:hover {
   background-color: #3a2a30;
   color: #fb7299;
 }

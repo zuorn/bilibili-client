@@ -121,7 +121,7 @@ function updateMyPageUI(user) {
   const loginText = document.querySelector('.my-login-text')
   const myAvatar = document.querySelector('.my-avatar')
   const myCoins = document.querySelector('.my-coins')
-  const logoutBtn = document.getElementById('logoutBtn')
+  const mySpaceBtn = document.getElementById('mySpaceBtn')
   const myUserLevel = document.getElementById('myUserLevel')
   const myRightContent = document.getElementById('myRightContent')
   const myDynCount = document.getElementById('myDynCount')
@@ -141,7 +141,7 @@ function updateMyPageUI(user) {
     if (myDynCount) myDynCount.textContent = formatPlayCount(user.dynCount || 0)
     if (myFollowingCount) myFollowingCount.textContent = formatPlayCount(user.following || 0)
     if (myFanCount) myFanCount.textContent = formatPlayCount(user.follower || 0)
-    if (logoutBtn) logoutBtn.style.display = 'block'
+    if (mySpaceBtn) mySpaceBtn.style.display = 'block'
     document.querySelectorAll('.no-login-area').forEach(area => area.style.display = 'none')
     document.getElementById('historyGrid').style.display = 'grid'
     document.getElementById('favoritesGrid').style.display = 'grid'

@@ -135,7 +135,7 @@
 
 .window-control-btn {
   width: 48px;
-  height: 64px;
+  height: 48px;
   border: none;
   background: transparent;
   color: #666;
@@ -145,6 +145,9 @@
   justify-content: center;
   transition: all 0.2s;
   -webkit-app-region: no-drag;
+  outline: none;
+  border-radius: 8px;
+  margin: 8px 0;
 }
 
 .window-control-btn:hover {
