@@ -42,10 +42,9 @@
           <a href="#" class="nav-link" data-page="bangumi">追番</a>
           <a href="#" class="nav-link" data-page="media">影视</a>
         </div>
-        <!-- 现在工具没有实现 -->
-        <!-- <div class="dynamic-links" style="display: none;">
-          <a href="#" class="nav-link active" data-page="dynamic">综合</a>
-          <a href="#" class="nav-link" data-page="dynamic-video">视频</a> -->
+        <div class="dynamic-links" id="dynamicLinks">
+          <a href="#" class="nav-link" data-page="dynamic" data-subtab="dynamics">综合</a>
+          <a href="#" class="nav-link" data-page="dynamic" data-subtab="videos">视频</a>
         </div>
       </div>
     </div>
@@ -453,13 +452,27 @@
           </aside>
 
           <div class="dynamic-content">
-            <div class="video-container" id="videoContainer">
+            <!-- 综合内容区域 -->
+            <div class="dynamic-tab-content" id="dynamicDynamicsTab">
+              <div class="dynamic-list" id="dynamicDynamicsList"></div>
+              <div class="loading-more" id="dynamicDynamicsLoadingMore" style="display: none;">
+                <span>加载中...</span>
+              </div>
+              <div class="no-more" id="dynamicDynamicsNoMore" style="display: none;">
+                <span>没有更多内容了</span>
+              </div>
             </div>
-            <div class="loading-more" id="loadingMore" style="display: none;">
-              <span>加载中...</span>
-            </div>
-            <div class="no-more" id="noMore" style="display: none;">
-              <span>没有更多内容了</span>
+            
+            <!-- 视频内容区域 -->
+            <div class="dynamic-tab-content active" id="dynamicVideosTab">
+              <div class="video-container" id="videoContainer">
+              </div>
+              <div class="loading-more" id="loadingMore" style="display: none;">
+                <span>加载中...</span>
+              </div>
+              <div class="no-more" id="noMore" style="display: none;">
+                <span>没有更多内容了</span>
+              </div>
             </div>
           </div>
         </div>
@@ -1123,6 +1136,45 @@
       <div class="sort-favorite-modal-footer">
         <button class="sort-favorite-cancel-btn" id="sortFavoriteCancelBtn">取消</button>
         <button class="sort-favorite-confirm-btn" id="sortFavoriteConfirmBtn">确定</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 图片预览模态框 -->
+  <div class="image-preview-modal" id="imagePreviewModal" style="display: none;">
+    <div class="image-preview-overlay" id="imagePreviewOverlay"></div>
+    <div class="image-preview-content">
+      <div class="image-preview-header">
+        <button class="image-preview-download" id="imagePreviewDownload" title="下载图片">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+        </button>
+        <button class="image-preview-close" id="imagePreviewClose" title="关闭">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <line x1="18" y1="6" x2="6" y2="18"/>
+            <line x1="6" y1="6" x2="18" y2="18"/>
+          </svg>
+        </button>
+      </div>
+      <button class="image-preview-prev" id="imagePreviewPrev" title="上一张">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="15 18 9 12 15 6"/>
+        </svg>
+      </button>
+      <button class="image-preview-next" id="imagePreviewNext" title="下一张">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <polyline points="9 18 15 12 9 6"/>
+        </svg>
+      </button>
+      <div class="image-preview-counter" id="imagePreviewCounter"></div>
+      <div class="image-preview-main" id="imagePreviewMain">
+        <img id="imagePreviewImg" src="" alt="">
+      </div>
+      <div class="image-preview-thumbnails">
+        <div class="thumbnails-container" id="imagePreviewThumbnails"></div>
       </div>
     </div>
   </div>

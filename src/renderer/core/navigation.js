@@ -71,7 +71,16 @@ function navigateToPage(page) {
 
   document.querySelectorAll('.nav-link').forEach(link => {
     link.classList.remove('active')
-    if (link.dataset.page === page) link.classList.add('active')
+    if (link.dataset.page === page) {
+      // 如果是动态页面，默认激活视频tab
+      if (page === 'dynamic') {
+        if (link.dataset.subtab === 'videos') {
+          link.classList.add('active')
+        }
+      } else {
+        link.classList.add('active')
+      }
+    }
   })
 
   document.querySelectorAll('.page-content').forEach(p => p.classList.remove('active'))
@@ -89,8 +98,10 @@ function navigateToPage(page) {
   const content = document.querySelector('.content')
   if (content) {
     content.removeEventListener('scroll', throttledHandleScroll)
-    content.removeEventListener('scroll', handleDynamicScroll)
-    if (page === 'dynamic') {
+    if (typeof handleDynamicScroll !== 'undefined') {
+      content.removeEventListener('scroll', handleDynamicScroll)
+    }
+    if (page === 'dynamic' && typeof handleDynamicScroll !== 'undefined') {
       content.addEventListener('scroll', handleDynamicScroll)
     } else {
       content.addEventListener('scroll', throttledHandleScroll)

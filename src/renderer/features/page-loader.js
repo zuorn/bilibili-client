@@ -18,8 +18,8 @@ function loadPageContent(page) {
     },
     media: () => loadMediaPage(),
     my: () => { if (currentUser?.isLogin) loadHistory() },
-    dynamic: () => initDynamicPage(),
-    following: () => initFollowingPage(),
+    dynamic: () => { if (typeof initDynamicPage === 'function') initDynamicPage() },
+    following: () => { if (typeof initFollowingPage === 'function') initFollowingPage() },
     up: () => {
       if (typeof resetUpProfileUI === 'function' && pageStates.up.mid) {
         resetUpProfileUI()

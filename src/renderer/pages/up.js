@@ -230,7 +230,9 @@ async function navigateToUP(mid, isSelf = false) {
   const content = document.querySelector('.content')
   if (content) {
     content.removeEventListener('scroll', throttledHandleScroll)
-    content.removeEventListener('scroll', handleDynamicScroll)
+    if (typeof handleDynamicScroll !== 'undefined') {
+      content.removeEventListener('scroll', handleDynamicScroll)
+    }
     content.addEventListener('scroll', throttledHandleScroll)
   }
 
@@ -542,10 +544,8 @@ function createDynamicCard(d) {
   // Video card
   if (type === 'DYNAMIC_TYPE_AV' && d.bvid) {
     bodyHtml += `<div class="up-dynamic-video-card video-card" data-bvid="${d.bvid}" data-cid="${d.cid || ''}">`
-    bodyHtml += `<div class="up-dynamic-video-info"><div class="up-dynamic-video-title">${escapeHtml(d.title || '')}</div>`
-    bodyHtml += `<div class="up-dynamic-video-stats"><span>${formatCount(d.play)}播放</span><span>${formatCount(d.danmaku)}弹幕</span></div></div>`
     if (d.cover) {
-      bodyHtml += `<div class="up-dynamic-video-cover-wrap video-thumbnail"><img class="up-dynamic-video-cover" data-src="${optimizeCoverUrl(d.cover, 672, 378)}" alt="" loading="lazy" decoding="async"><span class="up-dynamic-video-duration">${d.duration || ''}</span></div>`
+      bodyHtml += `<div class="up-dynamic-video-cover-wrap video-thumbnail"><img class="up-dynamic-video-cover" data-src="${optimizeCoverUrl(d.cover, 672, 378)}" alt="" loading="lazy" decoding="async"><span class="up-dynamic-video-duration">${d.duration || ''}</span><span class="up-dynamic-video-danmaku">弹幕 ${formatCount(d.danmaku)}</span><div class="up-dynamic-video-title">${escapeHtml(d.title || '')}</div></div>`
     }
     bodyHtml += '</div>'
   }
@@ -583,10 +583,8 @@ function createDynamicCard(d) {
     if (d.orig.bvid) {
       bodyHtml += `<div class="up-dynamic-forward-video video-card" data-bvid="${d.orig.bvid}" data-cid="${d.orig.cid || ''}">`
       if (d.orig.cover) {
-        bodyHtml += `<div class="up-dynamic-forward-cover video-thumbnail"><img class="up-dynamic-video-cover" data-src="${optimizeCoverUrl(d.orig.cover, 672, 378)}" alt="" loading="lazy" decoding="async"><span class="up-dynamic-video-duration">${d.orig.duration || ''}</span></div>`
+        bodyHtml += `<div class="up-dynamic-forward-cover video-thumbnail"><img class="up-dynamic-video-cover" data-src="${optimizeCoverUrl(d.orig.cover, 672, 378)}" alt="" loading="lazy" decoding="async"><span class="up-dynamic-video-duration">${d.orig.duration || ''}</span><span class="up-dynamic-video-danmaku">弹幕 ${formatCount(d.orig.danmaku)}</span><div class="up-dynamic-video-title">${escapeHtml(d.orig.title || '')}</div></div>`
       }
-      bodyHtml += `<div class="up-dynamic-video-info"><div class="up-dynamic-video-title">${escapeHtml(d.orig.title || '')}</div>`
-      bodyHtml += `<div class="up-dynamic-video-stats"><span>${formatCount(d.orig.play)}播放</span><span>${formatCount(d.orig.danmaku)}弹幕</span></div></div>`
       bodyHtml += '</div>'
     }
     if (d.orig.drawItems && d.orig.drawItems.length > 0) {

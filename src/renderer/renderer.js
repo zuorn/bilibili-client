@@ -657,7 +657,7 @@ function updateNavLinks(page) {
     navLinks.style.display = 'none'
   } else if (page === 'dynamic') {
     navLinks.style.display = 'flex'
-    if (homeLinks) homeLinks.style.display = 'none'
+    if (homeLinks) homeLinks.style.display = 'flex'
     if (dynamicLinks) dynamicLinks.style.display = 'flex'
   } else if (page === 'bangumi-all') {
     navLinks.style.display = 'flex'
@@ -2832,10 +2832,18 @@ function handleDynamicScroll() {
 
   const { scrollTop, scrollHeight, clientHeight } = content
 
-  const noMore = document.getElementById('noMore')
+  const activeTab = document.querySelector('.dynamic-tab.active')?.dataset.tab
 
-  if (scrollTop + clientHeight >= scrollHeight - 200 && !isDynamicLoading && dynamicHasMore) {
-    loadDynamicVideos(currentUpId, currentDynamicOffset)
+  if (activeTab === 'videos') {
+    const noMore = document.getElementById('noMore')
+    if (scrollTop + clientHeight >= scrollHeight - 200 && !isDynamicLoading && dynamicHasMore) {
+      loadDynamicVideos(currentUpId, currentDynamicOffset)
+    }
+  } else if (activeTab === 'dynamics') {
+    const noMore = document.getElementById('dynamicDynamicsNoMore')
+    if (scrollTop + clientHeight >= scrollHeight - 200 && !isDynamicContentLoading && dynamicContentHasMore) {
+      loadDynamicContent(currentUpId, dynamicContentOffset)
+    }
   }
 }
 

@@ -20,7 +20,16 @@ function initEventListeners() {
     link.addEventListener('click', e => {
       e.preventDefault()
       const page = link.dataset.page
-      if (page) navigateToPage(page)
+      const subtab = link.dataset.subtab
+      
+      if (page === 'dynamic' && subtab) {
+        // 如果是动态页面的子tab，调用switchDynamicTab
+        if (typeof switchDynamicTab === 'function') {
+          switchDynamicTab(subtab)
+        }
+      } else if (page) {
+        navigateToPage(page)
+      }
     })
   })
 
