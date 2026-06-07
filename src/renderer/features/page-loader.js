@@ -1,5 +1,4 @@
 function loadPageContent(page) {
-  console.log('loadPageContent called with page:', page)
   const actions = {
     home: () => { pageStates.home.pageNum = 1; pageStates.home.hasMore = true; fetchVideos(1, false) },
     popular: () => { pageStates.popular.pageNum = 1; pageStates.popular.hasMore = true; pageStates.popular.currentTab = 'comprehensive'; fetchPopularVideosByTab('comprehensive', 1, false) },

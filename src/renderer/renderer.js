@@ -2607,10 +2607,13 @@ async function fetchFollowings(mid) {
       
       console.log('Portal data keys:', Object.keys(portalData))
       
-      if (portalData.up_list && Array.isArray(portalData.up_list)) {
-        console.log('Found up_list array, length:', portalData.up_list.length)
+      // Bilibili API 返回的 up 列表在 items 字段中
+      const upList = portalData.items || portalData.up_list || []
+      
+      if (Array.isArray(upList) && upList.length > 0) {
+        console.log('Found up list array, length:', upList.length)
         
-        followings = portalData.up_list.map(item => ({
+        followings = upList.map(item => ({
           mid: item.mid || '',
           name: item.uname || item.name || '',
           face: item.face || '',
@@ -2621,7 +2624,7 @@ async function fetchFollowings(mid) {
         
         console.log('Parsed followings count:', followings.length)
       } else {
-        console.log('No up_list found in portal data')
+        console.log('No up list found in portal data, keys:', Object.keys(portalData))
       }
       
       followingListData = followings

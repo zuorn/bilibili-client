@@ -58,7 +58,6 @@ function scrollHalfPage(direction) {
 }
 
 function navigateToPage(page) {
-  console.log('navigateToPage called with:', page)
   pageHistory.push(currentPage)
   if (pageHistory.length > 50) pageHistory.shift()
 
@@ -72,9 +71,9 @@ function navigateToPage(page) {
   document.querySelectorAll('.nav-link').forEach(link => {
     link.classList.remove('active')
     if (link.dataset.page === page) {
-      // 如果是动态页面，默认激活视频tab
+      // 动态页面默认激活综合tab
       if (page === 'dynamic') {
-        if (link.dataset.subtab === 'videos') {
+        if (link.dataset.subtab === 'dynamics') {
           link.classList.add('active')
         }
       } else {

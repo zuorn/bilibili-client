@@ -32,10 +32,13 @@ async function fetchFollowings(mid) {
 
       console.log('Portal data keys:', Object.keys(portalData))
 
-      if (portalData.up_list && Array.isArray(portalData.up_list)) {
-        console.log('Found up_list array, length:', portalData.up_list.length)
+      // Bilibili API 返回的 up 列表在 items 字段中
+      const upList = portalData.items || portalData.up_list || []
+      
+      if (Array.isArray(upList) && upList.length > 0) {
+        console.log('Found up list array, length:', upList.length)
 
-        followings = portalData.up_list.map(item => ({
+        followings = upList.map(item => ({
           mid: item.mid || '',
           name: item.uname || item.name || '',
           face: item.face || '',
@@ -46,7 +49,7 @@ async function fetchFollowings(mid) {
 
         console.log('Parsed followings count:', followings.length)
       } else {
-        console.log('No up_list found in portal data')
+        console.log('No up list found in portal data, keys:', Object.keys(portalData))
       }
 
       followingListData = followings
@@ -63,14 +66,20 @@ async function fetchFollowings(mid) {
 }
 
 async function fetchDynamics(upMid = null, offset = '') {
+  console.log('=== fetchDynamics called ===', { upMid, offset })
   try {
     const result = await ipcRenderer.invoke('get-user-dynamics', upMid, offset)
+    console.log('fetchDynamics result:', result)
     if (result.success && result.data) {
+      const items = result.data.items || []
+      console.log('fetchDynamics items count:', items.length)
       return {
-        items: result.data.items || [],
+        items: items,
         has_more: result.data.has_more,
         next_offset: result.data.next_offset
       }
+    } else {
+      console.log('fetchDynamics failed:', result.error)
     }
   } catch (error) {
     console.error('获取动态失败:', error)
@@ -188,7 +197,7 @@ function renderDynamicVideos(dynamics, onAuthorClick) {
   if (!videoContainer) return
 
   dynamics.forEach((dynamic, index) => {
-    if (dynamic.bvid || dynamic.thumbnail) {
+    if (dynamic.bvid || dynamic.thumbnail || dynamic.cover) {
       const eager = index < EAGER_COUNT
       const card = createDynamicVideoCard(dynamic, { eager })
       const info = createDynamicVideoInfo(dynamic, onAuthorClick)
@@ -232,9 +241,9 @@ async function loadDynamicVideos(upId = null, offset = '') {
     console.error('加载动态失败:', error)
     if (loadingMore) loadingMore.style.display = 'none'
     if (noMore) noMore.style.display = 'block'
+  } finally {
+    isDynamicLoading = false
   }
-
-  isDynamicLoading = false
 }
 
 function timeAgo(timestamp) {
@@ -256,18 +265,12 @@ function formatCount(num) {
 function createDynamicCard(d) {
   const card = document.createElement('div')
   card.className = 'dynamic-card'
-  
-  console.log('=== 创建动态卡片 ===')
-  console.log('卡片数据:', d)
-  console.log('作者:', d.authorName)
-  console.log('类型:', d.type)
-  console.log('标题:', d.title)
 
   let headerHtml = '<div class="dynamic-header">'
   if (d.authorFace) {
-    headerHtml += `<img class="dynamic-avatar" src="${optimizeCoverUrl(d.authorFace, 48, 48)}" alt="" onerror="this.style.display='none'">`
+    headerHtml += `<img class="dynamic-avatar dynamic-author-click" data-mid="${d.authorMid}" src="${optimizeCoverUrl(d.authorFace, 48, 48)}" alt="" onerror="this.style.display='none'">`
   }
-  headerHtml += `<span class="dynamic-author">${escapeHtml(d.authorName)}</span>`
+  headerHtml += `<span class="dynamic-author dynamic-author-click" data-mid="${d.authorMid}">${escapeHtml(d.authorName)}</span>`
   headerHtml += `<span class="dynamic-time">${d.pubTime || timeAgo(d.pubTs)}</span>`
   headerHtml += '</div>'
 
@@ -278,9 +281,7 @@ function createDynamicCard(d) {
     bodyHtml += `<div class="dynamic-desc">${escapeHtml(desc)}</div>`
   }
 
-  const type = d.type
-
-  if (type === 'DYNAMIC_TYPE_AV' && d.bvid) {
+  if (d.bvid) {
     bodyHtml += `<div class="dynamic-video-card video-card" data-bvid="${d.bvid}" data-cid="${d.cid || ''}">`
     bodyHtml += `<div class="dynamic-video-info"><div class="dynamic-video-title">${escapeHtml(d.title || '')}</div></div>`
     if (d.cover) {
@@ -291,7 +292,7 @@ function createDynamicCard(d) {
     bodyHtml += '</div>'
   }
 
-  if (type === 'DYNAMIC_TYPE_DRAW' && d.drawItems && d.drawItems.length > 0) {
+  if (d.drawItems && d.drawItems.length > 0) {
     const count = d.drawItems.length
     const drawItemsStr = JSON.stringify(d.drawItems.map(p => fixImageUrl(p.src)))
     bodyHtml += `<div class="dynamic-images" data-images='${drawItemsStr}'>`
@@ -304,7 +305,7 @@ function createDynamicCard(d) {
     bodyHtml += '</div>'
   }
 
-  if (type === 'DYNAMIC_TYPE_ARTICLE' && d.articleId) {
+  if (d.articleId) {
     bodyHtml += '<div class="dynamic-article-card">'
     if (d.cover) {
       bodyHtml += `<div class="dynamic-article-cover"><img data-src="${optimizeCoverUrl(d.cover, 200, 140)}" alt="" loading="lazy" decoding="async"></div>`
@@ -339,7 +340,7 @@ function createDynamicCard(d) {
     bodyHtml += '</div>'
   }
 
-  if ((type === 'DYNAMIC_TYPE_WORD' || type === 'DYNAMIC_TYPE_OPUS') && d.cover) {
+  if (d.cover && !d.bvid && !(d.drawItems && d.drawItems.length > 0)) {
     bodyHtml += `<div class="dynamic-cover-img"><img data-src="${optimizeCoverUrl(d.cover, 500, 300)}" alt="" loading="lazy" decoding="async"></div>`
   }
 
@@ -350,6 +351,16 @@ function createDynamicCard(d) {
   footerHtml += '</div>'
 
   card.innerHTML = headerHtml + bodyHtml + footerHtml
+
+  // 点击头像和作者名称跳转到UP主页面
+  card.querySelectorAll('.dynamic-author-click').forEach(el => {
+    el.style.cursor = 'pointer'
+    el.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const mid = el.dataset.mid
+      if (mid) navigateToUP(mid)
+    })
+  })
 
   if (d.bvid) {
     card.style.cursor = 'pointer'
@@ -376,19 +387,11 @@ async function loadDynamicContent(upId = null, offset = '') {
 
   try {
     const result = await fetchDynamics(upId, offset)
-    console.log('=== 动态内容加载结果 ===')
-    console.log('fetchDynamics result:', result)
-    console.log('result.items:', result.items)
-    console.log('result.items length:', result.items?.length || 0)
+    const list = document.getElementById('dynamicDynamicsList')
+    if (!list) return
 
     if (result.items && result.items.length > 0) {
-      const items = result.items
-      console.log('Dynamics items received:', items.length)
-
-      const list = document.getElementById('dynamicDynamicsList')
-      if (!list) return
-
-      items.forEach((d, index) => {
+      result.items.forEach((d, index) => {
         const card = createDynamicCard(d)
         list.appendChild(card)
         if (index < 10) {
@@ -415,31 +418,30 @@ async function loadDynamicContent(upId = null, offset = '') {
   } catch (error) {
     console.error('加载动态内容失败:', error)
     if (loadingMore) loadingMore.style.display = 'none'
+  } finally {
+    isDynamicContentLoading = false
   }
+}
 
-  isDynamicContentLoading = false
+function activateDynamicTab(tabName) {
+  document.querySelectorAll('.nav-link[data-page="dynamic"]').forEach(t => t.classList.remove('active'))
+  const targetTab = document.querySelector(`.nav-link[data-page="dynamic"][data-subtab="${tabName}"]`)
+  if (targetTab) targetTab.classList.add('active')
+
+  document.querySelectorAll('.dynamic-tab-content').forEach(c => c.classList.remove('active'))
+  const contentMap = {
+    dynamics: 'dynamicDynamicsTab',
+    videos: 'dynamicVideosTab'
+  }
+  const el = document.getElementById(contentMap[tabName])
+  if (el) el.classList.add('active')
 }
 
 function switchDynamicTab(tabName) {
   const content = document.querySelector('.content')
   if (content) content.scrollTop = 0
 
-  // 更新顶部导航栏的nav-link状态
-  document.querySelectorAll('.nav-link[data-page="dynamic"]').forEach(t => t.classList.remove('active'))
-  const targetTab = document.querySelector(`.nav-link[data-page="dynamic"][data-subtab="${tabName}"]`)
-  if (targetTab) targetTab.classList.add('active')
-
-  document.querySelectorAll('.dynamic-tab-content').forEach(c => c.classList.remove('active'))
-
-  const contentMap = {
-    dynamics: 'dynamicDynamicsTab',
-    videos: 'dynamicVideosTab'
-  }
-  const contentId = contentMap[tabName]
-  if (contentId) {
-    const el = document.getElementById(contentId)
-    if (el) el.classList.add('active')
-  }
+  activateDynamicTab(tabName)
 
   if (tabName === 'dynamics') {
     const list = document.getElementById('dynamicDynamicsList')
@@ -447,6 +449,13 @@ function switchDynamicTab(tabName) {
       dynamicContentOffset = ''
       dynamicContentHasMore = true
       loadDynamicContent(currentUpId, '')
+    }
+  } else if (tabName === 'videos') {
+    const container = document.getElementById('videoContainer')
+    if (container && container.children.length === 0) {
+      currentDynamicOffset = ''
+      dynamicHasMore = true
+      loadDynamicVideos(currentUpId, '')
     }
   }
 }
@@ -457,6 +466,8 @@ function selectDynamicUp(upId, upName) {
   dynamicHasMore = true
   dynamicContentOffset = ''
   dynamicContentHasMore = true
+  isDynamicLoading = false
+  isDynamicContentLoading = false
 
   document.querySelectorAll('.following-item').forEach(item => {
     item.classList.remove('active')
@@ -493,6 +504,8 @@ function selectAllDynamic() {
   dynamicHasMore = true
   dynamicContentOffset = ''
   dynamicContentHasMore = true
+  isDynamicLoading = false
+  isDynamicContentLoading = false
 
   document.querySelectorAll('.following-item').forEach(item => {
     item.classList.remove('active')
@@ -527,7 +540,9 @@ function handleDynamicScroll() {
 
   const { scrollTop, scrollHeight, clientHeight } = content
 
-  const activeTab = document.querySelector('.dynamic-tab.active')?.dataset.tab
+  // 获取当前激活的 dynamic tab（通过 nav-link 获取）
+  const activeNavLink = document.querySelector('.nav-link[data-page="dynamic"].active')
+  const activeTab = activeNavLink?.dataset.subtab
 
   if (activeTab === 'videos') {
     const noMore = document.getElementById('noMore')
@@ -545,6 +560,8 @@ function handleDynamicScroll() {
 async function initDynamicPage() {
   const videoContainer = document.getElementById('videoContainer')
   const followingList = document.getElementById('followingList')
+
+  activateDynamicTab('dynamics')
 
   if (!currentUser?.isLogin) {
     if (videoContainer) {
@@ -570,18 +587,15 @@ async function initDynamicPage() {
     allDynamicBtn.addEventListener('click', selectAllDynamic)
   }
 
-  document.querySelectorAll('.dynamic-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      switchDynamicTab(tab.dataset.tab)
-    })
-  })
+  // 注意：nav-link 的点击事件已在 event-listeners.js 中统一处理
+  // 这里不需要重复绑定 .dynamic-tab 的事件
 
   initImagePreview()
 }
 
 // 图片预览功能
-let currentImageList = []
-let currentImageIndex = 0
+let dynamicPreviewImages = []
+let dynamicPreviewIndex = 0
 
 function initImagePreview() {
   // 点击图片网格中的图片
@@ -592,8 +606,8 @@ function initImagePreview() {
       if (imagesContainer) {
         const imagesData = imagesContainer.dataset.images
         if (imagesData) {
-          currentImageList = JSON.parse(imagesData)
-          currentImageIndex = parseInt(imageItem.dataset.index) || 0
+          dynamicPreviewImages = JSON.parse(imagesData)
+          dynamicPreviewIndex = parseInt(imageItem.dataset.index) || 0
           openImagePreview()
         }
       }
@@ -616,8 +630,8 @@ function initImagePreview() {
   const prevBtn = document.getElementById('imagePreviewPrev')
   if (prevBtn) {
     prevBtn.addEventListener('click', () => {
-      if (currentImageIndex > 0) {
-        currentImageIndex--
+      if (dynamicPreviewIndex > 0) {
+        dynamicPreviewIndex--
         updateImagePreview()
       }
     })
@@ -627,8 +641,8 @@ function initImagePreview() {
   const nextBtn = document.getElementById('imagePreviewNext')
   if (nextBtn) {
     nextBtn.addEventListener('click', () => {
-      if (currentImageIndex < currentImageList.length - 1) {
-        currentImageIndex++
+      if (dynamicPreviewIndex < dynamicPreviewImages.length - 1) {
+        dynamicPreviewIndex++
         updateImagePreview()
       }
     })
@@ -646,7 +660,7 @@ function initImagePreview() {
     thumbnailsContainer.addEventListener('click', (e) => {
       const thumbnailItem = e.target.closest('.thumbnail-item')
       if (thumbnailItem) {
-        currentImageIndex = parseInt(thumbnailItem.dataset.index) || 0
+        dynamicPreviewIndex = parseInt(thumbnailItem.dataset.index) || 0
         updateImagePreview()
       }
     })
@@ -659,13 +673,13 @@ function initImagePreview() {
       if (e.key === 'Escape') {
         closeImagePreview()
       } else if (e.key === 'ArrowLeft') {
-        if (currentImageIndex > 0) {
-          currentImageIndex--
+        if (dynamicPreviewIndex > 0) {
+          dynamicPreviewIndex--
           updateImagePreview()
         }
       } else if (e.key === 'ArrowRight') {
-        if (currentImageIndex < currentImageList.length - 1) {
-          currentImageIndex++
+        if (dynamicPreviewIndex < dynamicPreviewImages.length - 1) {
+          dynamicPreviewIndex++
           updateImagePreview()
         }
       }
@@ -693,17 +707,17 @@ function updateImagePreview() {
   const counter = document.getElementById('imagePreviewCounter')
   const thumbnailsContainer = document.getElementById('imagePreviewThumbnails')
 
-  if (img && currentImageList[currentImageIndex]) {
-    img.src = currentImageList[currentImageIndex]
+  if (img && dynamicPreviewImages[dynamicPreviewIndex]) {
+    img.src = dynamicPreviewImages[dynamicPreviewIndex]
   }
 
   if (counter) {
-    counter.textContent = `${currentImageIndex + 1} / ${currentImageList.length}`
+    counter.textContent = `${dynamicPreviewIndex + 1} / ${dynamicPreviewImages.length}`
   }
 
   if (thumbnailsContainer) {
-    thumbnailsContainer.innerHTML = currentImageList.map((src, index) => {
-      return `<div class="thumbnail-item ${index === currentImageIndex ? 'active' : ''}" data-index="${index}">
+    thumbnailsContainer.innerHTML = dynamicPreviewImages.map((src, index) => {
+      return `<div class="thumbnail-item ${index === dynamicPreviewIndex ? 'active' : ''}" data-index="${index}">
         <img src="${src}" alt="">
       </div>`
     }).join('')
@@ -711,15 +725,15 @@ function updateImagePreview() {
 }
 
 async function downloadCurrentImage() {
-  if (!currentImageList[currentImageIndex]) return
+  if (!dynamicPreviewImages[dynamicPreviewIndex]) return
 
   try {
-    const response = await fetch(currentImageList[currentImageIndex])
+    const response = await fetch(dynamicPreviewImages[dynamicPreviewIndex])
     const blob = await response.blob()
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `image_${currentImageIndex + 1}.jpg`
+    a.download = `image_${dynamicPreviewIndex + 1}.jpg`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)

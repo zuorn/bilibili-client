@@ -295,6 +295,8 @@ aside.dynamic-sidebar .following-name {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  max-width: 50%;
+  margin: 0 auto;
 }
 
 .dynamic-card {
@@ -326,6 +328,14 @@ aside.dynamic-sidebar .following-name {
   color: #18191c;
   font-size: 14px;
   margin-right: 12px;
+}
+
+.dynamic-author-click:hover {
+  color: #fb7299;
+}
+
+.dynamic-avatar.dynamic-author-click:hover {
+  opacity: 0.8;
 }
 
 .dynamic-time {

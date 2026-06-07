@@ -453,7 +453,7 @@
 
           <div class="dynamic-content">
             <!-- 综合内容区域 -->
-            <div class="dynamic-tab-content" id="dynamicDynamicsTab">
+            <div class="dynamic-tab-content active" id="dynamicDynamicsTab">
               <div class="dynamic-list" id="dynamicDynamicsList"></div>
               <div class="loading-more" id="dynamicDynamicsLoadingMore" style="display: none;">
                 <span>加载中...</span>
@@ -464,7 +464,7 @@
             </div>
             
             <!-- 视频内容区域 -->
-            <div class="dynamic-tab-content active" id="dynamicVideosTab">
+            <div class="dynamic-tab-content" id="dynamicVideosTab">
               <div class="video-container" id="videoContainer">
               </div>
               <div class="loading-more" id="loadingMore" style="display: none;">
@@ -1192,7 +1192,6 @@
   <script src="src/renderer/features/video-preview.js"></script>
   <script src="src/renderer/features/scroll-handler.js"></script>
   <script src="src/renderer/features/shortcuts.js"></script>
-  <script src="src/renderer/features/page-loader.js"></script>
   <script src="src/renderer/features/update-checker.js"></script>
   <!-- 页面模块 -->
   <script src="src/renderer/pages/home.js"></script>
@@ -1207,6 +1206,8 @@
   <script src="src/renderer/pages/my.js"></script>
   <script src="src/renderer/pages/following.js"></script>
   <script src="src/renderer/pages/settings.js"></script>
+  <!-- page-loader.js 必须在所有页面模块之后加载，因为它依赖页面模块中定义的函数 -->
+  <script src="src/renderer/features/page-loader.js"></script>
   <!-- 事件监听器 - 最后加载，包含 DOMContentLoaded 入口 -->
   <script src="src/renderer/core/event-listeners.js"></script>
 </body>
