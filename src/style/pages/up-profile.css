@@ -741,16 +741,23 @@
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.3s, visibility 0.3s;
+  overflow: visible;
+  width: auto;
+  min-width: 70px;
 }
 
 .thumbnails-container {
   display: flex;
   gap: 10px;
-  overflow-x: auto;
-  padding: 8px;
-  max-width: calc(100% - 40px);
+  overflow-x: visible;
+  padding: 0;
+  max-width: 100%;
   background-color: transparent;
   border-radius: 0;
+  justify-content: center;
+  align-items: center;
+  width: fit-content;
+  margin: 0 auto;
 }
 
 .thumbnails-container::-webkit-scrollbar {

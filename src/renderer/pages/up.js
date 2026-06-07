@@ -429,12 +429,15 @@ async function loadUpVideos(mid, offset = '') {
           const modules = item.modules || {}
           const dynamicModule = modules.module_dynamic || {}
           const majorModule = dynamicModule.major || {}
+          const authorModule = modules.module_author || {}
 
           let bvid = ''
           let title = ''
           let pic = ''
           let duration = ''
           let play = ''
+          let pubTs = 0
+          let pubTime = ''
 
           if (majorModule.archive) {
             bvid = majorModule.archive.bvid || ''
@@ -443,8 +446,12 @@ async function loadUpVideos(mid, offset = '') {
             duration = majorModule.archive.duration_text || ''
 
             const stat = majorModule.archive.stat || {}
-            play = formatPlayCount(stat.view || 0) + '播放'
+            play = stat.view > 0 ? formatPlayCount(stat.view) + '播放' : ''
           }
+
+          // 提取时间信息
+          pubTs = authorModule.pub_ts || 0
+          pubTime = authorModule.pub_time || ''
 
           const cid = majorModule.archive?.cid || ''
 
@@ -457,7 +464,10 @@ async function loadUpVideos(mid, offset = '') {
             duration: duration,
             author: pageStates.up.name || '未知',
             mid: mid,
-            owner: { mid: mid, name: pageStates.up.name || '未知' }
+            owner: { mid: mid, name: pageStates.up.name || '未知' },
+            pubTs: pubTs,
+            pubTime: pubTime,
+            publish_date: pubTime || timeAgo(pubTs)
           }
         }).filter(v => v.bvid)
 
@@ -847,6 +857,12 @@ function updateThumbnails() {
     container.appendChild(thumbnail)
   })
   
+  // 如果只有一张图片，重置滚动位置
+  if (imageList.length <= 1) {
+    container.scrollLeft = 0
+    return
+  }
+  
   scrollToActiveThumbnail()
 }
 
@@ -856,6 +872,9 @@ function scrollToActiveThumbnail() {
   
   const activeThumbnail = container.querySelector('.thumbnail-item.active')
   if (!activeThumbnail) return
+  
+  // 如果只有一张图片，不需要滚动
+  if (imageList.length <= 1) return
   
   const containerRect = container.getBoundingClientRect()
   const thumbnailRect = activeThumbnail.getBoundingClientRect()
