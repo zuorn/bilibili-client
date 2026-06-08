@@ -86,14 +86,12 @@
   gap: 4px;
 }
 
-.dynamic-links {
+.nav-links {
   display: none;
   flex-direction: row;
   align-items: center;
   gap: 4px;
   margin-left: 8px;
-  padding-left: 12px;
-  border-left: 1px solid #e8e8e8;
 }
 
 .nav-link {
@@ -112,6 +110,10 @@
 
 .nav-link:hover {
   color: #fb7299;
+}
+
+.nav-link:focus {
+  outline: none;
 }
 
 .nav-link.active {

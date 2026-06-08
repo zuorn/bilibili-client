@@ -1,3 +1,39 @@
+// Helper function to extract dynamic text content
+function extractDynamicText(desc, summary) {
+  if (desc?.rich_text_nodes?.length) {
+    return desc.rich_text_nodes.map(n => {
+      if (n.type === 'RICH_TEXT_NODE_TYPE_EMOJI' && n.emoji?.icon_url) {
+        return `<img class="dynamic-emoji" src="${n.emoji.icon_url}" alt="${n.text || n.orig_text || ''}" title="${n.text || n.orig_text || ''}">`
+      }
+      if (n.type === 'RICH_TEXT_NODE_TYPE_TOPIC') {
+        const topicName = n.text || n.orig_text || ''
+        const topicId = n.rid_str || ''
+        return `<span class="dynamic-topic" data-topic-id="${topicId}" data-topic-name="${topicName}">${topicName}</span>`
+      }
+      return n.text || n.orig_text || ''
+    }).join('')
+  }
+  if (desc?.text) return desc.text
+  if (typeof desc === 'string' && desc) return desc
+  if (!summary) return ''
+  if (typeof summary === 'string') return summary
+  if (summary.text) return summary.text
+  if (summary.rich_text_nodes?.length) {
+    return summary.rich_text_nodes.map(n => {
+      if (n.type === 'RICH_TEXT_NODE_TYPE_EMOJI' && n.emoji?.icon_url) {
+        return `<img class="dynamic-emoji" src="${n.emoji.icon_url}" alt="${n.text || n.orig_text || ''}" title="${n.text || n.orig_text || ''}">`
+      }
+      if (n.type === 'RICH_TEXT_NODE_TYPE_TOPIC') {
+        const topicName = n.text || n.orig_text || ''
+        const topicId = n.rid_str || ''
+        return `<span class="dynamic-topic" data-topic-id="${topicId}" data-topic-name="${topicName}">${topicName}</span>`
+      }
+      return n.text || n.orig_text || ''
+    }).join('')
+  }
+  return ''
+}
+
 function registerUpHandlers(deps) {
   const { ipcMain, fetchApi, fetchApiPost, log, cookieManager, fetchWbiKeys, getMixKey, signParams } = deps
 
@@ -136,7 +172,7 @@ function registerUpHandlers(deps) {
             authorMid: authorModule.mid || 0,
             pubTs: authorModule.pub_ts || 0,
             pubTime: authorModule.pub_time || '',
-            desc: desc.text || '',
+            desc: extractDynamicText(desc),
             view: stat.view || 0,
             like: stat.like || 0,
             forward_count: stat.forward || 0,
@@ -166,16 +202,89 @@ function registerUpHandlers(deps) {
             }))
           }
 
+          // 支持 dyn_draw 字段（图片动态的主要存储位置）
+          const dynDraw = dynamicModule.dyn_draw
+          if (dynDraw?.items?.length && !resultItem.drawItems?.length) {
+            resultItem.drawItems = dynDraw.items.map(d => ({
+              src: d.src || '',
+              width: d.width || 0,
+              height: d.height || 0
+            }))
+          }
+
+          // 支持 majorModule.pics 字段
+          if (majorModule.pics?.length && !resultItem.drawItems?.length) {
+            resultItem.drawItems = majorModule.pics.map(d => ({
+              src: d.src || '',
+              width: d.width || 0,
+              height: d.height || 0
+            }))
+          }
+
           // Opus (general post)
           if (majorModule.opus) {
             const opus = majorModule.opus
             resultItem.title = resultItem.title || opus.title || ''
             resultItem.cover = resultItem.cover || opus.cover || ''
+            const opusText = extractDynamicText(null, opus.summary)
+            resultItem.opusSummary = opusText
+            if (opusText && !resultItem.desc) {
+              resultItem.desc = opusText
+            }
             const pics = opus.pics || []
             if (!resultItem.cover && pics.length > 0) {
-              resultItem.cover = pics[0].url || ''
+              resultItem.cover = pics[0].url || pics[0].src || ''
             }
-            resultItem.opusSummary = opus.summary || ''
+            if (!resultItem.drawItems?.length && pics.length > 0) {
+              resultItem.drawItems = pics.map(d => ({
+                src: d.url || d.src || '',
+                width: d.width || 0,
+                height: d.height || 0
+              }))
+            }
+          }
+
+          // 处理直播推荐动态
+          const liveRcmd = dynamicModule.dyn_live_rcmd?.card_info?.live_play_info
+          if (liveRcmd) {
+            resultItem.liveRoomId = liveRcmd.room_id || 0
+            resultItem.liveTitle = liveRcmd.title || ''
+            resultItem.liveCover = liveRcmd.cover || ''
+            resultItem.liveOnline = liveRcmd.online || 0
+            resultItem.liveArea = liveRcmd.area_name || ''
+            resultItem.liveLink = liveRcmd.link || ''
+            resultItem.liveUid = liveRcmd.uid || 0
+            if (!resultItem.cover) {
+              resultItem.cover = liveRcmd.cover || ''
+            }
+            if (!resultItem.title) {
+              resultItem.title = liveRcmd.title || ''
+            }
+          }
+
+          // 处理 dyn_archive 字段
+          const dynArchive = dynamicModule.dyn_archive || {}
+          if (dynArchive.bvid) {
+            resultItem.bvid = dynArchive.bvid || ''
+            resultItem.aid = dynArchive.aid || 0
+            resultItem.cid = dynArchive.cid || 0
+            resultItem.title = dynArchive.title || ''
+            resultItem.cover = dynArchive.cover || ''
+            resultItem.duration = dynArchive.duration_text || ''
+            resultItem.play = dynArchive.stat?.play || 0
+            resultItem.danmaku = dynArchive.stat?.danmaku || 0
+            if (dynArchive.pics?.length && !resultItem.drawItems?.length) {
+              resultItem.drawItems = dynArchive.pics.map(d => ({
+                src: d.src || '',
+                width: d.width || 0,
+                height: d.height || 0
+              }))
+            }
+          }
+
+          // 支持 majorModule.text 字段（纯文本动态）
+          if (majorModule.text && !resultItem.desc) {
+            resultItem.desc = extractDynamicText(majorModule.text)
           }
 
           // Article
@@ -189,7 +298,20 @@ function registerUpHandlers(deps) {
 
           // Forward content (orig)
           if (item.orig) {
-            const origModules = item.orig.modules || {}
+            // 处理 orig.modules 可能是数组或对象的情况
+            let origModules = item.orig.modules || {}
+            if (Array.isArray(origModules)) {
+              const moduleMap = {}
+              origModules.forEach(m => {
+                if (m.module_type === 'MODULE_TYPE_AUTHOR') {
+                  moduleMap.module_author = m.module_author || {}
+                } else if (m.module_type === 'MODULE_TYPE_DYNAMIC') {
+                  moduleMap.module_dynamic = m.module_dynamic || {}
+                }
+              })
+              origModules = moduleMap
+            }
+
             const origDynamicModule = origModules.module_dynamic || {}
             const origAuthorModule = origModules.module_author || {}
             const origMajor = origDynamicModule.major || {}
@@ -198,9 +320,10 @@ function registerUpHandlers(deps) {
             resultItem.orig = {
               id: item.orig.id_str || '',
               type: item.orig.type || '',
-              authorName: origAuthorModule.name || '',
-              authorFace: origAuthorModule.face || '',
-              desc: origDesc.text || ''
+              // 作者信息可能在 user 对象里，也可能直接在 origAuthorModule 里
+              authorName: origAuthorModule.user?.name || origAuthorModule.name || '',
+              authorFace: origAuthorModule.user?.face || origAuthorModule.face || '',
+              desc: extractDynamicText(origDesc)
             }
 
             if (origMajor.archive) {
@@ -208,9 +331,22 @@ function registerUpHandlers(deps) {
               resultItem.orig.title = origMajor.archive.title || ''
               resultItem.orig.cover = origMajor.archive.cover || ''
               resultItem.orig.duration = origMajor.archive.duration_text || ''
+              resultItem.orig.play = origMajor.archive.stat?.view || 0
+              resultItem.orig.danmaku = origMajor.archive.stat?.danmaku || 0
             }
-            if (origMajor.draw) {
-              resultItem.orig.drawItems = (origMajor.draw.items || []).map(d => ({
+            if (origMajor.draw?.items?.length) {
+              resultItem.orig.drawItems = origMajor.draw.items.map(d => ({
+                src: d.src || '', width: d.width || 0, height: d.height || 0
+              }))
+            }
+            // 支持 orig 的 dyn_draw 字段
+            if (origDynamicModule.dyn_draw?.items?.length && !resultItem.orig.drawItems?.length) {
+              resultItem.orig.drawItems = origDynamicModule.dyn_draw.items.map(d => ({
+                src: d.src || '', width: d.width || 0, height: d.height || 0
+              }))
+            }
+            if (origMajor.pics?.length && !resultItem.orig.drawItems?.length) {
+              resultItem.orig.drawItems = origMajor.pics.map(d => ({
                 src: d.src || '', width: d.width || 0, height: d.height || 0
               }))
             }
@@ -219,8 +355,23 @@ function registerUpHandlers(deps) {
               resultItem.orig.cover = resultItem.orig.cover || origMajor.article.covers?.[0] || ''
             }
             if (origMajor.opus) {
-              resultItem.orig.title = resultItem.orig.title || origMajor.opus.title || ''
-              resultItem.orig.cover = resultItem.orig.cover || origMajor.opus.cover || ''
+              const origOpus = origMajor.opus
+              resultItem.orig.title = resultItem.orig.title || origOpus.title || ''
+              resultItem.orig.cover = resultItem.orig.cover || origOpus.cover || ''
+              const origOpusText = extractDynamicText(null, origOpus.summary)
+              if (origOpusText && !resultItem.orig.desc) {
+                resultItem.orig.desc = origOpusText
+              }
+              const origPics = origOpus.pics || []
+              if (!resultItem.orig.drawItems?.length && origPics.length > 0) {
+                resultItem.orig.drawItems = origPics.map(d => ({
+                  src: d.url || d.src || '', width: d.width || 0, height: d.height || 0
+                }))
+              }
+            }
+            // 支持 orig 的 majorModule.text 字段
+            if (origMajor.text && !resultItem.orig.desc) {
+              resultItem.orig.desc = extractDynamicText(origMajor.text)
             }
           }
 

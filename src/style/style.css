@@ -123,6 +123,10 @@ body {
   color: #fb7299;
 }
 
+.nav-link:focus {
+  outline: none;
+}
+
 .nav-link.active {
   color: #fb7299;
 }

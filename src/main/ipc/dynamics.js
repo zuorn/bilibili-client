@@ -1,6 +1,55 @@
 // IPC handlers for dynamics-related operations
 
-function parseDynamicItem(item) {
+const DYNAMIC_FEATURES = 'itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,decorationCard,onlyfansAssetsV2,forwardListHidden,ugcDelete'
+
+function extractDynamicText(desc, summary) {
+  if (desc?.rich_text_nodes?.length) {
+    return desc.rich_text_nodes.map(n => {
+      if (n.type === 'RICH_TEXT_NODE_TYPE_EMOJI' && n.emoji?.icon_url) {
+        // 将emoji转换为图片标签
+        return `<img class="dynamic-emoji" src="${n.emoji.icon_url}" alt="${n.text || n.orig_text || ''}" title="${n.text || n.orig_text || ''}">`
+      }
+      if (n.type === 'RICH_TEXT_NODE_TYPE_TOPIC') {
+        // 将话题标签转换为可点击的链接
+        const topicName = n.text || n.orig_text || ''
+        const topicId = n.rid_str || ''
+        return `<span class="dynamic-topic" data-topic-id="${topicId}" data-topic-name="${topicName}">${topicName}</span>`
+      }
+      return n.text || n.orig_text || ''
+    }).join('')
+  }
+  if (desc?.text) return desc.text
+  if (typeof desc === 'string' && desc) return desc
+  if (!summary) return ''
+  if (typeof summary === 'string') return summary
+  if (summary.text) return summary.text
+  if (summary.rich_text_nodes?.length) {
+    return summary.rich_text_nodes.map(n => {
+      if (n.type === 'RICH_TEXT_NODE_TYPE_EMOJI' && n.emoji?.icon_url) {
+        // 将emoji转换为图片标签
+        return `<img class="dynamic-emoji" src="${n.emoji.icon_url}" alt="${n.text || n.orig_text || ''}" title="${n.text || n.orig_text || ''}">`
+      }
+      if (n.type === 'RICH_TEXT_NODE_TYPE_TOPIC') {
+        // 将话题标签转换为可点击的链接
+        const topicName = n.text || n.orig_text || ''
+        const topicId = n.rid_str || ''
+        return `<span class="dynamic-topic" data-topic-id="${topicId}" data-topic-name="${topicName}">${topicName}</span>`
+      }
+      return n.text || n.orig_text || ''
+    }).join('')
+  }
+  return ''
+}
+
+function mapPicItems(pics) {
+  return (pics || []).map(pic => ({
+    src: pic.src || pic.url || '',
+    width: pic.width || 0,
+    height: pic.height || 0
+  })).filter(p => p.src)
+}
+
+function parseDynamicItem(item, log) {
   // 处理 modules 可能是数组或对象的情况
   let modules = item.modules || {}
 
@@ -14,6 +63,8 @@ function parseDynamicItem(item) {
         moduleMap.module_dynamic = m.module_dynamic || {}
       } else if (m.module_type === 'MODULE_TYPE_STAT') {
         moduleMap.module_stat = m.module_stat || {}
+      } else if (m.module_type === 'MODULE_TYPE_DESC') {
+        moduleMap.module_desc = m.module_desc || {}
       }
     })
     modules = moduleMap
@@ -22,9 +73,23 @@ function parseDynamicItem(item) {
   const dynamicModule = modules.module_dynamic || {}
   const authorModule = modules.module_author || {}
   const majorModule = dynamicModule.major || {}
-  const desc = dynamicModule.desc || {}
+  const desc = modules.module_desc || dynamicModule.desc || {}
   const statModule = modules.module_stat || {}
   const dynStat = dynamicModule.stat || {}
+
+  // 输出动态类型用于调试
+  if (log) log('[动态解析] 动态类型:', item.type, '模块类型:', dynamicModule.type)
+
+  // 输出转发动态的文字内容
+  if (item.type === 'DYNAMIC_TYPE_FORWARD' && log) {
+    log('[转发动态] 文字内容:', extractDynamicText(desc))
+    log('[转发动态] desc对象:', JSON.stringify(desc))
+  }
+
+  // 输出直播推荐动态的完整数据结构
+  if (item.type === 'DYNAMIC_TYPE_LIVE_RCMD' && log) {
+    log('[直播推荐动态] 完整数据:', JSON.stringify(dynamicModule))
+  }
 
   const resultItem = {
     id: item.id_str || item.dynamic_id_str || '',
@@ -37,7 +102,7 @@ function parseDynamicItem(item) {
     pubTs: parseInt(authorModule.pub_ts) || 0,
     // pub_time 可能是 pub_text 或 pub_time
     pubTime: authorModule.pub_text || authorModule.pub_time || '',
-    desc: desc.text || '',
+    desc: extractDynamicText(desc),
     like: statModule.like?.count ?? dynStat.like ?? 0,
     comment: statModule.comment?.count ?? dynStat.comment ?? 0,
     forward_count: statModule.forward?.count ?? dynStat.forward ?? 0,
@@ -53,23 +118,28 @@ function parseDynamicItem(item) {
     drawItems: []
   }
 
-  const dynArchive = dynamicModule.dyn_archive || {}
-  
-  // 添加调试日志
-  if (dynArchive.dynamic_type === 2 || dynArchive.type === 2 || item.type === 2) {
-    console.log('[DEBUG] Image dynamic item:', JSON.stringify({
-      type: item.type,
-      dynArchive: {
-        type: dynArchive.type,
-        dynamic_type: dynArchive.dynamic_type,
-        hasDraw: !!majorModule.draw,
-        drawItems: majorModule.draw?.items?.length || 0,
-        hasPics: !!majorModule.pics,
-        picsLength: majorModule.pics?.length || 0
-      }
-    }, null, 2))
+  // 处理直播推荐动态
+  const liveRcmd = dynamicModule.dyn_live_rcmd?.card_info?.live_play_info
+  if (liveRcmd) {
+    resultItem.liveRoomId = liveRcmd.room_id || 0
+    resultItem.liveTitle = liveRcmd.title || ''
+    resultItem.liveCover = liveRcmd.cover || ''
+    resultItem.liveOnline = liveRcmd.online || 0
+    resultItem.liveArea = liveRcmd.area_name || ''
+    resultItem.liveLink = liveRcmd.link || ''
+    resultItem.liveUid = liveRcmd.uid || 0
+    // 设置封面和标题用于显示
+    if (!resultItem.cover) {
+      resultItem.cover = liveRcmd.cover || ''
+      resultItem.thumbnail = liveRcmd.cover || ''
+    }
+    if (!resultItem.title) {
+      resultItem.title = liveRcmd.title || ''
+    }
   }
-  
+
+  const dynArchive = dynamicModule.dyn_archive || {}
+
   if (dynArchive.bvid) {
     resultItem.bvid = dynArchive.bvid || ''
     resultItem.aid = dynArchive.aid || 0
@@ -96,24 +166,39 @@ function parseDynamicItem(item) {
   }
 
   if (majorModule.draw?.items?.length) {
-    resultItem.drawItems = majorModule.draw.items.map(pic => ({
-      src: pic.src || '',
-      width: pic.width || 0,
-      height: pic.height || 0
-    }))
-    if (!resultItem.thumbnail) {
+    resultItem.drawItems = mapPicItems(majorModule.draw.items)
+    if (!resultItem.thumbnail && resultItem.drawItems.length > 0) {
       resultItem.thumbnail = resultItem.drawItems[0].src
       resultItem.cover = resultItem.thumbnail
     }
   }
-  
+
+  // 支持 dyn_draw 字段（图片动态的主要存储位置）
+  if (dynamicModule.dyn_draw?.items?.length && !resultItem.drawItems.length) {
+    console.log('[动态解析] 检测到 dyn_draw 字段，图片数量:', dynamicModule.dyn_draw.items.length)
+    console.log('[动态解析] 图片详情:', JSON.stringify(dynamicModule.dyn_draw.items.map(item => ({
+      width: item.width,
+      height: item.height,
+      src: item.src
+    }))))
+    resultItem.drawItems = mapPicItems(dynamicModule.dyn_draw.items)
+    if (!resultItem.thumbnail && resultItem.drawItems.length > 0) {
+      resultItem.thumbnail = resultItem.drawItems[0].src
+      resultItem.cover = resultItem.thumbnail
+    }
+  }
+
+  if (majorModule.pics?.length && !resultItem.drawItems.length) {
+    resultItem.drawItems = mapPicItems(majorModule.pics)
+    if (!resultItem.thumbnail && resultItem.drawItems.length > 0) {
+      resultItem.thumbnail = resultItem.drawItems[0].src
+      resultItem.cover = resultItem.thumbnail
+    }
+  }
+
   // 支持 dynArchive.pics 字段（图片动态可能存储在这里）
   if (dynArchive.pics?.length && !resultItem.drawItems.length) {
-    resultItem.drawItems = dynArchive.pics.map(pic => ({
-      src: pic.src || pic.url || '',
-      width: pic.width || 0,
-      height: pic.height || 0
-    }))
+    resultItem.drawItems = mapPicItems(dynArchive.pics)
     if (!resultItem.thumbnail && resultItem.drawItems.length > 0) {
       resultItem.thumbnail = resultItem.drawItems[0].src
       resultItem.cover = resultItem.thumbnail
@@ -124,12 +209,24 @@ function parseDynamicItem(item) {
     const opus = majorModule.opus
     resultItem.title = resultItem.title || opus.title || ''
     resultItem.cover = resultItem.cover || opus.cover || ''
+    const opusText = extractDynamicText(null, opus.summary)
+    resultItem.opusSummary = opusText
+    if (opusText && !resultItem.desc) {
+      resultItem.desc = opusText
+    }
     const pics = opus.pics || []
     if (!resultItem.cover && pics.length > 0) {
-      resultItem.cover = pics[0].url || ''
+      resultItem.cover = pics[0].url || pics[0].src || ''
     }
-    resultItem.thumbnail = resultItem.thumbnail || resultItem.cover
-    resultItem.opusSummary = opus.summary || ''
+    if (!resultItem.drawItems.length && pics.length > 0) {
+      resultItem.drawItems = mapPicItems(pics)
+      if (!resultItem.thumbnail && resultItem.drawItems.length > 0) {
+        resultItem.thumbnail = resultItem.drawItems[0].src
+        resultItem.cover = resultItem.thumbnail
+      }
+    } else {
+      resultItem.thumbnail = resultItem.thumbnail || resultItem.cover
+    }
   }
 
   if (majorModule.article) {
@@ -141,9 +238,11 @@ function parseDynamicItem(item) {
     resultItem.articleId = article.id || 0
   }
 
-  if (item.orig) {
+  // 处理转发动态 - 支持 item.orig、dynamicModule.orig 和 dynamicModule.dyn_forward.item 三种数据结构
+  const origData = item.orig || dynamicModule.orig || dynamicModule.dyn_forward?.item
+  if (origData) {
     // 处理 orig.modules 可能是数组或对象的情况
-    let origModules = item.orig.modules || {}
+    let origModules = origData.modules || {}
     if (Array.isArray(origModules)) {
       const moduleMap = {}
       origModules.forEach(m => {
@@ -164,12 +263,12 @@ function parseDynamicItem(item) {
     const origDesc = origDynamicModule.desc || {}
 
     resultItem.orig = {
-      id: item.orig.id_str || '',
-      type: item.orig.type || '',
+      id: origData.id_str || '',
+      type: origData.type || '',
       // 作者信息可能在 user 对象里，也可能直接在 origAuthorModule 里
       authorName: origAuthorModule.user?.name || origAuthorModule.name || '',
       authorFace: origAuthorModule.user?.face || origAuthorModule.face || '',
-      desc: origDesc.text || ''
+      desc: extractDynamicText(origDesc)
     }
 
     if (origMajor.archive) {
@@ -182,18 +281,40 @@ function parseDynamicItem(item) {
       resultItem.orig.danmaku = origMajor.archive.stat?.danmaku || 0
     }
     if (origMajor.draw?.items?.length) {
-      resultItem.orig.drawItems = origMajor.draw.items.map(d => ({
-        src: d.src || '', width: d.width || 0, height: d.height || 0
-      }))
+      resultItem.orig.drawItems = mapPicItems(origMajor.draw.items)
+    }
+    // 支持 orig 的 dyn_draw 字段
+    if (origDynamicModule.dyn_draw?.items?.length && !resultItem.orig.drawItems?.length) {
+      resultItem.orig.drawItems = mapPicItems(origDynamicModule.dyn_draw.items)
+    }
+    if (origMajor.pics?.length && !resultItem.orig.drawItems?.length) {
+      resultItem.orig.drawItems = mapPicItems(origMajor.pics)
     }
     if (origMajor.article) {
       resultItem.orig.title = resultItem.orig.title || origMajor.article.title || ''
       resultItem.orig.cover = resultItem.orig.cover || origMajor.article.covers?.[0] || ''
     }
     if (origMajor.opus) {
-      resultItem.orig.title = resultItem.orig.title || origMajor.opus.title || ''
-      resultItem.orig.cover = resultItem.orig.cover || origMajor.opus.cover || ''
+      const origOpus = origMajor.opus
+      resultItem.orig.title = resultItem.orig.title || origOpus.title || ''
+      resultItem.orig.cover = resultItem.orig.cover || origOpus.cover || ''
+      const origOpusText = extractDynamicText(null, origOpus.summary)
+      if (origOpusText && !resultItem.orig.desc) {
+        resultItem.orig.desc = origOpusText
+      }
+      const origPics = origOpus.pics || []
+      if (!resultItem.orig.drawItems?.length && origPics.length > 0) {
+        resultItem.orig.drawItems = mapPicItems(origPics)
+      }
+      if (!resultItem.orig.cover && origPics.length > 0) {
+        resultItem.orig.cover = origPics[0].url || origPics[0].src || ''
+      }
     }
+  }
+
+  // 支持 majorModule.text 字段（纯文本动态）
+  if (majorModule.text && !resultItem.desc) {
+    resultItem.desc = extractDynamicText(majorModule.text)
   }
 
   return resultItem
@@ -255,7 +376,7 @@ function registerDynamicsHandlers(deps) {
     log('get-all-dynamics called, offset:', offset)
     try {
       const timezoneOffset = -480
-      const url = `https://api.bilibili.com/x/polymer/web-dynamic/desktop/v1/feed/all?page=1&update_baseline=&offset=${offset}&host_mid=0&timezone_offset=${timezoneOffset}&build=11706&platform=web&device=win&mobi_app=pc_electron`
+      const url = `https://api.bilibili.com/x/polymer/web-dynamic/desktop/v1/feed/all?page=1&update_baseline=&offset=${offset}&host_mid=0&timezone_offset=${timezoneOffset}&build=11706&platform=web&device=win&mobi_app=pc_electron&features=${DYNAMIC_FEATURES}`
       log('Using dynamic feed API:', url)
       const result = await fetchApi(url)
 
@@ -272,7 +393,7 @@ function registerDynamicsHandlers(deps) {
           log('Last item id:', items[items.length - 1].id)
         }
 
-        const dynamics = items.map(parseDynamicItem)
+        const dynamics = items.map(item => parseDynamicItem(item, log))
 
         let actualNextOffset = nextOffset
         if (!actualNextOffset && items.length > 0) {
@@ -299,16 +420,17 @@ function registerDynamicsHandlers(deps) {
     }
   })
 
-  ipcMain.handle('get-user-dynamics', async (event, upMid = null, offset = '') => {
-    log('get-user-dynamics called, upMid:', upMid, 'offset:', offset)
+  ipcMain.handle('get-user-dynamics', async (event, upMid = null, offset = '', type = '') => {
+    log('get-user-dynamics called, upMid:', upMid, 'offset:', offset, 'type:', type)
     try {
       let url
       if (upMid) {
-        url = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=' + upMid + '&type=video'
-        if (offset) url += '&offset=' + offset
+        url = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=${upMid}&timezone_offset=-480&platform=web&features=${DYNAMIC_FEATURES}`
+        if (type) url += `&type=${type}`
+        if (offset) url += `&offset=${offset}`
       } else {
         const timezoneOffset = -480
-        url = `https://api.bilibili.com/x/polymer/web-dynamic/desktop/v1/feed/all?page=1&update_baseline=&offset=${offset}&host_mid=0&timezone_offset=${timezoneOffset}&build=11706&platform=web&device=win&mobi_app=pc_electron`
+        url = `https://api.bilibili.com/x/polymer/web-dynamic/desktop/v1/feed/all?page=1&update_baseline=&offset=${offset}&host_mid=0&timezone_offset=${timezoneOffset}&build=11706&platform=web&device=win&mobi_app=pc_electron&features=${DYNAMIC_FEATURES}`
       }
       log('Using dynamic API URL:', url)
       const result = await fetchApi(url)
@@ -326,7 +448,7 @@ function registerDynamicsHandlers(deps) {
           log('Last item id:', items[items.length - 1].id)
         }
 
-        const dynamics = items.map(parseDynamicItem)
+        const dynamics = items.map(item => parseDynamicItem(item, log))
 
         let actualNextOffset = nextOffset
         if (!actualNextOffset && items.length > 0) {

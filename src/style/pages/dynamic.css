@@ -3,6 +3,41 @@
   background-color: #ffffff;
 }
 
+/* 动态emoji样式 */
+.dynamic-emoji {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  vertical-align: middle;
+  margin: 0 2px;
+}
+
+.dynamic-desc .dynamic-emoji,
+.dynamic-orig-desc .dynamic-emoji {
+  width: 20px;
+  height: 20px;
+}
+
+/* 话题标签样式 */
+.dynamic-topic {
+  color: #008ac5;
+  cursor: pointer;
+  font-weight: 500;
+}
+
+.dynamic-topic:hover {
+  color: #00a1d6;
+  text-decoration: underline;
+}
+
+body.dark-theme .dynamic-topic {
+  color: #00d4ff;
+}
+
+body.dark-theme .dynamic-topic:hover {
+  color: #00e5ff;
+}
+
 .dynamic-header {
   background-color: #fff;
   padding: 20px;
@@ -323,6 +358,11 @@ aside.dynamic-sidebar .following-name {
   flex-shrink: 0;
 }
 
+.dynamic-author-info {
+  display: flex;
+  flex-direction: column;
+}
+
 .dynamic-author {
   font-weight: 600;
   color: #18191c;
@@ -349,6 +389,7 @@ aside.dynamic-sidebar .following-name {
   line-height: 1.6;
   margin-bottom: 12px;
   word-break: break-word;
+  white-space: pre-wrap;
 }
 
 .dynamic-video-card {
@@ -455,6 +496,35 @@ aside.dynamic-sidebar .following-name {
   object-fit: cover;
 }
 
+/* 长图样式 */
+.dynamic-image-long {
+  aspect-ratio: auto;
+  max-height: 400px;
+  position: relative;
+}
+
+.dynamic-image-long::after {
+  content: '点击查看长图';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  color: #fff;
+  font-size: 12px;
+  text-align: center;
+  pointer-events: none;
+}
+
+.dynamic-image-long img {
+  width: 100%;
+  height: auto;
+  max-height: 400px;
+  object-fit: contain;
+  object-position: top;
+}
+
 .dynamic-image-more {
   position: absolute;
   bottom: 0;
@@ -534,6 +604,7 @@ aside.dynamic-sidebar .following-name {
   font-size: 13px;
   color: #61666d;
   margin-bottom: 12px;
+  white-space: pre-wrap;
 }
 
 .dynamic-forward-video {
@@ -703,8 +774,8 @@ body.dark-theme .dynamic-tabs-wrapper {
 /* Image preview modal */
 .image-preview-modal {
   position: fixed;
-  top: 64px;
-  left: 88px;
+  top: 0;
+  left: 0;
   right: 0;
   bottom: 0;
   z-index: 1000;
@@ -761,11 +832,136 @@ body.dark-theme .dynamic-tabs-wrapper {
   transition: background-color 0.2s;
   outline: none;
   box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+}
+
+.image-preview-download svg,
+.image-preview-close svg {
+  width: 20px;
+  height: 20px;
 }
 
 .image-preview-download:hover,
 .image-preview-close:hover {
   background-color: rgba(0, 0, 0, 0.8);
+}
+
+/* 直播推荐动态样式 */
+.dynamic-live-card {
+  position: relative;
+  margin-top: 12px;
+  border-radius: 8px;
+  overflow: hidden;
+  background-color: #f4f4f4;
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.dynamic-live-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.dynamic-live-badge {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  background-color: #ff6699;
+  color: #fff;
+  padding: 4px 12px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 500;
+  z-index: 2;
+}
+
+.dynamic-live-cover {
+  position: relative;
+  width: 100%;
+  padding-top: 56.25%;
+  overflow: hidden;
+}
+
+.dynamic-live-cover img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dynamic-live-stats {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  padding: 8px 12px;
+  background: linear-gradient(transparent, rgba(0, 0, 0, 0.7));
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.dynamic-live-online {
+  color: #fff;
+  font-size: 13px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dynamic-live-online::before {
+  content: '';
+  width: 8px;
+  height: 8px;
+  background-color: #ff6699;
+  border-radius: 50%;
+  animation: live-pulse 2s infinite;
+}
+
+@keyframes live-pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.dynamic-live-area {
+  color: #fff;
+  font-size: 13px;
+  padding: 2px 8px;
+  background-color: rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+}
+
+.dynamic-live-info {
+  padding: 12px;
+}
+
+.dynamic-live-title {
+  font-size: 14px;
+  font-weight: 500;
+  color: #333;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 暗色主题下的直播推荐动态样式 */
+body.dark-theme .dynamic-live-card {
+  background-color: #2a2a2a;
+}
+
+body.dark-theme .dynamic-live-title {
+  color: #fff;
 }
 
 .image-preview-prev,
@@ -786,6 +982,17 @@ body.dark-theme .dynamic-tabs-wrapper {
   transition: opacity 0.3s, visibility 0.3s;
   outline: none;
   box-shadow: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 50px;
+  height: 50px;
+}
+
+.image-preview-prev svg,
+.image-preview-next svg {
+  width: 24px;
+  height: 24px;
 }
 
 .image-preview-prev {

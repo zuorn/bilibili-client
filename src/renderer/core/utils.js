@@ -136,3 +136,26 @@ function escapeHtml(str) {
   div.textContent = str
   return div.innerHTML
 }
+
+function escapeHtmlWithEmoji(str) {
+  if (!str) return ''
+  // 临时替换emoji图片标签（自闭合）和话题标签
+  const placeholders = []
+  // 匹配自闭合的img标签和有闭合标签的span标签
+  let processedStr = str.replace(/<img class="dynamic-emoji"[^>]*\/?>|<span class="dynamic-topic"[^>]*>.*?<\/span>/g, (match) => {
+    placeholders.push(match)
+    return `__PLACEHOLDER_${placeholders.length - 1}__`
+  })
+
+  // 转义HTML
+  const div = document.createElement('div')
+  div.textContent = processedStr
+  let escaped = div.innerHTML
+
+  // 恢复emoji图片标签和话题标签
+  placeholders.forEach((tag, index) => {
+    escaped = escaped.replace(`__PLACEHOLDER_${index}__`, tag)
+  })
+
+  return escaped
+}

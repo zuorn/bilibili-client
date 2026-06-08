@@ -1,3 +1,36 @@
+const dynamicPageImageObserver = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const img = entry.target
+      if (img.dataset.src) {
+        img.src = img.dataset.src
+        img.removeAttribute('data-src')
+      }
+      dynamicPageImageObserver.unobserve(img)
+    }
+  })
+}, { rootMargin: '800px' })
+
+function observeDynamicPageImages(container) {
+  container.querySelectorAll('img[data-src]').forEach(img => {
+    dynamicPageImageObserver.observe(img)
+  })
+}
+
+function getDynamicDisplayText(d) {
+  if (typeof d.desc === 'string' && d.desc) return d.desc
+  if (d.desc?.text) return d.desc.text
+  if (d.desc?.rich_text_nodes?.length) {
+    return d.desc.rich_text_nodes.map(n => n.text || n.orig_text || '').join('')
+  }
+  if (typeof d.opusSummary === 'string') return d.opusSummary
+  if (d.opusSummary?.text) return d.opusSummary.text
+  if (d.opusSummary?.rich_text_nodes?.length) {
+    return d.opusSummary.rich_text_nodes.map(n => n.text || n.orig_text || '').join('')
+  }
+  return ''
+}
+
 function formatDynamicViews(num) {
   if (num >= 10000) {
     return (num / 10000).toFixed(1) + '万'
@@ -65,10 +98,10 @@ async function fetchFollowings(mid) {
   return []
 }
 
-async function fetchDynamics(upMid = null, offset = '') {
-  console.log('=== fetchDynamics called ===', { upMid, offset })
+async function fetchDynamics(upMid = null, offset = '', type = '') {
+  console.log('=== fetchDynamics called ===', { upMid, offset, type })
   try {
-    const result = await ipcRenderer.invoke('get-user-dynamics', upMid, offset)
+    const result = await ipcRenderer.invoke('get-user-dynamics', upMid, offset, type)
     console.log('fetchDynamics result:', result)
     if (result.success && result.data) {
       const items = result.data.items || []
@@ -197,7 +230,7 @@ function renderDynamicVideos(dynamics, onAuthorClick) {
   if (!videoContainer) return
 
   dynamics.forEach((dynamic, index) => {
-    if (dynamic.bvid || dynamic.thumbnail || dynamic.cover) {
+    if (dynamic.bvid) {
       const eager = index < EAGER_COUNT
       const card = createDynamicVideoCard(dynamic, { eager })
       const info = createDynamicVideoInfo(dynamic, onAuthorClick)
@@ -220,7 +253,7 @@ async function loadDynamicVideos(upId = null, offset = '') {
   if (noMore) noMore.style.display = 'none'
 
   try {
-    const result = await fetchDynamics(upId, offset)
+    const result = await fetchDynamics(upId, offset, 'video')
 
     if (result.items.length > 0) {
       renderDynamicVideos(result.items, navigateToUP)
@@ -270,15 +303,17 @@ function createDynamicCard(d) {
   if (d.authorFace) {
     headerHtml += `<img class="dynamic-avatar dynamic-author-click" data-mid="${d.authorMid}" src="${optimizeCoverUrl(d.authorFace, 48, 48)}" alt="" onerror="this.style.display='none'">`
   }
+  headerHtml += '<div class="dynamic-author-info">'
   headerHtml += `<span class="dynamic-author dynamic-author-click" data-mid="${d.authorMid}">${escapeHtml(d.authorName)}</span>`
   headerHtml += `<span class="dynamic-time">${d.pubTime || timeAgo(d.pubTs)}</span>`
   headerHtml += '</div>'
+  headerHtml += '</div>'
 
   let bodyHtml = ''
-  const desc = d.desc
+  const desc = getDynamicDisplayText(d)
 
   if (desc) {
-    bodyHtml += `<div class="dynamic-desc">${escapeHtml(desc)}</div>`
+    bodyHtml += `<div class="dynamic-desc">${escapeHtmlWithEmoji(desc)}</div>`
   }
 
   if (d.bvid) {
@@ -297,7 +332,10 @@ function createDynamicCard(d) {
     const drawItemsStr = JSON.stringify(d.drawItems.map(p => fixImageUrl(p.src)))
     bodyHtml += `<div class="dynamic-images" data-images='${drawItemsStr}'>`
     d.drawItems.slice(0, 9).forEach((pic, index) => {
-      bodyHtml += `<div class="dynamic-image-item" data-index="${index}"><img data-src="${optimizeCoverUrl(pic.src, 300, 300)}" alt="" loading="lazy" decoding="async"></div>`
+      // 检测长图（高度是宽度的2倍以上）
+      const isLongImage = pic.height && pic.width && pic.height / pic.width >= 2
+      const longClass = isLongImage ? 'dynamic-image-long' : ''
+      bodyHtml += `<div class="dynamic-image-item ${longClass}" data-index="${index}"><img data-src="${optimizeCoverUrl(pic.src, 300, 300)}" alt="" loading="lazy" decoding="async"></div>`
     })
     if (count > 9) {
       bodyHtml += `<div class="dynamic-image-more">+${count - 9}</div>`
@@ -315,10 +353,23 @@ function createDynamicCard(d) {
     bodyHtml += '</div>'
   }
 
+  // 直播推荐动态
+  if (d.liveRoomId) {
+    bodyHtml += `<div class="dynamic-live-card" data-room-id="${d.liveRoomId}" data-live-link="${d.liveLink || ''}">`
+    bodyHtml += '<div class="dynamic-live-badge">直播中</div>'
+    if (d.liveCover) {
+      bodyHtml += `<div class="dynamic-live-cover"><img data-src="${optimizeCoverUrl(d.liveCover, 672, 378)}" alt="" loading="lazy" decoding="async">`
+      bodyHtml += `<div class="dynamic-live-stats"><span class="dynamic-live-online">${formatCount(d.liveOnline)}观看</span><span class="dynamic-live-area">${escapeHtml(d.liveArea || '')}</span></div>`
+      bodyHtml += '</div>'
+    }
+    bodyHtml += `<div class="dynamic-live-info"><div class="dynamic-live-title">${escapeHtml(d.liveTitle || '')}</div></div>`
+    bodyHtml += '</div>'
+  }
+
   if (d.orig && d.orig.id) {
     bodyHtml += '<div class="dynamic-forward">'
     bodyHtml += `<div class="dynamic-forward-header"><span>@${escapeHtml(d.orig.authorName || '')}</span></div>`
-    bodyHtml += `<div class="dynamic-forward-desc">${escapeHtml(d.orig.desc || '')}</div>`
+    bodyHtml += `<div class="dynamic-forward-desc">${escapeHtmlWithEmoji(d.orig.desc || '')}</div>`
     if (d.orig.bvid) {
       bodyHtml += `<div class="dynamic-forward-video video-card" data-bvid="${d.orig.bvid}" data-cid="${d.orig.cid || ''}">`
       bodyHtml += `<div class="dynamic-video-info"><div class="dynamic-video-title">${escapeHtml(d.orig.title || '')}</div></div>`
@@ -333,7 +384,10 @@ function createDynamicCard(d) {
       const origDrawItemsStr = JSON.stringify(d.orig.drawItems.map(p => fixImageUrl(p.src)))
       bodyHtml += `<div class="dynamic-images" data-images='${origDrawItemsStr}'>`
       d.orig.drawItems.slice(0, 9).forEach((pic, index) => {
-        bodyHtml += `<div class="dynamic-image-item" data-index="${index}"><img data-src="${optimizeCoverUrl(pic.src, 300, 300)}" alt="" loading="lazy" decoding="async"></div>`
+        // 检测长图（高度是宽度的2倍以上）
+        const isLongImage = pic.height && pic.width && pic.height / pic.width >= 2
+        const longClass = isLongImage ? 'dynamic-image-long' : ''
+        bodyHtml += `<div class="dynamic-image-item ${longClass}" data-index="${index}"><img data-src="${optimizeCoverUrl(pic.src, 300, 300)}" alt="" loading="lazy" decoding="async"></div>`
       })
       bodyHtml += '</div>'
     }
@@ -359,6 +413,19 @@ function createDynamicCard(d) {
       e.stopPropagation()
       const mid = el.dataset.mid
       if (mid) navigateToUP(mid)
+    })
+  })
+
+  // 点击话题标签进行搜索
+  card.querySelectorAll('.dynamic-topic').forEach(el => {
+    el.style.cursor = 'pointer'
+    el.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const topicName = el.dataset.topicName
+      if (topicName) {
+        // 跳转到搜索页面，搜索话题
+        window.location.hash = `#/search/${encodeURIComponent(topicName)}`
+      }
     })
   })
 
@@ -399,6 +466,8 @@ async function loadDynamicContent(upId = null, offset = '') {
             img.src = img.dataset.src
             img.removeAttribute('data-src')
           })
+        } else {
+          observeDynamicPageImages(card)
         }
       })
 
@@ -614,22 +683,11 @@ function initImagePreview() {
     }
   })
 
-  // 关闭按钮
-  const closeBtn = document.getElementById('imagePreviewClose')
-  if (closeBtn) {
-    closeBtn.addEventListener('click', closeImagePreview)
-  }
-
-  // 遮罩层点击关闭
-  const overlay = document.getElementById('imagePreviewOverlay')
-  if (overlay) {
-    overlay.addEventListener('click', closeImagePreview)
-  }
-
   // 上一张按钮
   const prevBtn = document.getElementById('imagePreviewPrev')
   if (prevBtn) {
-    prevBtn.addEventListener('click', () => {
+    prevBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
       if (dynamicPreviewIndex > 0) {
         dynamicPreviewIndex--
         updateImagePreview()
@@ -640,7 +698,8 @@ function initImagePreview() {
   // 下一张按钮
   const nextBtn = document.getElementById('imagePreviewNext')
   if (nextBtn) {
-    nextBtn.addEventListener('click', () => {
+    nextBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
       if (dynamicPreviewIndex < dynamicPreviewImages.length - 1) {
         dynamicPreviewIndex++
         updateImagePreview()
@@ -651,7 +710,31 @@ function initImagePreview() {
   // 下载按钮
   const downloadBtn = document.getElementById('imagePreviewDownload')
   if (downloadBtn) {
-    downloadBtn.addEventListener('click', downloadCurrentImage)
+    downloadBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      downloadCurrentImage()
+    })
+  }
+
+  // 关闭按钮
+  const closeBtn = document.getElementById('imagePreviewClose')
+  if (closeBtn) {
+    closeBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      closeImagePreview()
+    })
+  }
+
+  // 遮罩层点击关闭
+  const overlay = document.getElementById('imagePreviewOverlay')
+  if (overlay) {
+    overlay.addEventListener('click', closeImagePreview)
+  }
+
+  // 图片区域点击关闭（点击非按钮区域关闭）
+  const mainArea = document.getElementById('imagePreviewMain')
+  if (mainArea) {
+    mainArea.addEventListener('click', closeImagePreview)
   }
 
   // 缩略图点击
