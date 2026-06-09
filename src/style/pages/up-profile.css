@@ -605,17 +605,31 @@
 /* Footer */
 .up-dynamic-footer {
   display: flex;
-  gap: 20px;
-  padding-top: 10px;
+  justify-content: center;
+  align-items: center;
+  gap: 48px;
+  padding-top: 12px;
+  padding-bottom: 8px;
   border-top: 1px solid #f1f2f3;
 }
 
 .up-dynamic-stat {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #9499a0;
+  gap: 6px;
+  font-size: 14px;
+  color: #61666d;
+  cursor: pointer;
+  transition: color 0.2s;
+  user-select: none;
+}
+
+.up-dynamic-stat svg {
+  flex-shrink: 0;
+}
+
+.up-dynamic-stat:hover {
+  color: #fb7299;
 }
 
 /* Placeholder */

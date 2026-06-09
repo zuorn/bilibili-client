@@ -10,6 +10,24 @@ function extractDynamicText(desc, summary) {
         const topicId = n.rid_str || ''
         return `<span class="dynamic-topic" data-topic-id="${topicId}" data-topic-name="${topicName}">${topicName}</span>`
       }
+      if (n.type === 'RICH_TEXT_NODE_TYPE_AT' && n.data?.uid) {
+        // @提及用户
+        const userName = n.text || n.orig_text || ''
+        const uid = n.data.uid || ''
+        return `<span class="dynamic-at" data-uid="${uid}">@${userName}</span>`
+      }
+      if (n.type === 'RICH_TEXT_NODE_TYPE_LINK') {
+        // 链接
+        const linkText = n.text || n.orig_text || ''
+        const linkUrl = n.data?.url || ''
+        // 检查是否是视频链接（包含bvid）
+        const bvidMatch = linkUrl.match(/bvid=([^&]+)/)
+        if (bvidMatch) {
+          const bvid = bvidMatch[1]
+          return `<span class="dynamic-video-link" data-bvid="${bvid}">${linkText}</span>`
+        }
+        return `<a class="dynamic-link" href="${linkUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`
+      }
       return n.text || n.orig_text || ''
     }).join('')
   }
@@ -27,6 +45,24 @@ function extractDynamicText(desc, summary) {
         const topicName = n.text || n.orig_text || ''
         const topicId = n.rid_str || ''
         return `<span class="dynamic-topic" data-topic-id="${topicId}" data-topic-name="${topicName}">${topicName}</span>`
+      }
+      if (n.type === 'RICH_TEXT_NODE_TYPE_AT' && n.data?.uid) {
+        // @提及用户
+        const userName = n.text || n.orig_text || ''
+        const uid = n.data.uid || ''
+        return `<span class="dynamic-at" data-uid="${uid}">@${userName}</span>`
+      }
+      if (n.type === 'RICH_TEXT_NODE_TYPE_LINK') {
+        // 链接
+        const linkText = n.text || n.orig_text || ''
+        const linkUrl = n.data?.url || ''
+        // 检查是否是视频链接（包含bvid）
+        const bvidMatch = linkUrl.match(/bvid=([^&]+)/)
+        if (bvidMatch) {
+          const bvid = bvidMatch[1]
+          return `<span class="dynamic-video-link" data-bvid="${bvid}">${linkText}</span>`
+        }
+        return `<a class="dynamic-link" href="${linkUrl}" target="_blank" rel="noopener noreferrer">${linkText}</a>`
       }
       return n.text || n.orig_text || ''
     }).join('')

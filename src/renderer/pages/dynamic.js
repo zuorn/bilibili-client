@@ -31,6 +31,73 @@ function getDynamicDisplayText(d) {
   return ''
 }
 
+// 生成带展开/收起功能的文本HTML
+function createExpandableText(text, maxLength = 500) {
+  if (!text) return ''
+  
+  // 移除开头的空白字符（解决第一行缩进问题）
+  let processedText = text.replace(/^[\s\n]+/, '')
+  // 将换行符转换为<br>标签
+  processedText = processedText.replace(/\n/g, '<br>')
+  
+  // 计算文本长度（只计算纯文本内容，不计算HTML标签）
+  const tempDiv = document.createElement('div')
+  tempDiv.innerHTML = processedText
+  const plainText = tempDiv.textContent || tempDiv.innerText || ''
+  
+  let charCount = 0
+  for (let i = 0; i < plainText.length; i++) {
+    charCount += /[\u4e00-\u9fa5]/.test(plainText[i]) ? 2 : 1
+  }
+  
+  // 如果文本长度未超过限制，直接返回
+  if (charCount <= maxLength) {
+    return processedText
+  }
+  
+  // 需要截取，保留HTML标签的同时截取文本
+  let truncatedHtml = ''
+  let currentLength = 0
+  let i = 0
+  
+  while (i < processedText.length && currentLength < maxLength) {
+    // 检查是否遇到HTML标签
+    if (processedText[i] === '<') {
+      // 找到标签结束位置
+      const tagEnd = processedText.indexOf('>', i)
+      if (tagEnd !== -1) {
+        // 将整个标签添加到结果中
+        truncatedHtml += processedText.substring(i, tagEnd + 1)
+        i = tagEnd + 1
+        continue
+      }
+    }
+    
+    const char = processedText[i]
+    // 跳过<br>标签已处理的换行符
+    if (char === '<') {
+      i++
+      continue
+    }
+    
+    const charLen = /[\u4e00-\u9fa5]/.test(char) ? 2 : 1
+    if (currentLength + charLen <= maxLength) {
+      truncatedHtml += char
+      currentLength += charLen
+    } else {
+      break
+    }
+    i++
+  }
+  
+  // 生成带展开收起按钮的HTML
+  return `
+    <span class="dynamic-desc-text">${truncatedHtml}...</span>
+    <span class="dynamic-desc-full" style="display: none;">${processedText}</span>
+    <span class="dynamic-desc-expand-btn" data-expanded="false">展开全部</span>
+  `
+}
+
 function formatDynamicViews(num) {
   if (num >= 10000) {
     return (num / 10000).toFixed(1) + '万'
@@ -313,7 +380,7 @@ function createDynamicCard(d) {
   const desc = getDynamicDisplayText(d)
 
   if (desc) {
-    bodyHtml += `<div class="dynamic-desc">${escapeHtmlWithEmoji(desc)}</div>`
+    bodyHtml += `<div class="dynamic-desc">${createExpandableText(desc)}</div>`
   }
 
   if (d.bvid) {
@@ -368,10 +435,10 @@ function createDynamicCard(d) {
 
   if (d.orig && d.orig.id) {
     bodyHtml += '<div class="dynamic-forward">'
-    bodyHtml += `<div class="dynamic-forward-header"><span>@${escapeHtml(d.orig.authorName || '')}</span></div>`
+    bodyHtml += `<div class="dynamic-forward-header"><span class="dynamic-forward-author" data-mid="${d.orig.authorMid || 0}">@${escapeHtml(d.orig.authorName || '')}</span></div>`
     bodyHtml += `<div class="dynamic-forward-desc">${escapeHtmlWithEmoji(d.orig.desc || '')}</div>`
     if (d.orig.bvid) {
-      bodyHtml += `<div class="dynamic-forward-video video-card" data-bvid="${d.orig.bvid}" data-cid="${d.orig.cid || ''}">`
+      bodyHtml += `<div class="dynamic-forward-video video-card" data-bvid="${d.orig.bvid}" data-cid="${d.orig.cid || ''}" data-title="${escapeHtml(d.orig.title || '')}">`
       bodyHtml += `<div class="dynamic-video-info"><div class="dynamic-video-title">${escapeHtml(d.orig.title || '')}</div></div>`
       if (d.orig.cover) {
         bodyHtml += `<div class="dynamic-forward-cover video-thumbnail"><img class="dynamic-video-cover" data-src="${optimizeCoverUrl(d.orig.cover, 672, 378)}" alt="" loading="lazy" decoding="async">`
@@ -394,14 +461,14 @@ function createDynamicCard(d) {
     bodyHtml += '</div>'
   }
 
-  if (d.cover && !d.bvid && !(d.drawItems && d.drawItems.length > 0)) {
+  if (d.cover && !d.bvid && !(d.drawItems && d.drawItems.length > 0) && !d.liveRoomId) {
     bodyHtml += `<div class="dynamic-cover-img"><img data-src="${optimizeCoverUrl(d.cover, 500, 300)}" alt="" loading="lazy" decoding="async"></div>`
   }
 
   let footerHtml = '<div class="dynamic-footer">'
-  footerHtml += `<span class="dynamic-stat"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/></svg>${formatCount(d.like) || ''}</span>`
-  footerHtml += `<span class="dynamic-stat"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>${formatCount(d.comment) || ''}</span>`
-  footerHtml += `<span class="dynamic-stat"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 1 21 5 17 9"/><path d="M3 11V9a4 4 0 0 1 4-4h14"/><polyline points="7 23 3 19 7 15"/><path d="M21 13v2a4 4 0 0 1-4 4H3"/></svg>${formatCount(d.forward_count) || ''}</span>`
+  footerHtml += `<span class="dynamic-stat"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" y1="2" x2="12" y2="15"/></svg>转发</span>`
+  footerHtml += `<span class="dynamic-stat"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>${formatCount(d.comment) || ''}</span>`
+  footerHtml += `<span class="dynamic-stat"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9V5a3 3 0 0 0-3-3l-4 9v11h11.28a2 2 0 0 0 2-1.7l1.38-9a2 2 0 0 0-2-2.3zM7 22H4a2 2 0 0 1-2-2v-7a2 2 0 0 1 2-2h3"/></svg>${formatCount(d.like) || ''}</span>`
   footerHtml += '</div>'
 
   card.innerHTML = headerHtml + bodyHtml + footerHtml
@@ -426,6 +493,77 @@ function createDynamicCard(d) {
         // 跳转到搜索页面，搜索话题
         window.location.hash = `#/search/${encodeURIComponent(topicName)}`
       }
+    })
+  })
+
+  // 转发作者名称点击事件
+  card.querySelectorAll('.dynamic-forward-author').forEach(el => {
+    el.style.cursor = 'pointer'
+    el.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const mid = el.dataset.mid
+      if (mid) navigateToUP(mid)
+    })
+  })
+
+  // 转发视频点击事件
+  card.querySelectorAll('.dynamic-forward-video.video-card').forEach(el => {
+    el.style.cursor = 'pointer'
+    el.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const bvid = el.dataset.bvid
+      const cid = el.dataset.cid || ''
+      const title = el.dataset.title || ''
+      if (bvid) {
+        playVideo(bvid, cid, title)
+      }
+    })
+  })
+
+  // 展开/收起按钮点击事件
+  card.querySelectorAll('.dynamic-desc-expand-btn').forEach(el => {
+    el.style.cursor = 'pointer'
+    el.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const isExpanded = el.dataset.expanded === 'true'
+      // 获取兄弟元素：.dynamic-desc-full（完整文本）是按钮的前一个元素
+      const descFull = el.previousElementSibling
+      // .dynamic-desc-text（截断文本）是完整文本的前一个元素
+      const descText = descFull?.previousElementSibling
+      
+      if (isExpanded) {
+        // 收起：显示截断文本，隐藏完整文本
+        descFull.style.display = 'none'
+        descText.style.display = 'inline'
+        el.textContent = '展开全部'
+        el.dataset.expanded = 'false'
+      } else {
+        // 展开：隐藏截断文本，显示完整文本
+        descText.style.display = 'none'
+        descFull.style.display = 'inline'
+        el.textContent = '收起'
+        el.dataset.expanded = 'true'
+      }
+    })
+  })
+
+  // @提及用户点击事件
+  card.querySelectorAll('.dynamic-at').forEach(el => {
+    el.style.cursor = 'pointer'
+    el.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const uid = el.dataset.uid
+      if (uid) navigateToUP(uid)
+    })
+  })
+
+  // 视频链接点击事件
+  card.querySelectorAll('.dynamic-video-link').forEach(el => {
+    el.style.cursor = 'pointer'
+    el.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const bvid = el.dataset.bvid
+      if (bvid) playVideo(bvid, '', '')
     })
   })
 

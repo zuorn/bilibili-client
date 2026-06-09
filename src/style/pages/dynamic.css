@@ -133,27 +133,31 @@ body.dark-theme .dynamic-sidebar::-webkit-scrollbar-thumb:hover {
 .dynamic-all-btn {
   display: flex;
   align-items: center;
-  padding: 12px 16px;
+  padding: 8px 12px 8px 20px;
   background-color: #ffffff;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
   color: #61666d;
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .dynamic-all-btn:hover {
-  background-color: #e8e8e8;
+  background-color: #f5f5f5;
 }
 
 .dynamic-all-btn.active {
-  background-color: #fb7299;
-  color: #fff;
+  background-color: #f5f5f5;
+  color: #fb7299;
 }
 
 .dynamic-all-btn svg {
-  width: 20px;
-  height: 20px;
-  margin-right: 8px;
+  width: 32px;
+  height: 32px;
+  margin-right: 16px;
+  flex-shrink: 0;
 }
 
 .dynamic-all-btn span {
@@ -212,7 +216,7 @@ aside.dynamic-sidebar .following-item:hover {
 }
 
 aside.dynamic-sidebar .following-item.active {
-  background-color: #ffeef2;
+  background-color: #f5f5f5;
 }
 
 aside.dynamic-sidebar .following-item.active .following-name {
@@ -335,7 +339,7 @@ aside.dynamic-sidebar .following-name {
 }
 
 .dynamic-card {
-  background-color: #fff;
+  background-color: #f6f7f8;
   border-radius: 12px;
   padding: 16px;
   border: 1px solid #eee;
@@ -389,7 +393,56 @@ aside.dynamic-sidebar .following-name {
   line-height: 1.6;
   margin-bottom: 12px;
   word-break: break-word;
-  white-space: pre-wrap;
+}
+
+.dynamic-desc-text,
+.dynamic-desc-full {
+  display: inline;
+}
+
+.dynamic-desc-expand-btn {
+  color: #008ac5;
+  font-size: 14px;
+  display: block;
+  margin-top: 8px;
+  text-align: left;
+}
+
+.dynamic-desc-expand-btn:hover {
+  color: #0066aa;
+}
+
+/* @提及用户样式 */
+.dynamic-at {
+  color: #008ac5;
+  cursor: pointer;
+}
+
+.dynamic-at:hover {
+  color: #0066aa;
+  text-decoration: underline;
+}
+
+/* 视频链接样式 */
+.dynamic-video-link {
+  color: #008ac5;
+  cursor: pointer;
+}
+
+.dynamic-video-link:hover {
+  color: #0066aa;
+  text-decoration: underline;
+}
+
+/* 链接样式 */
+.dynamic-link {
+  color: #008ac5;
+  text-decoration: none;
+}
+
+.dynamic-link:hover {
+  color: #0066aa;
+  text-decoration: underline;
 }
 
 .dynamic-video-card {
@@ -588,7 +641,7 @@ aside.dynamic-sidebar .following-name {
 }
 
 .dynamic-forward {
-  background-color: #f6f7f8;
+  background-color: #ffffff;
   border-radius: 8px;
   padding: 12px;
   margin-bottom: 12px;
@@ -645,19 +698,27 @@ aside.dynamic-sidebar .following-name {
 
 .dynamic-footer {
   display: flex;
-  gap: 24px;
+  justify-content: center;
+  align-items: center;
+  gap: 48px;
   padding-top: 12px;
+  padding-bottom: 8px;
   border-top: 1px solid #f0f0f0;
 }
 
 .dynamic-stat {
   display: flex;
   align-items: center;
-  gap: 4px;
-  font-size: 12px;
-  color: #9499a0;
+  gap: 6px;
+  font-size: 14px;
+  color: #61666d;
   cursor: pointer;
   transition: color 0.2s;
+  user-select: none;
+}
+
+.dynamic-stat svg {
+  flex-shrink: 0;
 }
 
 .dynamic-stat:hover {
