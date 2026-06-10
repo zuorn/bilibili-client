@@ -193,11 +193,27 @@ function registerUpHandlers(deps) {
         log('UP dynamics items count:', items.length, 'hasMore:', hasMore, 'nextOffset:', nextOffset)
 
         const dynamics = items.map(item => {
-          const modules = item.modules || {}
+          // 处理 modules 可能是数组或对象的情况
+          let modules = item.modules || {}
+          if (Array.isArray(modules)) {
+            const moduleMap = {}
+            modules.forEach(m => {
+              if (m.module_type === 'MODULE_TYPE_AUTHOR') {
+                moduleMap.module_author = m.module_author || {}
+              } else if (m.module_type === 'MODULE_TYPE_DYNAMIC') {
+                moduleMap.module_dynamic = m.module_dynamic || {}
+              } else if (m.module_type === 'MODULE_TYPE_STAT') {
+                moduleMap.module_stat = m.module_stat || {}
+              } else if (m.module_type === 'MODULE_TYPE_DESC') {
+                moduleMap.module_desc = m.module_desc || {}
+              }
+            })
+            modules = moduleMap
+          }
           const dynamicModule = modules.module_dynamic || {}
           const authorModule = modules.module_author || {}
           const majorModule = dynamicModule.major || {}
-          const desc = dynamicModule.desc || {}
+          const desc = modules.module_desc || dynamicModule.desc || {}
           const stat = dynamicModule.stat || {}
 
           const resultItem = {

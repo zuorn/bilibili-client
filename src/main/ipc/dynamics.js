@@ -317,6 +317,18 @@ function parseDynamicItem(item, log) {
       resultItem.orig.play = origMajor.archive.stat?.view || 0
       resultItem.orig.danmaku = origMajor.archive.stat?.danmaku || 0
     }
+    
+    // 支持转发动态中的 dyn_archive 字段
+    const origDynArchive = origDynamicModule.dyn_archive || {}
+    if (origDynArchive.bvid && !resultItem.orig.bvid) {
+      resultItem.orig.bvid = origDynArchive.bvid || ''
+      resultItem.orig.cid = origDynArchive.cid || 0
+      resultItem.orig.title = origDynArchive.title || ''
+      resultItem.orig.cover = origDynArchive.cover || ''
+      resultItem.orig.duration = origDynArchive.duration_text || ''
+      resultItem.orig.play = origDynArchive.stat?.play || 0
+      resultItem.orig.danmaku = origDynArchive.stat?.danmaku || 0
+    }
     if (origMajor.draw?.items?.length) {
       resultItem.orig.drawItems = mapPicItems(origMajor.draw.items)
     }
@@ -358,7 +370,7 @@ function parseDynamicItem(item, log) {
 }
 
 function registerDynamicsHandlers(deps) {
-  const { ipcMain, fetchApi, log } = deps
+  const { ipcMain, fetchApi, fetchApiPost, log, cookieManager } = deps
 
   ipcMain.handle('get-dynamic-nav', async () => {
     log('get-dynamic-nav called')
@@ -508,6 +520,41 @@ function registerDynamicsHandlers(deps) {
       }
     } catch (error) {
       log('Error getting dynamics:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  // 添加视频到稍后再看
+  ipcMain.handle('add-to-watchlater', async (event, bvid) => {
+    log('add-to-watchlater called, bvid:', bvid)
+    try {
+      const bodyParams = {
+        bvid: bvid,
+        csrf: cookieManager.getSavedCookies().bili_jct || ''
+      }
+      const result = await fetchApiPost('https://api.bilibili.com/x/v2/history/toview/add', bodyParams)
+      log('watchlater add result code:', result.code, 'message:', result.message)
+      return { success: result.code === 0, data: result }
+    } catch (error) {
+      log('Error adding to watchlater:', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
+  // 取消关注 UP 主
+  ipcMain.handle('unfollow-up-from-dynamic', async (event, mid) => {
+    log('unfollow-up-from-dynamic called, mid:', mid)
+    try {
+      const bodyParams = {
+        fmid: mid,
+        act: 2, // 2 = 取消关注
+        csrf: cookieManager.getSavedCookies().bili_jct || ''
+      }
+      const result = await fetchApiPost('https://api.bilibili.com/x/relation/modify', bodyParams)
+      log('unfollow result code:', result.code, 'message:', result.message)
+      return { success: result.code === 0, data: result }
+    } catch (error) {
+      log('Error unfollowing up:', error.message)
       return { success: false, error: error.message }
     }
   })

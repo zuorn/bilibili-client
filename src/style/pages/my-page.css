@@ -68,7 +68,6 @@
   padding: 0 12px;
   border-bottom: 1px solid #f0f0f0;
 }
-
 .my-tabs.sticky {
   position: fixed;
   top: 64px;
@@ -203,8 +202,8 @@
 .favorites-sub-tabs {
   display: flex;
   background-color: #fff;
-  padding: 0 12px;
-  margin-bottom: 4px;
+  padding: 0;
+  margin: 0 0 4px 0;
   gap: 30px;
 }
 
@@ -225,10 +224,16 @@
   font-weight: 500;
 }
 
-.favorites-sub-content {
+.my-tab-content {
   background-color: #fff;
   border-radius: 8px;
-  padding: 0 8px 8px 8px;
+  padding: 12px 12px 8px 12px;
+}
+
+.favorites-sub-content {
+  background-color: transparent;
+  border-radius: 0;
+  padding: 0;
 }
 
 .favorites-grid {
@@ -237,26 +242,22 @@
   gap: 15px;
 }
 
-#favoritesDefaultGrid.video-grid {
-  padding-top: 16px;
-}
-
-#favoritesCreatedList {
-  padding-top: 0px;
-}
-
-#favoritesCollectionsGrid {
-  padding-top: 0px;
-}
-
-#bangumi-content.my-tab-content,
-#drama-content.my-tab-content,
-#toview-content.my-tab-content {
-  padding-top: 16px;
+#history-content .video-grid,
+#bangumi-content .video-grid,
+#drama-content .video-grid,
+#toview-content .video-grid,
+#favorites-default-content .video-grid {
+  padding-top: 4px;
 }
 
 #historyGrid .history-section-header {
   margin-bottom: -12px;
+}
+
+#historyGrid .history-section-header:first-child,
+#historyGrid > :first-child.history-section-header {
+  padding-top: 0;
+  margin-top: -4px;
 }
 
 .favorites-item {

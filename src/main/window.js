@@ -22,7 +22,8 @@ function createWindow(mainWindowRef) {
       contextIsolation: false,
       webviewTag: true,
       sandbox: false,
-      partition: 'persist:main'
+      partition: 'persist:main',
+      backgroundThrottling: false
     }
   }
   if (fs.existsSync(iconPath)) {

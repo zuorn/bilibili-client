@@ -501,38 +501,32 @@ async function loadUpVideos(mid, offset = '') {
   pageStates.up.scrollLocked = false
 }
 
-function timeAgo(timestamp) {
-  if (!timestamp) return ''
-  const now = Math.floor(Date.now() / 1000)
-  const diff = now - timestamp
-  if (diff < 60) return '刚刚'
-  if (diff < 3600) return Math.floor(diff / 60) + '分钟前'
-  if (diff < 86400) return Math.floor(diff / 3600) + '小时前'
-  return Math.floor(diff / 86400) + '天前'
-}
-
-function formatCount(num) {
-  if (!num) return ''
-  if (num >= 10000) return (num / 10000).toFixed(1) + '万'
-  return num.toString()
-}
-
-function createDynamicCard(d) {
+function createUpDynamicCard(d) {
   const card = document.createElement('div')
   card.className = 'up-dynamic-card'
+  card.dataset.dynamicId = d.id || ''
+  card.dataset.authorMid = d.authorMid || ''
+  card.dataset.bvid = d.bvid || ''
 
   // Header: avatar + name + time
   let headerHtml = '<div class="up-dynamic-header">'
   if (d.authorFace) {
     headerHtml += `<img class="up-dynamic-avatar" src="${optimizeCoverUrl(d.authorFace, 48, 48)}" alt="" onerror="this.style.display='none'">`
   }
+  headerHtml += '<div class="up-dynamic-author-info">'
   headerHtml += `<span class="up-dynamic-author">${escapeHtml(d.authorName)}</span>`
   headerHtml += `<span class="up-dynamic-time">${d.pubTime || timeAgo(d.pubTs)}</span>`
+  headerHtml += '</div>'
+  headerHtml += '<div class="up-dynamic-more-btn" data-dynamic-id="' + (d.id || '') + '" data-author-mid="' + (d.authorMid || '') + '" data-bvid="' + (d.bvid || '') + '">'
+  headerHtml += '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>'
+  headerHtml += '</div>'
   headerHtml += '</div>'
 
   // Body
   let bodyHtml = ''
-  const desc = d.desc
+  // 多源提取文本内容（兼容不同 API 返回格式）
+  let desc = d.desc
+  if (!desc && d.opusSummary) desc = d.opusSummary
 
   // Text content
   if (desc) {
@@ -640,7 +634,124 @@ function createDynamicCard(d) {
     })
   })
 
+  // 更多按钮点击事件
+  const moreBtn = card.querySelector('.up-dynamic-more-btn')
+  if (moreBtn) {
+    moreBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      showUpDynamicMoreMenu(moreBtn, d)
+    })
+  }
+
   return card
+}
+
+// 显示 UP 主页面动态更多菜单
+function showUpDynamicMoreMenu(button, dynamic) {
+  // 移除已有的菜单
+  const existingMenu = document.getElementById('upDynamicMoreMenu')
+  if (existingMenu) existingMenu.remove()
+
+  const rect = button.getBoundingClientRect()
+  const menu = document.createElement('div')
+  menu.id = 'upDynamicMoreMenu'
+  menu.className = 'up-dynamic-more-menu'
+  menu.style.left = rect.left + 'px'
+  menu.style.top = (rect.bottom + 4) + 'px'
+
+  const items = []
+
+  // 稍后再看（仅当有视频时）
+  if (dynamic.bvid) {
+    items.push({
+      label: '稍后再看',
+      action: () => addUpDynamicToWatchlater(dynamic.bvid, dynamic)
+    })
+  }
+
+  // 取消关注
+  items.push({
+    label: '取消关注',
+    action: () => unfollowUpDynamic(dynamic.authorMid, dynamic.authorName)
+  })
+
+  // 复制动态地址
+  items.push({
+    label: '复制动态地址',
+    action: () => copyUpDynamicUrl(dynamic)
+  })
+
+  items.forEach(item => {
+    const menuItem = document.createElement('div')
+    menuItem.className = 'up-dynamic-more-menu-item'
+    menuItem.textContent = item.label
+    menuItem.addEventListener('click', (e) => {
+      e.stopPropagation()
+      item.action()
+      menu.remove()
+    })
+    menu.appendChild(menuItem)
+  })
+
+  document.body.appendChild(menu)
+
+  // 点击其他区域关闭菜单
+  setTimeout(() => {
+    const closeHandler = (e) => {
+      if (!menu.contains(e.target) && e.target !== button) {
+        menu.remove()
+        document.removeEventListener('click', closeHandler)
+      }
+    }
+    document.addEventListener('click', closeHandler)
+  }, 10)
+}
+
+// 添加到稍后再看
+async function addUpDynamicToWatchlater(bvid, dynamic) {
+  try {
+    const result = await ipcRenderer.invoke('add-to-watchlater', bvid)
+    if (result.success) {
+      showToast('已添加到稍后再看')
+    } else {
+      showToast('添加失败：' + (result.data?.message || '未知错误'))
+    }
+  } catch (error) {
+    console.error('Error adding to watchlater:', error)
+    showToast('添加失败')
+  }
+}
+
+// 取消关注 UP 主
+async function unfollowUpDynamic(mid, authorName) {
+  if (!confirm(`确定取消关注 ${escapeHtml(authorName || '该 UP 主')}？`)) return
+  try {
+    const result = await ipcRenderer.invoke('unfollow-up-from-dynamic', mid)
+    if (result.success) {
+      showToast('已取消关注')
+    } else {
+      showToast('取消关注失败：' + (result.data?.message || '未知错误'))
+    }
+  } catch (error) {
+    console.error('Error unfollowing:', error)
+    showToast('取消关注失败')
+  }
+}
+
+// 复制动态地址
+function copyUpDynamicUrl(dynamic) {
+  const url = `https://t.bilibili.com/${dynamic.id || ''}`
+  navigator.clipboard.writeText(url).then(() => {
+    showToast('已复制动态地址')
+  }).catch(() => {
+    const textarea = document.createElement('textarea')
+    textarea.value = url
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    showToast('已复制动态地址')
+  })
 }
 
 async function loadUpDynamics(mid, offset = '') {
@@ -665,7 +776,7 @@ async function loadUpDynamics(mid, offset = '') {
 
       if (items.length > 0) {
         items.forEach((d, index) => {
-          const card = createDynamicCard(d)
+          const card = createUpDynamicCard(d)
           list.appendChild(card)
           // 仅首屏预加载图片，后续批次由 IntersectionObserver 按需加载
           if (!offset) {
@@ -711,6 +822,10 @@ async function loadUpDynamics(mid, offset = '') {
 let imagePreviewModal = null
 let currentImageIndex = 0
 let imageList = []
+let upPreviewScale = 1
+let upPreviewTranslateX = 0
+let upPreviewTranslateY = 0
+let upPreviewInited = false
 
 // 图片预加载管理
 const imagePreloader = {
@@ -775,17 +890,17 @@ function createImagePreviewModal() {
   imagePreviewModal.className = 'image-preview-modal'
   imagePreviewModal.style.display = 'none'
   imagePreviewModal.innerHTML = `
-    <div class="image-preview-overlay" onclick="closeImagePreview()"></div>
+    <div class="image-preview-overlay" onclick="closeUpImagePreview()"></div>
     <div class="image-preview-content">
       <div class="image-preview-header" onclick="event.stopPropagation()">
-        <button class="image-preview-download" onclick="downloadCurrentImage()" title="下载">
+        <button class="image-preview-download" onclick="downloadUpCurrentImage()" title="下载">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
             <polyline points="7 10 12 15 17 10"/>
             <line x1="12" y1="15" x2="12" y2="3"/>
           </svg>
         </button>
-        <button class="image-preview-close" onclick="closeImagePreview()" title="关闭">
+        <button class="image-preview-close" onclick="closeUpImagePreview()" title="关闭">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2">
             <line x1="18" y1="6" x2="6" y2="18"/>
             <line x1="6" y1="6" x2="18" y2="18"/>
@@ -797,7 +912,7 @@ function createImagePreviewModal() {
           <polyline points="15 18 9 12 15 6"/>
         </svg>
       </button>
-      <div class="image-preview-main" onclick="closeImagePreview()">
+      <div class="image-preview-main" id="upPreviewMain">
         <img id="previewMainImage" src="" alt="">
       </div>
       <button class="image-preview-next" onclick="event.stopPropagation(); nextImage()" title="下一张">
@@ -813,51 +928,162 @@ function createImagePreviewModal() {
   `
   document.body.appendChild(imagePreviewModal)
 
+  // 图片区域点击（未缩放时才关闭）
+  const mainArea = imagePreviewModal.querySelector('.image-preview-main')
+  if (mainArea) {
+    mainArea.addEventListener('click', (e) => {
+      if (upPreviewScale === 1) {
+        closeUpImagePreview()
+      }
+    })
+  }
+
+  // 滚轮缩放
+  imagePreviewModal.addEventListener('wheel', (e) => {
+    e.preventDefault()
+    const img = document.getElementById('previewMainImage')
+    if (!img) return
+    
+    const delta = e.deltaY > 0 ? 0.9 : 1.1
+    let newScale = upPreviewScale * delta
+    newScale = Math.max(0.5, Math.min(5, newScale))
+    
+    // 以鼠标位置为中心进行缩放
+    const rect = img.getBoundingClientRect()
+    const centerX = rect.left + rect.width / 2
+    const centerY = rect.top + rect.height / 2
+    const mouseX = e.clientX
+    const mouseY = e.clientY
+    
+    const scaleRatio = newScale / upPreviewScale
+    upPreviewTranslateX = mouseX - centerX + (upPreviewTranslateX - (mouseX - centerX)) * scaleRatio
+    upPreviewTranslateY = mouseY - centerY + (upPreviewTranslateY - (mouseY - centerY)) * scaleRatio
+    
+    upPreviewScale = newScale
+    applyUpPreviewTransform()
+  }, { passive: false })
+
+  // 双击重置
+  const previewImg = document.getElementById('previewMainImage')
+  if (previewImg) {
+    previewImg.addEventListener('dblclick', () => {
+      resetUpPreviewZoom()
+    })
+  }
+
+  // 拖拽移动
+  let isDragging = false
+  let dragStartX = 0
+  let dragStartY = 0
+  let dragStartTranslateX = 0
+  let dragStartTranslateY = 0
+
+  if (previewImg) {
+    previewImg.addEventListener('mousedown', (e) => {
+      if (upPreviewScale > 1) {
+        isDragging = true
+        dragStartX = e.clientX
+        dragStartY = e.clientY
+        dragStartTranslateX = upPreviewTranslateX
+        dragStartTranslateY = upPreviewTranslateY
+        previewImg.style.cursor = 'grabbing'
+        e.preventDefault()
+      }
+    })
+  }
+
+  document.addEventListener('mousemove', (e) => {
+    if (isDragging) {
+      upPreviewTranslateX = dragStartTranslateX + (e.clientX - dragStartX)
+      upPreviewTranslateY = dragStartTranslateY + (e.clientY - dragStartY)
+      applyUpPreviewTransform()
+    }
+  })
+
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false
+      const imgEl = document.getElementById('previewMainImage')
+      if (imgEl) {
+        imgEl.style.cursor = upPreviewScale > 1 ? 'grab' : 'default'
+      }
+    }
+  })
+
   // Keyboard navigation
   document.addEventListener('keydown', function(e) {
     if (!imagePreviewModal || imagePreviewModal.style.display !== 'flex') return
     
     if (e.key === 'ArrowLeft') {
+      resetUpPreviewZoom()
       prevImage()
     } else if (e.key === 'ArrowRight') {
+      resetUpPreviewZoom()
       nextImage()
     } else if (e.key === 'Escape') {
-      closeImagePreview()
+      closeUpImagePreview()
     }
   })
 }
 
-function openImagePreview(images, index) {
+let upThumbnailsInited = false
+
+function openUpImagePreview(images, index) {
   if (!imagePreviewModal) {
     createImagePreviewModal()
   }
   
   imageList = images
   currentImageIndex = index
+  resetUpPreviewZoom()
   
   updatePreviewImage()
-  updateThumbnails()
+  renderUpThumbnails()
   updateCounter()
   
   imagePreviewModal.style.display = 'flex'
   document.body.style.overflow = 'hidden'
 }
 
-function closeImagePreview() {
+function closeUpImagePreview() {
   if (imagePreviewModal) {
     imagePreviewModal.style.display = 'none'
     document.body.style.overflow = ''
+    resetUpPreviewZoom()
   }
 }
 
 function updatePreviewImage() {
   const img = document.getElementById('previewMainImage')
   if (img && imageList[currentImageIndex]) {
-    img.src = imageList[currentImageIndex]
+    // 预览时使用原图（移除可能存在的压缩参数），保证图片清晰度
+    img.src = imageList[currentImageIndex].split('@')[0]
   }
 }
 
-function updateThumbnails() {
+function resetUpPreviewZoom() {
+  upPreviewScale = 1
+  upPreviewTranslateX = 0
+  upPreviewTranslateY = 0
+  applyUpPreviewTransform()
+}
+
+function applyUpPreviewTransform() {
+  const img = document.getElementById('previewMainImage')
+  if (img) {
+    img.style.transform = `translate(${upPreviewTranslateX}px, ${upPreviewTranslateY}px) scale(${upPreviewScale})`
+    img.style.cursor = upPreviewScale > 1 ? 'grab' : 'default'
+  }
+}
+
+function optimizeUpPreviewUrl(url, width, height) {
+  if (!url) return url
+  // 如果已经有 @ 参数，先移除再添加新的
+  const baseUrl = url.split('@')[0]
+  return baseUrl + '@' + width + 'w_' + height + 'h_1e_1c.webp'
+}
+
+function renderUpThumbnails() {
   const container = document.getElementById('thumbnailsContainer')
   if (!container) return
   
@@ -865,15 +1091,26 @@ function updateThumbnails() {
   imageList.forEach((src, index) => {
     const thumbnail = document.createElement('div')
     thumbnail.className = `thumbnail-item ${index === currentImageIndex ? 'active' : ''}`
-    thumbnail.innerHTML = `<img src="${src}" alt="">`
-    thumbnail.addEventListener('click', () => {
-      currentImageIndex = index
-      updatePreviewImage()
-      updateThumbnails()
-      updateCounter()
-    })
+    thumbnail.dataset.index = index
+    // 缩略图使用小尺寸压缩
+    const thumbSrc = optimizeUpPreviewUrl(src, 100, 100)
+    thumbnail.innerHTML = `<img src="${thumbSrc}" alt="">`
     container.appendChild(thumbnail)
   })
+  
+  // 只绑定一次点击事件，使用事件委托
+  container.onclick = function(e) {
+    const thumbnailItem = e.target.closest('.thumbnail-item')
+    if (thumbnailItem) {
+      const idx = parseInt(thumbnailItem.dataset.index) || 0
+      currentImageIndex = idx
+      resetUpPreviewZoom()
+      updatePreviewImage()
+      updateUpThumbnailsHighlight()
+      updateCounter()
+      scrollToActiveThumbnail()
+    }
+  }
   
   // 如果只有一张图片，重置滚动位置
   if (imageList.length <= 1) {
@@ -882,6 +1119,20 @@ function updateThumbnails() {
   }
   
   scrollToActiveThumbnail()
+}
+
+function updateUpThumbnailsHighlight() {
+  const container = document.getElementById('thumbnailsContainer')
+  if (!container) return
+  
+  const items = container.querySelectorAll('.thumbnail-item')
+  items.forEach((item, index) => {
+    if (index === currentImageIndex) {
+      item.classList.add('active')
+    } else {
+      item.classList.remove('active')
+    }
+  })
 }
 
 function scrollToActiveThumbnail() {
@@ -915,27 +1166,43 @@ function updateCounter() {
 function prevImage() {
   if (currentImageIndex > 0) {
     currentImageIndex--
+    resetUpPreviewZoom()
     updatePreviewImage()
-    updateThumbnails()
+    updateUpThumbnailsHighlight()
     updateCounter()
+    scrollToActiveThumbnail()
   }
 }
 
 function nextImage() {
   if (currentImageIndex < imageList.length - 1) {
     currentImageIndex++
+    resetUpPreviewZoom()
     updatePreviewImage()
-    updateThumbnails()
+    updateUpThumbnailsHighlight()
     updateCounter()
+    scrollToActiveThumbnail()
   }
 }
 
-function downloadCurrentImage() {
-  if (imageList[currentImageIndex]) {
+async function downloadUpCurrentImage() {
+  if (!imageList[currentImageIndex]) return
+  
+  try {
+    // 下载时使用原图（移除 CDN 压缩参数）
+    const originalUrl = imageList[currentImageIndex].split('@')[0]
+    const response = await fetch(originalUrl)
+    const blob = await response.blob()
+    const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
-    link.href = imageList[currentImageIndex]
+    link.href = url
     link.download = `image_${currentImageIndex + 1}.jpg`
+    document.body.appendChild(link)
     link.click()
+    document.body.removeChild(link)
+    window.URL.revokeObjectURL(url)
+  } catch (error) {
+    console.error('下载图片失败:', error)
   }
 }
 
@@ -949,7 +1216,7 @@ function initImagePreviewHandlers() {
         const images = JSON.parse(imagesContainer.dataset.images || '[]')
         const index = parseInt(imageItem.dataset.index || '0')
         if (images.length > 0) {
-          openImagePreview(images, index)
+          openUpImagePreview(images, index)
         }
       }
     }

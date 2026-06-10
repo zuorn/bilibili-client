@@ -305,32 +305,91 @@
 .up-dynamic-header {
   display: flex;
   align-items: center;
-  gap: 10px;
   margin-bottom: 10px;
 }
 
 .up-dynamic-avatar {
-  width: 32px;
-  height: 32px;
+  width: 40px;
+  height: 40px;
   border-radius: 50%;
+  margin-right: 12px;
   object-fit: cover;
   flex-shrink: 0;
+}
+
+.up-dynamic-author-info {
+  display: flex;
+  flex-direction: column;
 }
 
 .up-dynamic-author {
   font-size: 14px;
   font-weight: 600;
   color: #18191c;
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  margin-right: 12px;
 }
 
 .up-dynamic-time {
   font-size: 12px;
   color: #9499a0;
-  flex-shrink: 0;
+}
+
+.up-dynamic-more-btn {
+  margin-left: auto;
+  cursor: pointer;
+  color: #9499a0;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease;
+}
+
+.up-dynamic-more-btn:hover {
+  background-color: #f4f4f5;
+  color: #18191c;
+}
+
+body.dark-theme .up-dynamic-more-btn:hover {
+  background-color: #333;
+  color: #e3e5e7;
+}
+
+.up-dynamic-more-menu {
+  position: fixed;
+  z-index: 10000;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  min-width: 120px;
+  overflow: hidden;
+}
+
+body.dark-theme .up-dynamic-more-menu {
+  background: #1f1f1f;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.up-dynamic-more-menu-item {
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #18191c;
+  transition: background-color 0.15s ease;
+  white-space: nowrap;
+}
+
+body.dark-theme .up-dynamic-more-menu-item {
+  color: #e3e5e7;
+}
+
+.up-dynamic-more-menu-item:hover {
+  background-color: #f4f4f5;
+}
+
+body.dark-theme .up-dynamic-more-menu-item:hover {
+  background-color: #333;
 }
 
 .up-dynamic-desc {
@@ -754,7 +813,13 @@
 .image-preview-main img {
   max-width: 100%;
   max-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
+  transform-origin: center center;
+  transition: transform 0.1s ease-out;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .image-preview-thumbnails {

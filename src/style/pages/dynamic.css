@@ -387,6 +387,64 @@ aside.dynamic-sidebar .following-name {
   color: #9499a0;
 }
 
+.dynamic-more-btn {
+  margin-left: auto;
+  cursor: pointer;
+  color: #9499a0;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background-color 0.15s ease;
+}
+
+.dynamic-more-btn:hover {
+  background-color: #f4f4f5;
+  color: #18191c;
+}
+
+body.dark-theme .dynamic-more-btn:hover {
+  background-color: #333;
+  color: #e3e5e7;
+}
+
+.dynamic-more-menu {
+  position: fixed;
+  z-index: 10000;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+  min-width: 120px;
+  overflow: hidden;
+}
+
+body.dark-theme .dynamic-more-menu {
+  background: #1f1f1f;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+}
+
+.dynamic-more-menu-item {
+  padding: 10px 16px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #18191c;
+  transition: background-color 0.15s ease;
+  white-space: nowrap;
+}
+
+body.dark-theme .dynamic-more-menu-item {
+  color: #e3e5e7;
+}
+
+.dynamic-more-menu-item:hover {
+  background-color: #f4f4f5;
+}
+
+body.dark-theme .dynamic-more-menu-item:hover {
+  background-color: #333;
+}
+
 .dynamic-desc {
   font-size: 14px;
   color: #18191c;
@@ -1081,7 +1139,13 @@ body.dark-theme .dynamic-live-title {
 .image-preview-main img {
   max-width: 100%;
   max-height: 100%;
+  width: auto;
+  height: auto;
   object-fit: contain;
+  transform-origin: center center;
+  transition: transform 0.1s ease-out;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .image-preview-thumbnails {

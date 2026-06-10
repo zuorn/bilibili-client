@@ -346,25 +346,12 @@ async function loadDynamicVideos(upId = null, offset = '') {
   }
 }
 
-function timeAgo(timestamp) {
-  if (!timestamp) return ''
-  const now = Math.floor(Date.now() / 1000)
-  const diff = now - timestamp
-  if (diff < 60) return '刚刚'
-  if (diff < 3600) return Math.floor(diff / 60) + '分钟前'
-  if (diff < 86400) return Math.floor(diff / 3600) + '小时前'
-  return Math.floor(diff / 86400) + '天前'
-}
-
-function formatCount(num) {
-  if (!num) return ''
-  if (num >= 10000) return (num / 10000).toFixed(1) + '万'
-  return num.toString()
-}
-
 function createDynamicCard(d) {
   const card = document.createElement('div')
   card.className = 'dynamic-card'
+  card.dataset.dynamicId = d.id || ''
+  card.dataset.authorMid = d.authorMid || ''
+  card.dataset.bvid = d.bvid || ''
 
   let headerHtml = '<div class="dynamic-header">'
   if (d.authorFace) {
@@ -373,6 +360,9 @@ function createDynamicCard(d) {
   headerHtml += '<div class="dynamic-author-info">'
   headerHtml += `<span class="dynamic-author dynamic-author-click" data-mid="${d.authorMid}">${escapeHtml(d.authorName)}</span>`
   headerHtml += `<span class="dynamic-time">${d.pubTime || timeAgo(d.pubTs)}</span>`
+  headerHtml += '</div>'
+  headerHtml += '<div class="dynamic-more-btn" data-dynamic-id="' + (d.id || '') + '" data-author-mid="' + (d.authorMid || '') + '" data-bvid="' + (d.bvid || '') + '">'
+  headerHtml += '<svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor"><circle cx="12" cy="5" r="1.8"/><circle cx="12" cy="12" r="1.8"/><circle cx="12" cy="19" r="1.8"/></svg>'
   headerHtml += '</div>'
   headerHtml += '</div>'
 
@@ -574,7 +564,125 @@ function createDynamicCard(d) {
     })
   }
 
+  // 更多按钮点击事件
+  const moreBtn = card.querySelector('.dynamic-more-btn')
+  if (moreBtn) {
+    moreBtn.addEventListener('click', (e) => {
+      e.stopPropagation()
+      showDynamicMoreMenu(moreBtn, d)
+    })
+  }
+
   return card
+}
+
+// 显示动态更多菜单
+function showDynamicMoreMenu(button, dynamic) {
+  // 移除已有的菜单
+  const existingMenu = document.getElementById('dynamicMoreMenu')
+  if (existingMenu) existingMenu.remove()
+
+  const rect = button.getBoundingClientRect()
+  const menu = document.createElement('div')
+  menu.id = 'dynamicMoreMenu'
+  menu.className = 'dynamic-more-menu'
+  menu.style.left = rect.left + 'px'
+  menu.style.top = (rect.bottom + 4) + 'px'
+
+  const items = []
+
+  // 稍后再看（仅当有视频时）
+  if (dynamic.bvid) {
+    items.push({
+      label: '稍后再看',
+      action: () => addDynamicToWatchlater(dynamic.bvid, dynamic)
+    })
+  }
+
+  // 取消关注
+  items.push({
+    label: '取消关注',
+    action: () => unfollowUpFromDynamic(dynamic.authorMid, dynamic.authorName)
+  })
+
+  // 复制动态地址
+  items.push({
+    label: '复制动态地址',
+    action: () => copyDynamicUrl(dynamic)
+  })
+
+  items.forEach(item => {
+    const menuItem = document.createElement('div')
+    menuItem.className = 'dynamic-more-menu-item'
+    menuItem.textContent = item.label
+    menuItem.addEventListener('click', (e) => {
+      e.stopPropagation()
+      item.action()
+      menu.remove()
+    })
+    menu.appendChild(menuItem)
+  })
+
+  document.body.appendChild(menu)
+
+  // 点击其他区域关闭菜单
+  setTimeout(() => {
+    const closeHandler = (e) => {
+      if (!menu.contains(e.target) && e.target !== button) {
+        menu.remove()
+        document.removeEventListener('click', closeHandler)
+      }
+    }
+    document.addEventListener('click', closeHandler)
+  }, 10)
+}
+
+// 添加到稍后再看
+async function addDynamicToWatchlater(bvid, dynamic) {
+  try {
+    const result = await ipcRenderer.invoke('add-to-watchlater', bvid)
+    if (result.success) {
+      showToast('已添加到稍后再看')
+    } else {
+      showToast('添加失败：' + (result.data?.message || '未知错误'))
+    }
+  } catch (error) {
+    console.error('Error adding to watchlater:', error)
+    showToast('添加失败')
+  }
+}
+
+// 取消关注 UP 主
+async function unfollowUpFromDynamic(mid, authorName) {
+  if (!confirm(`确定取消关注 ${escapeHtml(authorName || '该 UP 主')}？`)) return
+  try {
+    const result = await ipcRenderer.invoke('unfollow-up-from-dynamic', mid)
+    if (result.success) {
+      showToast('已取消关注')
+    } else {
+      showToast('取消关注失败：' + (result.data?.message || '未知错误'))
+    }
+  } catch (error) {
+    console.error('Error unfollowing:', error)
+    showToast('取消关注失败')
+  }
+}
+
+// 复制动态地址
+function copyDynamicUrl(dynamic) {
+  const url = `https://t.bilibili.com/${dynamic.id || ''}`
+  navigator.clipboard.writeText(url).then(() => {
+    showToast('已复制动态地址')
+  }).catch(() => {
+    // 备用方案
+    const textarea = document.createElement('textarea')
+    textarea.value = url
+    document.body.appendChild(textarea)
+    textarea.select()
+    document.execCommand('copy')
+    document.body.removeChild(textarea)
+    showToast('已复制动态地址')
+  })
 }
 
 let isDynamicContentLoading = false
@@ -803,8 +911,15 @@ async function initDynamicPage() {
 // 图片预览功能
 let dynamicPreviewImages = []
 let dynamicPreviewIndex = 0
+let imagePreviewInited = false
+let dynamicPreviewScale = 1
+let dynamicPreviewTranslateX = 0
+let dynamicPreviewTranslateY = 0
 
 function initImagePreview() {
+  if (imagePreviewInited) return
+  imagePreviewInited = true
+
   // 点击图片网格中的图片
   document.addEventListener('click', (e) => {
     const imageItem = e.target.closest('.dynamic-image-item')
@@ -828,6 +943,7 @@ function initImagePreview() {
       e.stopPropagation()
       if (dynamicPreviewIndex > 0) {
         dynamicPreviewIndex--
+        resetDynamicPreviewZoom()
         updateImagePreview()
       }
     })
@@ -840,6 +956,7 @@ function initImagePreview() {
       e.stopPropagation()
       if (dynamicPreviewIndex < dynamicPreviewImages.length - 1) {
         dynamicPreviewIndex++
+        resetDynamicPreviewZoom()
         updateImagePreview()
       }
     })
@@ -869,11 +986,90 @@ function initImagePreview() {
     overlay.addEventListener('click', closeImagePreview)
   }
 
-  // 图片区域点击关闭（点击非按钮区域关闭）
+  // 图片区域点击关闭（点击非按钮区域关闭，未缩放时才关闭）
   const mainArea = document.getElementById('imagePreviewMain')
   if (mainArea) {
-    mainArea.addEventListener('click', closeImagePreview)
+    mainArea.addEventListener('click', (e) => {
+      if (dynamicPreviewScale === 1) {
+        closeImagePreview()
+      }
+    })
   }
+
+  // 滚轮缩放
+  const modal = document.getElementById('imagePreviewModal')
+  if (modal) {
+    modal.addEventListener('wheel', (e) => {
+      e.preventDefault()
+      const img = document.getElementById('imagePreviewImg')
+      if (!img) return
+      
+      const delta = e.deltaY > 0 ? 0.9 : 1.1
+      let newScale = dynamicPreviewScale * delta
+      newScale = Math.max(0.5, Math.min(5, newScale))
+      
+      // 以鼠标位置为中心进行缩放
+      const rect = img.getBoundingClientRect()
+      const centerX = rect.left + rect.width / 2
+      const centerY = rect.top + rect.height / 2
+      const mouseX = e.clientX
+      const mouseY = e.clientY
+      
+      const scaleRatio = newScale / dynamicPreviewScale
+      dynamicPreviewTranslateX = mouseX - centerX + (dynamicPreviewTranslateX - (mouseX - centerX)) * scaleRatio
+      dynamicPreviewTranslateY = mouseY - centerY + (dynamicPreviewTranslateY - (mouseY - centerY)) * scaleRatio
+      
+      dynamicPreviewScale = newScale
+      applyDynamicPreviewTransform()
+    }, { passive: false })
+  }
+
+  // 双击图片重置缩放
+  const previewImg = document.getElementById('imagePreviewImg')
+  if (previewImg) {
+    previewImg.addEventListener('dblclick', () => {
+      resetDynamicPreviewZoom()
+    })
+  }
+
+  // 拖拽移动放大后的图片
+  let isDragging = false
+  let dragStartX = 0
+  let dragStartY = 0
+  let dragStartTranslateX = 0
+  let dragStartTranslateY = 0
+
+  if (previewImg) {
+    previewImg.addEventListener('mousedown', (e) => {
+      if (dynamicPreviewScale > 1) {
+        isDragging = true
+        dragStartX = e.clientX
+        dragStartY = e.clientY
+        dragStartTranslateX = dynamicPreviewTranslateX
+        dragStartTranslateY = dynamicPreviewTranslateY
+        previewImg.style.cursor = 'grabbing'
+        e.preventDefault()
+      }
+    })
+  }
+
+  document.addEventListener('mousemove', (e) => {
+    if (isDragging) {
+      dynamicPreviewTranslateX = dragStartTranslateX + (e.clientX - dragStartX)
+      dynamicPreviewTranslateY = dragStartTranslateY + (e.clientY - dragStartY)
+      applyDynamicPreviewTransform()
+    }
+  })
+
+  document.addEventListener('mouseup', () => {
+    if (isDragging) {
+      isDragging = false
+      const imgEl = document.getElementById('imagePreviewImg')
+      if (imgEl) {
+        imgEl.style.cursor = dynamicPreviewScale > 1 ? 'grab' : 'default'
+      }
+    }
+  })
 
   // 缩略图点击
   const thumbnailsContainer = document.getElementById('imagePreviewThumbnails')
@@ -882,6 +1078,7 @@ function initImagePreview() {
       const thumbnailItem = e.target.closest('.thumbnail-item')
       if (thumbnailItem) {
         dynamicPreviewIndex = parseInt(thumbnailItem.dataset.index) || 0
+        resetDynamicPreviewZoom()
         updateImagePreview()
       }
     })
@@ -896,11 +1093,13 @@ function initImagePreview() {
       } else if (e.key === 'ArrowLeft') {
         if (dynamicPreviewIndex > 0) {
           dynamicPreviewIndex--
+          resetDynamicPreviewZoom()
           updateImagePreview()
         }
       } else if (e.key === 'ArrowRight') {
         if (dynamicPreviewIndex < dynamicPreviewImages.length - 1) {
           dynamicPreviewIndex++
+          resetDynamicPreviewZoom()
           updateImagePreview()
         }
       }
@@ -911,7 +1110,9 @@ function initImagePreview() {
 function openImagePreview() {
   const modal = document.getElementById('imagePreviewModal')
   if (modal) {
+    resetDynamicPreviewZoom()
     modal.style.display = 'flex'
+    renderThumbnails()
     updateImagePreview()
   }
 }
@@ -920,28 +1121,70 @@ function closeImagePreview() {
   const modal = document.getElementById('imagePreviewModal')
   if (modal) {
     modal.style.display = 'none'
+    resetDynamicPreviewZoom()
   }
+}
+
+function resetDynamicPreviewZoom() {
+  dynamicPreviewScale = 1
+  dynamicPreviewTranslateX = 0
+  dynamicPreviewTranslateY = 0
+  applyDynamicPreviewTransform()
+}
+
+function applyDynamicPreviewTransform() {
+  const img = document.getElementById('imagePreviewImg')
+  if (img) {
+    img.style.transform = `translate(${dynamicPreviewTranslateX}px, ${dynamicPreviewTranslateY}px) scale(${dynamicPreviewScale})`
+    img.style.cursor = dynamicPreviewScale > 1 ? 'grab' : 'default'
+  }
+}
+
+function renderThumbnails() {
+  const thumbnailsContainer = document.getElementById('imagePreviewThumbnails')
+  if (thumbnailsContainer) {
+    thumbnailsContainer.innerHTML = dynamicPreviewImages.map((src, index) => {
+      // 缩略图使用小尺寸压缩
+      const thumbSrc = optimizePreviewUrl(src, 100, 100)
+      return `<div class="thumbnail-item ${index === dynamicPreviewIndex ? 'active' : ''}" data-index="${index}">
+        <img src="${thumbSrc}" alt="">
+      </div>`
+    }).join('')
+  }
+}
+
+function optimizePreviewUrl(url, width, height) {
+  if (!url) return url
+  // 如果已经有 @ 参数，先移除再添加新的
+  const baseUrl = url.split('@')[0]
+  return baseUrl + '@' + width + 'w_' + height + 'h_1e_1c.webp'
 }
 
 function updateImagePreview() {
   const img = document.getElementById('imagePreviewImg')
   const counter = document.getElementById('imagePreviewCounter')
-  const thumbnailsContainer = document.getElementById('imagePreviewThumbnails')
 
   if (img && dynamicPreviewImages[dynamicPreviewIndex]) {
-    img.src = dynamicPreviewImages[dynamicPreviewIndex]
+    // 预览时使用原图（移除可能存在的压缩参数），保证图片清晰度
+    const originalSrc = dynamicPreviewImages[dynamicPreviewIndex]
+    img.src = originalSrc.split('@')[0]
   }
 
   if (counter) {
     counter.textContent = `${dynamicPreviewIndex + 1} / ${dynamicPreviewImages.length}`
   }
 
+  // 更新缩略图高亮，不重新渲染整个缩略图列表
+  const thumbnailsContainer = document.getElementById('imagePreviewThumbnails')
   if (thumbnailsContainer) {
-    thumbnailsContainer.innerHTML = dynamicPreviewImages.map((src, index) => {
-      return `<div class="thumbnail-item ${index === dynamicPreviewIndex ? 'active' : ''}" data-index="${index}">
-        <img src="${src}" alt="">
-      </div>`
-    }).join('')
+    const items = thumbnailsContainer.querySelectorAll('.thumbnail-item')
+    items.forEach((item, index) => {
+      if (index === dynamicPreviewIndex) {
+        item.classList.add('active')
+      } else {
+        item.classList.remove('active')
+      }
+    })
   }
 }
 
@@ -949,7 +1192,9 @@ async function downloadCurrentImage() {
   if (!dynamicPreviewImages[dynamicPreviewIndex]) return
 
   try {
-    const response = await fetch(dynamicPreviewImages[dynamicPreviewIndex])
+    // 下载时使用原图（移除 CDN 压缩参数）
+    const originalUrl = dynamicPreviewImages[dynamicPreviewIndex].split('@')[0]
+    const response = await fetch(originalUrl)
     const blob = await response.blob()
     const url = window.URL.createObjectURL(blob)
     const a = document.createElement('a')

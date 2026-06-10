@@ -4938,11 +4938,15 @@
       }
     })
 
+    let userPaused = false
+
     playPauseBtn.addEventListener('click', () => {
       if (videoPlayer.paused) {
+        userPaused = false
         videoPlayer.play()
         playPauseBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>`
       } else {
+        userPaused = true
         videoPlayer.pause()
         playPauseBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"/></svg>`
       }
@@ -5527,6 +5531,39 @@
         videoPlayer.classList.remove('fullscreen-mode')
         if (canvas) canvas.classList.remove('fullscreen-mode')
       }
+    })
+
+    // 防止窗口被遮挡时视频暂停
+    // 监听 visibilitychange / pagehide 事件，当页面变为 hidden 时强制视频继续播放
+    function ensurePlaybackNotPaused() {
+      if (!videoPlayer) return
+      if (videoPlayer.paused && !userPaused) {
+        videoPlayer.play().catch(() => {})
+      }
+    }
+
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') {
+        // 页面被遮挡：尝试保持视频播放
+        setTimeout(ensurePlaybackNotPaused, 50)
+        setTimeout(ensurePlaybackNotPaused, 200)
+        setTimeout(ensurePlaybackNotPaused, 500)
+      }
+    })
+
+    window.addEventListener('pagehide', () => {
+      // 什么都不做，仅防止某些浏览器在此事件中的默认暂停行为
+    })
+
+    // 防止 Chromium 因窗口不可见而自动暂停视频
+    // 当视频意外暂停时，如果不是用户主动暂停，则自动恢复播放
+    videoPlayer.addEventListener('pause', () => {
+      // 延迟检查，避免与正常的暂停操作冲突
+      setTimeout(() => {
+        if (document.visibilityState === 'hidden' && !userPaused) {
+          videoPlayer.play().catch(() => {})
+        }
+      }, 100)
     })
   </script>
 

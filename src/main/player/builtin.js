@@ -208,7 +208,8 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
       contextIsolation: false,
       webviewTag: true,
       sandbox: false,
-      partition: 'persist:main'
+      partition: 'persist:main',
+      backgroundThrottling: false
     }
   })
 
