@@ -425,7 +425,7 @@ function registerDynamicsHandlers(deps) {
     log('get-all-dynamics called, offset:', offset)
     try {
       const timezoneOffset = -480
-      const url = `https://api.bilibili.com/x/polymer/web-dynamic/desktop/v1/feed/all?page=1&update_baseline=&offset=${offset}&host_mid=0&timezone_offset=${timezoneOffset}&build=11706&platform=web&device=win&mobi_app=pc_electron&features=${DYNAMIC_FEATURES}`
+      const url = `https://api.bilibili.com/x/polymer/web-dynamic/desktop/v1/feed/all?page=1&update_baseline=&offset=${offset}&host_mid=0&timezone_offset=${timezoneOffset}&build=11706&platform=web&device=win&mobi_app=pc_electron&features=${DYNAMIC_FEATURES}&ps=100`
       log('Using dynamic feed API:', url)
       const result = await fetchApi(url)
 
@@ -474,12 +474,12 @@ function registerDynamicsHandlers(deps) {
     try {
       let url
       if (upMid) {
-        url = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=${upMid}&timezone_offset=-480&platform=web&features=${DYNAMIC_FEATURES}`
+        url = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=${upMid}&timezone_offset=-480&platform=web&features=${DYNAMIC_FEATURES}&ps=100`
         if (type) url += `&type=${type}`
         if (offset) url += `&offset=${offset}`
       } else {
         const timezoneOffset = -480
-        url = `https://api.bilibili.com/x/polymer/web-dynamic/desktop/v1/feed/all?page=1&update_baseline=&offset=${offset}&host_mid=0&timezone_offset=${timezoneOffset}&build=11706&platform=web&device=win&mobi_app=pc_electron&features=${DYNAMIC_FEATURES}`
+        url = `https://api.bilibili.com/x/polymer/web-dynamic/desktop/v1/feed/all?page=1&update_baseline=&offset=${offset}&host_mid=0&timezone_offset=${timezoneOffset}&build=11706&platform=web&device=win&mobi_app=pc_electron&features=${DYNAMIC_FEATURES}&ps=100`
       }
       log('Using dynamic API URL:', url)
       const result = await fetchApi(url)

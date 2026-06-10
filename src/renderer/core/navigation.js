@@ -44,6 +44,13 @@ function scrollToTop() {
   content.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
+// 持续滚动状态（用于 e / d 长按时连续滚动）
+let activeScrollDirection = null
+let scrollRafId = null
+let scrollLastFrameTime = 0
+// 每滚动 1 秒移动的距离（像素）= 视口高度的 N 倍
+const SCROLL_SPEED_VH_PER_SEC = 1.8
+
 function scrollHalfPage(direction) {
   const content = document.querySelector('.content') || document.documentElement
   const currentTop = content.scrollTop
@@ -57,7 +64,70 @@ function scrollHalfPage(direction) {
   }
 }
 
+function startContinuousScroll(direction) {
+  stopContinuousScroll()
+  activeScrollDirection = direction
+  scrollLastFrameTime = performance.now()
+  const content = document.querySelector('.content') || document.documentElement
+
+  function tick(now) {
+    const dt = (now - scrollLastFrameTime) / 1000
+    scrollLastFrameTime = now
+    const viewHeight = content.clientHeight || window.innerHeight
+    const delta = viewHeight * SCROLL_SPEED_VH_PER_SEC * dt
+
+    if (activeScrollDirection === 'up') {
+      content.scrollTop = Math.max(0, content.scrollTop - delta)
+    } else if (activeScrollDirection === 'down') {
+      content.scrollTop = content.scrollTop + delta
+    }
+
+    if (activeScrollDirection) {
+      scrollRafId = requestAnimationFrame(tick)
+    }
+  }
+
+  scrollRafId = requestAnimationFrame(tick)
+}
+
+function stopContinuousScroll() {
+  if (scrollRafId !== null) {
+    cancelAnimationFrame(scrollRafId)
+    scrollRafId = null
+  }
+  activeScrollDirection = null
+}
+
+// 判断按键是否是"滚动"类快捷键（仅支持单键组合启用连续滚动）
+// 返回 'up' / 'down' / null
+function getScrollDirectionFromKey(e) {
+  const scrollUpShortcut = userShortcuts && userShortcuts.scrollUp
+  const scrollDownShortcut = userShortcuts && userShortcuts.scrollDown
+  const k = (e.key || '').toLowerCase()
+
+  const singleKeyMatch = (cfg) => cfg && cfg.keys && cfg.keys.some(ks => {
+    if (!Array.isArray(ks) || ks.length !== 1) return false
+    return normalizeKey(ks[0]) === k
+  })
+
+  if (singleKeyMatch(scrollUpShortcut)) return 'up'
+  if (singleKeyMatch(scrollDownShortcut)) return 'down'
+  // 回退：未载入配置时按默认 e / d 识别
+  if (!scrollUpShortcut && !scrollDownShortcut) {
+    if (k === 'e') return 'up'
+    if (k === 'd') return 'down'
+  }
+  return null
+}
+
 function navigateToPage(page) {
+  if (currentPage === 'search' && page !== 'search') {
+    const searchInput = document.getElementById('searchInput')
+    const searchInputClearBtn = document.getElementById('searchInputClearBtn')
+    if (searchInput) searchInput.value = ''
+    if (searchInputClearBtn) searchInputClearBtn.style.display = 'none'
+  }
+
   pageHistory.push(currentPage)
   if (pageHistory.length > 50) pageHistory.shift()
 
@@ -117,7 +187,7 @@ function updateNavLinks(page) {
   const homeLinks = document.querySelector('.home-links')
   const dynamicLinks = document.querySelector('.dynamic-links')
 
-  if (page === 'my') {
+  if (page === 'my' || page === 'up' || page === 'settings') {
     navLinks.style.display = 'none'
   } else if (page === 'dynamic') {
     navLinks.style.display = 'flex'

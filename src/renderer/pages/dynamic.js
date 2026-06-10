@@ -320,14 +320,50 @@ async function loadDynamicVideos(upId = null, offset = '') {
   if (noMore) noMore.style.display = 'none'
 
   try {
-    const result = await fetchDynamics(upId, offset, 'video')
+    const isFirstLoad = (offset === '')
+    const allItems = []
+    let currentOffset = offset
+    let hasMore = true
+    let batchCount = 0
+    const maxBatches = isFirstLoad ? 2 : 1  // 首次加载连续请求2批
 
-    if (result.items.length > 0) {
-      renderDynamicVideos(result.items, navigateToUP)
-      dynamicHasMore = result.has_more
-      currentDynamicOffset = result.next_offset
+    while (batchCount < maxBatches && hasMore) {
+      const result = await fetchDynamics(upId, currentOffset, 'video')
+      batchCount++
 
-      if (!dynamicHasMore) {
+      if (result.items && result.items.length > 0) {
+        allItems.push(...result.items)
+      }
+
+      hasMore = result.has_more
+      currentOffset = result.next_offset || ''
+
+      // 首次加载时：如果已有40+条且还有更多，就再要一批
+      // 如果没有更多了，停止循环
+      if (!hasMore) break
+      if (isFirstLoad && allItems.length >= 60) break
+      if (!isFirstLoad) break
+    }
+
+    dynamicHasMore = hasMore
+    currentDynamicOffset = currentOffset
+
+    if (allItems.length > 0) {
+      renderDynamicVideos(allItems, navigateToUP)
+
+      // 首次加载后，如果还有更多数据，检测是否需要继续填充
+      if (isFirstLoad && hasMore) {
+        setTimeout(() => {
+          const content = document.querySelector('.content')
+          if (content && !isDynamicLoading) {
+            if (content.scrollHeight <= content.clientHeight * 1.5) {
+              loadDynamicVideos(upId, currentDynamicOffset)
+            }
+          }
+        }, 100)
+      }
+
+      if (!hasMore) {
         if (loadingMore) loadingMore.style.display = 'none'
         if (noMore) noMore.style.display = 'block'
       } else {
@@ -699,15 +735,40 @@ async function loadDynamicContent(upId = null, offset = '') {
   if (noMore) noMore.style.display = 'none'
 
   try {
-    const result = await fetchDynamics(upId, offset)
+    const isFirstLoad = (offset === '')
+    const allItems = []
+    let currentOffset = offset
+    let hasMore = true
+    let batchCount = 0
+    const maxBatches = isFirstLoad ? 1 : 1
+
+    while (batchCount < maxBatches && hasMore) {
+      const result = await fetchDynamics(upId, currentOffset)
+      batchCount++
+
+      if (result.items && result.items.length > 0) {
+        allItems.push(...result.items)
+      }
+
+      hasMore = result.has_more || false
+      currentOffset = result.next_offset || ''
+
+      if (!hasMore) break
+      if (isFirstLoad && allItems.length >= 40) break
+      if (!isFirstLoad) break
+    }
+
+    dynamicContentHasMore = hasMore
+    dynamicContentOffset = currentOffset
+
     const list = document.getElementById('dynamicDynamicsList')
     if (!list) return
 
-    if (result.items && result.items.length > 0) {
-      result.items.forEach((d, index) => {
+    if (allItems.length > 0) {
+      allItems.forEach((d, index) => {
         const card = createDynamicCard(d)
         list.appendChild(card)
-        if (index < 10) {
+        if (index < 15) {
           card.querySelectorAll('img[data-src]').forEach(img => {
             img.src = img.dataset.src
             img.removeAttribute('data-src')
@@ -717,10 +778,19 @@ async function loadDynamicContent(upId = null, offset = '') {
         }
       })
 
-      dynamicContentHasMore = result.has_more || false
-      dynamicContentOffset = result.next_offset || ''
+      // 首次加载后检测是否需要继续填充
+      if (isFirstLoad && hasMore) {
+        setTimeout(() => {
+          const content = document.querySelector('.content')
+          if (content && !isDynamicContentLoading) {
+            if (content.scrollHeight <= content.clientHeight * 1.5) {
+              loadDynamicContent(upId, dynamicContentOffset)
+            }
+          }
+        }, 100)
+      }
 
-      if (!dynamicContentHasMore) {
+      if (!hasMore) {
         if (loadingMore) loadingMore.style.display = 'none'
         if (noMore) noMore.style.display = 'block'
       } else {
@@ -809,6 +879,9 @@ function selectDynamicUp(upId, upName) {
   const dynNoMore = document.getElementById('dynamicDynamicsNoMore')
   if (dynNoMore) dynNoMore.style.display = 'none'
 
+  const content = document.querySelector('.content')
+  if (content) content.scrollTop = 0
+
   loadDynamicVideos(upId, '')
   loadDynamicContent(upId, '')
 }
@@ -844,6 +917,9 @@ function selectAllDynamic() {
   if (dynLoadingMore) dynLoadingMore.style.display = 'none'
   const dynNoMore = document.getElementById('dynamicDynamicsNoMore')
   if (dynNoMore) dynNoMore.style.display = 'none'
+
+  const content = document.querySelector('.content')
+  if (content) content.scrollTop = 0
 
   loadDynamicVideos(null, '')
   loadDynamicContent(null, '')

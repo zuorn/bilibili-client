@@ -420,6 +420,9 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
     }
     if (state.playerWindow === playerWindow) {
       state.playerWindow = null
+      state.playerBaseSize = null
+      state.playerLandscapeSize = null
+      state.playerPortraitSize = null
     }
   })
 
@@ -553,6 +556,19 @@ function registerBuiltinPlayerHandlers(deps) {
         x: newX, y: newY,
         width: newWidth, height: newHeight
       }, true)
+      // 把本次缩放结果作为"横屏基准"保存；竖屏基准按播放器当前比例派生，
+      // 保证后续旋转 + WASD 移动时都使用用户期望的尺寸。
+      state.playerLandscapeSize = { width: newWidth, height: newHeight }
+      const currentAspect = state.playerVideoAspect || (16 / 9)
+      const portraitAspect = 1 / currentAspect // 竖版比例 ≈ 9/16
+      const ref2 = Math.min(newWidth, newHeight)
+      let pw = Math.max(480, ref2)
+      let ph = Math.round(pw / portraitAspect)
+      const mxw = Math.floor(workArea.width * 0.95)
+      const mxh = Math.floor(workArea.height * 0.95)
+      if (pw > mxw) { pw = mxw; ph = Math.round(pw / portraitAspect) }
+      if (ph > mxh) { ph = mxh; pw = Math.round(ph * portraitAspect) }
+      state.playerPortraitSize = { width: pw, height: ph }
     }
   })
 
@@ -606,10 +622,88 @@ function registerBuiltinPlayerHandlers(deps) {
         height: newHeight
       }, true)
 
+      state.playerBaseSize = { width: newWidth, height: newHeight }
+      // 同时同步两套基准：把本次的新尺寸作为横屏基准，竖屏基准按当前比例派生。
+      state.playerLandscapeSize = { width: newWidth, height: newHeight }
+      const currentAspect2 = state.playerVideoAspect || (16 / 9)
+      const pAspect = 1 / currentAspect2
+      const ref3 = Math.min(newWidth, newHeight)
+      let pw3 = Math.max(480, ref3)
+      let ph3 = Math.round(pw3 / pAspect)
+      const mxw3 = Math.floor(workArea.width * 0.95)
+      const mxh3 = Math.floor(workArea.height * 0.95)
+      if (pw3 > mxw3) { pw3 = mxw3; ph3 = Math.round(pw3 / pAspect) }
+      if (ph3 > mxh3) { ph3 = mxh3; pw3 = Math.round(ph3 * pAspect) }
+      state.playerPortraitSize = { width: pw3, height: ph3 }
+
       log(`Resized player window to ${newWidth}x${newHeight}`)
       return { success: true, width: newWidth, height: newHeight }
     }
     return { success: false }
+  })
+
+  // 根据视频旋转状态调整播放器窗口宽高比例。
+  //
+  // 为了避免"反复按 R 导致窗口越转越大/越小"，这里同时维护两套基准尺寸：
+  //   - state.playerLandscapeSize : 横屏（0°/180°）状态下窗口应当保持的宽高
+  //   - state.playerPortraitSize  : 竖屏（90°/270°）状态下窗口应当保持的宽高
+  //
+  // 同一视频在两种状态间切换时，窗口只会在这两套尺寸之间做"一次性切换"，不会因为
+  // 反复按 R 而被重新换算。之后每次 WASD 移动 / +/- 缩放都以对应状态的基准为准。
+  ipcMain.handle('rotate-player-window', async (event, rotation, baseWidth, baseHeight) => {
+    if (!state.playerWindow || state.playerWindow.isFullScreen()) {
+      return { success: false, reason: 'no-window-or-fullscreen' }
+    }
+
+    const { screen } = require('electron')
+    const primaryDisplay = screen.getPrimaryDisplay()
+    const workArea = primaryDisplay.workArea
+
+    const rot = ((rotation % 360) + 360) % 360
+    const isPortrait = (rot === 90 || rot === 270)
+
+    const videoW = Number(baseWidth) || 16
+    const videoH = Number(baseHeight) || 9
+
+    // 初始化：如果还没有记录横屏基准尺寸，就以当前窗口外框为横屏基准，
+    // 并按视频真实宽高比例推一份竖屏基准尺寸。
+    if (!state.playerLandscapeSize) {
+      const b = state.playerWindow.getBounds()
+      state.playerLandscapeSize = { width: b.width, height: b.height }
+      // 竖版基准：以横版较短边作为竖版宽度，按 (videoH/videoW) 比例换算高度
+      const ref = Math.min(b.width, b.height)
+      let pw = Math.max(480, ref)
+      let ph = Math.round(pw / (videoH / videoW))
+      // 安全上限
+      const maxW = Math.floor(workArea.width * 0.95)
+      const maxH = Math.floor(workArea.height * 0.95)
+      if (pw > maxW) { pw = maxW; ph = Math.round(pw / (videoH / videoW)) }
+      if (ph > maxH) { ph = maxH; pw = Math.round(ph * (videoH / videoW)) }
+      state.playerPortraitSize = { width: pw, height: ph }
+    }
+
+    const currentBounds = state.playerWindow.getBounds()
+    const target = isPortrait ? state.playerPortraitSize : state.playerLandscapeSize
+    const newWidth = target.width
+    const newHeight = target.height
+    const newAspect = newWidth / newHeight
+
+    // 以窗口当前中心点为锚，保持视觉位置稳定
+    const cx = currentBounds.x + currentBounds.width / 2
+    const cy = currentBounds.y + currentBounds.height / 2
+    let newX = Math.round(cx - newWidth / 2)
+    let newY = Math.round(cy - newHeight / 2)
+    newX = Math.max(0, Math.min(workArea.width - newWidth, newX))
+    newY = Math.max(0, Math.min(workArea.height - newHeight, newY))
+
+    state.playerVideoAspect = newAspect
+    state.playerWindow.setBounds({
+      x: newX, y: newY,
+      width: newWidth, height: newHeight
+    }, false)
+
+    log(`Rotate player window: rotation=${rotation}(${isPortrait ? 'portrait' : 'landscape'}), aspect=${newAspect.toFixed(3)}, size=${newWidth}x${newHeight}`)
+    return { success: true, aspect: newAspect, width: newWidth, height: newHeight, isPortrait }
   })
 
   ipcMain.handle('set-window-position-smooth', async (event, x, y) => {
@@ -652,30 +746,53 @@ function registerBuiltinPlayerHandlers(deps) {
   })
 
   ipcMain.handle('move-player-window', async (event, direction) => {
-    if (state.playerWindow && !state.playerWindow.isFullScreen()) {
-      const currentBounds = state.playerWindow.getBounds()
-      const step = 50
+    if (!state.playerWindow || state.playerWindow.isFullScreen()) return
+    const currentBounds = state.playerWindow.getBounds()
 
-      let newX = currentBounds.x
-      let newY = currentBounds.y
-
-      switch (direction) {
-        case 'up':
-          newY -= step
-          break
-        case 'down':
-          newY += step
-          break
-        case 'left':
-          newX -= step
-          break
-        case 'right':
-          newX += step
-          break
-      }
-
-      state.playerWindow.setPosition(newX, newY)
+    // 如果还没有基准尺寸，用当前窗口尺寸初始化两套基准（横屏基准按当前比例）。
+    if (!state.playerLandscapeSize) {
+      state.playerLandscapeSize = { width: currentBounds.width, height: currentBounds.height }
+      const ratio = currentBounds.width / currentBounds.height
+      const ref = Math.min(currentBounds.width, currentBounds.height)
+      let pw = Math.max(480, ref)
+      let ph = Math.round(pw * ratio) // 保持原比例作为竖版估算比例
+      const { screen } = require('electron')
+      const workArea = screen.getPrimaryDisplay().workArea
+      const mxw = Math.floor(workArea.width * 0.95)
+      const mxh = Math.floor(workArea.height * 0.95)
+      if (pw > mxw) { pw = mxw; ph = Math.round(pw * ratio) }
+      if (ph > mxh) { ph = mxh; pw = Math.round(ph / ratio) }
+      state.playerPortraitSize = { width: pw, height: ph }
     }
+
+    // 按当前窗口实际宽高比选择"横屏"还是"竖屏"基准。
+    // 这样即使用户手动拖拽改变了窗口大小，也不会被强制变回横版尺寸。
+    const isCurrentlyPortrait = currentBounds.width <= currentBounds.height
+    const base = isCurrentlyPortrait
+      ? (state.playerPortraitSize || state.playerLandscapeSize)
+      : state.playerLandscapeSize
+
+    const step = 50
+    let newX = currentBounds.x
+    let newY = currentBounds.y
+    switch (direction) {
+      case 'up': newY -= step; break
+      case 'down': newY += step; break
+      case 'left': newX -= step; break
+      case 'right': newX += step; break
+    }
+
+    const { screen } = require('electron')
+    const workArea = screen.getPrimaryDisplay().workArea
+    newX = Math.max(0, Math.min(workArea.width - base.width, newX))
+    newY = Math.max(0, Math.min(workArea.height - base.height, newY))
+
+    state.playerWindow.setBounds({
+      x: newX,
+      y: newY,
+      width: base.width,
+      height: base.height
+    }, false)
   })
 
   // 下载视频（获取最高画质，合并音视频）

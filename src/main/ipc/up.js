@@ -79,7 +79,7 @@ function registerUpHandlers(deps) {
   }
 
   function fetchUpVideos(mid, offset = '') {
-    let url = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=${mid}&type=video`
+    let url = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=${mid}&type=video&ps=100`
     if (offset) {
       url += `&offset=${offset}`
     }
@@ -176,7 +176,7 @@ function registerUpHandlers(deps) {
   ipcMain.handle('fetch-up-dynamics', async (event, mid, offset = '') => {
     log('fetch-up-dynamics called, mid:', mid, 'offset:', offset)
     try {
-      let url = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=${mid}&timezone_offset=-480&platform=web`
+      let url = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=${mid}&timezone_offset=-480&platform=web&ps=100`
       if (offset) {
         url += `&offset=${offset}`
       }

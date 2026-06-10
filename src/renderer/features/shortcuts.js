@@ -447,13 +447,18 @@ function applyShortcuts(e) {
   const scrollDownShortcut = userShortcuts.scrollDown
   if (scrollDownShortcut && scrollDownShortcut.keys && matchAnyShortcut(e, scrollDownShortcut.keys)) {
     e.preventDefault()
+    // 按下时先翻半页，之后长按由主循环继续滚动
     scrollHalfPage('down')
+    if (typeof startContinuousScroll === 'function') startContinuousScroll('down')
+    return
   }
 
   const scrollUpShortcut = userShortcuts.scrollUp
   if (scrollUpShortcut && scrollUpShortcut.keys && matchAnyShortcut(e, scrollUpShortcut.keys)) {
     e.preventDefault()
     scrollHalfPage('up')
+    if (typeof startContinuousScroll === 'function') startContinuousScroll('up')
+    return
   }
 
   const triggerActionShortcut = userShortcuts.triggerAction
@@ -539,4 +544,18 @@ document.addEventListener('keydown', e => {
   }
 
   applyShortcuts(e)
+})
+
+// 长按 e / d 时，配合主循环实现连续滚动：keyup / blur / visibilitychange 时停止
+document.addEventListener('keyup', e => {
+  if (typeof stopContinuousScroll !== 'function' || typeof getScrollDirectionFromKey !== 'function') return
+  if (getScrollDirectionFromKey(e)) stopContinuousScroll()
+})
+
+window.addEventListener('blur', () => {
+  if (typeof stopContinuousScroll === 'function') stopContinuousScroll()
+})
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden && typeof stopContinuousScroll === 'function') stopContinuousScroll()
 })

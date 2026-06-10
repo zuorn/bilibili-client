@@ -1212,10 +1212,11 @@ async function fetchUpInfo(mid) {
       console.log('DOM elements - upName:', upName, 'upSign:', upSign)
 
       if (upAvatar) {
-        upAvatar.src = fixImageUrl(card.face) || 'https://i0.hdslb.com/bfs/archive/placeholder.png'
         upAvatar.onerror = function() {
-          this.src = 'https://i0.hdslb.com/bfs/archive/placeholder.png'
+          this.onerror = null
+          this.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f4f4f5"/><text x="50" y="55" font-size="14" text-anchor="middle" fill="%23999">UP</text></svg>'
         }
+        upAvatar.src = fixImageUrl(card.face)
       } else {
         console.error('upAvatar element not found')
       }

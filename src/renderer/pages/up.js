@@ -341,10 +341,11 @@ async function fetchUpInfo(mid) {
         const viewCount = document.getElementById('viewCount')
 
         if (upAvatar) {
-          upAvatar.src = fixImageUrl(card.face) || 'https://i0.hdslb.com/bfs/archive/placeholder.png'
           upAvatar.onerror = function() {
-            this.src = 'https://i0.hdslb.com/bfs/archive/placeholder.png'
+            this.onerror = null
+            this.src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><rect width="100" height="100" fill="%23f4f4f5"/><text x="50" y="55" font-size="14" text-anchor="middle" fill="%23999">UP</text></svg>'
           }
+          upAvatar.src = fixImageUrl(card.face)
         }
 
         if (upName) {
@@ -419,77 +420,106 @@ async function loadUpVideos(mid, offset = '') {
   if (noMore) noMore.style.display = 'none'
 
   try {
-    const result = await ipcRenderer.invoke('fetch-up-videos', mid, offset)
-    console.log('fetch-up-videos result:', result)
+    const isFirstLoad = (offset === '')
+    const allRawItems = []
+    let currentOffset = offset
+    let hasMore = true
+    let batchCount = 0
+    const maxBatches = isFirstLoad ? 2 : 1
 
-    if (result.success && result.data?.data) {
-      const items = result.data.data.items || []
-      console.log('Items received:', items.length)
+    while (batchCount < maxBatches && hasMore) {
+      const result = await ipcRenderer.invoke('fetch-up-videos', mid, currentOffset)
+      batchCount++
 
-      if (items.length > 0) {
-        const newVideos = items.map(item => {
-          const modules = item.modules || {}
-          const dynamicModule = modules.module_dynamic || {}
-          const majorModule = dynamicModule.major || {}
-          const authorModule = modules.module_author || {}
-
-          let bvid = ''
-          let title = ''
-          let pic = ''
-          let duration = ''
-          let play = ''
-          let pubTs = 0
-          let pubTime = ''
-
-          if (majorModule.archive) {
-            bvid = majorModule.archive.bvid || ''
-            title = majorModule.archive.title || ''
-            pic = majorModule.archive.cover || ''
-            duration = majorModule.archive.duration_text || ''
-
-            const stat = majorModule.archive.stat || {}
-            play = stat.view > 0 ? formatPlayCount(stat.view) + '播放' : ''
-          }
-
-          // 提取时间信息
-          pubTs = authorModule.pub_ts || 0
-          pubTime = authorModule.pub_time || ''
-
-          const cid = majorModule.archive?.cid || ''
-
-          return {
-            bvid: bvid,
-            cid: cid,
-            title: title,
-            pic: fixImageUrl(pic),
-            play: play,
-            duration: duration,
-            author: pageStates.up.name || '未知',
-            mid: mid,
-            owner: { mid: mid, name: pageStates.up.name || '未知' },
-            pubTs: pubTs,
-            pubTime: pubTime,
-            publish_date: pubTime || timeAgo(pubTs)
-          }
-        }).filter(v => v.bvid)
-
-        console.log('New videos to append:', newVideos.length)
-        appendVideos(newVideos, 'upVideoGrid', navigateToUP)
-        pageStates.up.hasMore = result.data.data.has_more || false
-        pageStates.up.offset = result.data.data.offset || ''
-
-        console.log('pageStates.up.hasMore:', pageStates.up.hasMore, 'pageStates.up.offset:', pageStates.up.offset)
-
-        if (!pageStates.up.hasMore) {
-          if (loadingMore) loadingMore.style.display = 'none'
-          if (noMore) noMore.style.display = 'block'
-        } else {
-          if (loadingMore) loadingMore.style.display = 'none'
+      if (result.success && result.data?.data) {
+        const items = result.data.data.items || []
+        if (items.length > 0) {
+          allRawItems.push(...items)
         }
+        hasMore = result.data.data.has_more || false
+        currentOffset = result.data.data.offset || ''
       } else {
+        hasMore = false
+      }
+
+      if (!hasMore) break
+      if (isFirstLoad && allRawItems.length >= 60) break
+      if (!isFirstLoad) break
+    }
+
+    pageStates.up.hasMore = hasMore
+    pageStates.up.offset = currentOffset
+
+    if (allRawItems.length > 0) {
+      const newVideos = allRawItems.map(item => {
+        const modules = item.modules || {}
+        const dynamicModule = modules.module_dynamic || {}
+        const majorModule = dynamicModule.major || {}
+        const authorModule = modules.module_author || {}
+
+        let bvid = ''
+        let title = ''
+        let pic = ''
+        let duration = ''
+        let play = ''
+        let pubTs = 0
+        let pubTime = ''
+
+        if (majorModule.archive) {
+          bvid = majorModule.archive.bvid || ''
+          title = majorModule.archive.title || ''
+          pic = majorModule.archive.cover || ''
+          duration = majorModule.archive.duration_text || ''
+
+          const stat = majorModule.archive.stat || {}
+          play = stat.view > 0 ? formatPlayCount(stat.view) + '播放' : ''
+        }
+
+        pubTs = authorModule.pub_ts || 0
+        pubTime = authorModule.pub_time || ''
+
+        const cid = majorModule.archive?.cid || ''
+
+        return {
+          bvid: bvid,
+          cid: cid,
+          title: title,
+          pic: fixImageUrl(pic),
+          play: play,
+          duration: duration,
+          author: pageStates.up.name || '未知',
+          mid: mid,
+          owner: { mid: mid, name: pageStates.up.name || '未知' },
+          pubTs: pubTs,
+          pubTime: pubTime,
+          publish_date: pubTime || timeAgo(pubTs)
+        }
+      }).filter(v => v.bvid)
+
+      console.log('New videos to append:', newVideos.length)
+      appendVideos(newVideos, 'upVideoGrid', navigateToUP)
+
+      if (!pageStates.up.hasMore) {
         if (loadingMore) loadingMore.style.display = 'none'
         if (noMore) noMore.style.display = 'block'
+      } else {
+        if (loadingMore) loadingMore.style.display = 'none'
       }
+
+      // 首次加载后检测是否需要继续填充
+      if (isFirstLoad && hasMore) {
+        setTimeout(() => {
+          const content = document.querySelector('.content')
+          if (content && !pageStates.up.loading) {
+            if (content.scrollHeight <= content.clientHeight * 1.5) {
+              loadUpVideos(mid, pageStates.up.offset)
+            }
+          }
+        }, 100)
+      }
+    } else {
+      if (loadingMore) loadingMore.style.display = 'none'
+      if (noMore) noMore.style.display = 'block'
     }
   } catch (error) {
     console.error('加载UP主视频失败:', error)
@@ -764,47 +794,73 @@ async function loadUpDynamics(mid, offset = '') {
   if (noMore) noMore.style.display = 'none'
 
   try {
-    const result = await ipcRenderer.invoke('fetch-up-dynamics', mid, offset)
-    console.log('fetch-up-dynamics result:', result)
+    const isFirstLoad = (offset === '')
+    const allItems = []
+    let currentOffset = offset
+    let hasMore = true
+    let batchCount = 0
+    const maxBatches = isFirstLoad ? 1 : 1
 
-    if (result.success && result.data) {
-      const items = result.data.items || []
-      console.log('Dynamics items received:', items.length)
+    while (batchCount < maxBatches && hasMore) {
+      const result = await ipcRenderer.invoke('fetch-up-dynamics', mid, currentOffset)
+      batchCount++
 
-      const list = document.getElementById('upDynamicsList')
-      if (!list) return
-
-      if (items.length > 0) {
-        items.forEach((d, index) => {
-          const card = createUpDynamicCard(d)
-          list.appendChild(card)
-          // 仅首屏预加载图片，后续批次由 IntersectionObserver 按需加载
-          if (!offset) {
-            preloadDynamicImages(d)
-          }
-          // 前 10 张卡片立即加载图片，其余交给 IntersectionObserver
-          if (index < 10) {
-            card.querySelectorAll('img[data-src]').forEach(img => {
-              img.src = img.dataset.src
-              img.removeAttribute('data-src')
-            })
-          } else {
-            observeDynamicImages(card)
-          }
-        })
-
-        pageStates.up.hasMoreDynamics = result.data.has_more || false
-        pageStates.up.dynamicOffset = result.data.offset || ''
-
-        if (!pageStates.up.hasMoreDynamics) {
-          if (loadingMore) loadingMore.style.display = 'none'
-          if (noMore) noMore.style.display = 'block'
-        } else {
-          if (loadingMore) loadingMore.style.display = 'none'
+      if (result.success && result.data) {
+        const items = result.data.items || []
+        if (items.length > 0) {
+          allItems.push(...items)
         }
+        hasMore = result.data.has_more || false
+        currentOffset = result.data.offset || ''
       } else {
+        hasMore = false
+      }
+
+      if (!hasMore) break
+      if (isFirstLoad && allItems.length >= 40) break
+      if (!isFirstLoad) break
+    }
+
+    pageStates.up.hasMoreDynamics = hasMore
+    pageStates.up.dynamicOffset = currentOffset
+
+    const list = document.getElementById('upDynamicsList')
+    if (!list) return
+
+    if (allItems.length > 0) {
+      allItems.forEach((d, index) => {
+        const card = createUpDynamicCard(d)
+        list.appendChild(card)
+        if (isFirstLoad) {
+          preloadDynamicImages(d)
+        }
+        if (index < 15) {
+          card.querySelectorAll('img[data-src]').forEach(img => {
+            img.src = img.dataset.src
+            img.removeAttribute('data-src')
+          })
+        } else {
+          observeDynamicImages(card)
+        }
+      })
+
+      if (!pageStates.up.hasMoreDynamics) {
         if (loadingMore) loadingMore.style.display = 'none'
         if (noMore) noMore.style.display = 'block'
+      } else {
+        if (loadingMore) loadingMore.style.display = 'none'
+      }
+
+      // 首次加载后检测是否需要继续填充
+      if (isFirstLoad && hasMore) {
+        setTimeout(() => {
+          const content = document.querySelector('.content')
+          if (content && !pageStates.up.dynamicLoading) {
+            if (content.scrollHeight <= content.clientHeight * 1.5) {
+              loadUpDynamics(mid, pageStates.up.dynamicOffset)
+            }
+          }
+        }, 100)
       }
     } else {
       if (loadingMore) loadingMore.style.display = 'none'
