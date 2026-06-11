@@ -443,6 +443,7 @@ function initEventListeners() {
   initMpvPath()
   initDanmakuToggle()
   initBuiltinPlayerToggle()
+  initAppVersion()   // 动态设置关于页面的版本号
 
   // 底部操作按钮事件
   const refreshBtn = document.getElementById('refreshBtn')

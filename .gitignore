@@ -28,4 +28,5 @@ cookies.json
 config.json
 *.key
 *.secret
+oss-config.json
 

@@ -13,10 +13,23 @@
     updateBtn.textContent = '更新'
 
     updateBtn.addEventListener('click', function() {
-      if (currentStatus === 'downloaded') {
-        ipcRenderer.invoke('install-update')
-      } else if (currentStatus === 'error') {
-        ipcRenderer.invoke('check-for-update')
+      switch (currentStatus) {
+        case 'available':
+          // 发现新版本，点击后手动触发下载（以防自动下载未触发）
+          ipcRenderer.invoke('download-update')
+          break
+        case 'downloading':
+          // 正在下载中，给出提示
+          if (window.showToast) {
+            window.showToast('正在下载更新，请稍候...', 'info')
+          }
+          break
+        case 'downloaded':
+          ipcRenderer.invoke('install-update')
+          break
+        case 'error':
+          ipcRenderer.invoke('check-for-update')
+          break
       }
     })
 

@@ -52,9 +52,8 @@ github:
 # ------------------------------------------------------------
 generic:
   # 服务器上放置构建产物的目录 URL（不含末尾斜杠）
-  url: "https://talktime.oss-cn-shanghai.aliyuncs.com/doc/bl/v0.0.2"
-  # 更新通道
-  channel: latest
+  # electron-updater 会自动在此 URL 后追加 /latest.yml 读取版本元数据
+  url: "https://talktime.oss-cn-shanghai.aliyuncs.com/doc/bl/bl"
 
 # ------------------------------------------------------------
 # 启动时自动检查更新（推荐开启）

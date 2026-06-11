@@ -126,6 +126,11 @@ function registerAllHandlers() {
 
   // 自动更新
   registerUpdaterHandlers({ ipcMain, log, mainWindow: mw })
+
+  // 获取应用版本号
+  ipcMain.handle('get-app-version', () => {
+    return app.getVersion()
+  })
 }
 
 // ==================== 创建系统托盘 ====================

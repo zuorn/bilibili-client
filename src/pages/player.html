@@ -2789,6 +2789,10 @@
     const dashSyncHandlers = {
       onPlay: () => {
         if (currentAudioElement && currentAudioElement.paused) {
+          // 播放前先同步到视频当前时间，避免音频从 0 开始导致音画不同步
+          if (Math.abs(currentAudioElement.currentTime - videoPlayer.currentTime) > 0.1) {
+            currentAudioElement.currentTime = videoPlayer.currentTime
+          }
           currentAudioElement.play().catch(e => console.log('Audio play error:', e))
         }
       },
@@ -3549,6 +3553,7 @@
     }
 
     let lastGKeyTime = 0
+    let gKeyTimer = null  // 单次 g 键延时，区分 g(最大化) 和 gg(回到顶部)
 
     document.addEventListener('keydown', (e) => {
       // 如果焦点在可输入元素上（评论输入框、收藏夹名称输入框等），禁用所有全局快捷键，避免打字冲突
@@ -3560,16 +3565,25 @@
       )
       if (isTypingTarget) return
 
-      // gg: 回到顶部（侧边栏优先，否则主页面）
+      // g: 最大化/还原窗口; gg: 回到顶部（侧边栏优先）
       if (e.key === 'g' || e.key === 'G') {
         if (e.ctrlKey || e.altKey || e.metaKey) return
+        e.preventDefault()
         const now = Date.now()
         if (now - lastGKeyTime < 400) {
-          e.preventDefault()
+          // 双击 gg → 回到顶部
+          if (gKeyTimer) { clearTimeout(gKeyTimer); gKeyTimer = null }
           const panel = document.getElementById('videoInfoPanel')
           if (panel && panel.classList.contains('visible') && panel.scrollTop > 0) {
             panel.scrollTo({ top: 0, behavior: 'smooth' })
           }
+        } else {
+          // 第一次按下 g → 延时 400ms 后执行最大化（如果期间没再按 g）
+          if (gKeyTimer) clearTimeout(gKeyTimer)
+          gKeyTimer = setTimeout(() => {
+            gKeyTimer = null
+            ipcRenderer.invoke('maximize-player-window')
+          }, 400)
         }
         lastGKeyTime = now
         return
@@ -4002,24 +4016,30 @@
         videoPlayer.removeEventListener('volumechange', dashSyncHandlers.onVolumeChange)
         videoPlayer.removeEventListener('seeked', dashSyncHandlers.onSeeked)
 
-        videoPlayer.crossOrigin = 'anonymous'
-        videoPlayer.src = result.url
-
         // 应用保存的音量
         const savedVol = localStorage.getItem('playerVolume')
-        if (savedVol !== null) {
-          videoPlayer.volume = parseFloat(savedVol)
-        }
 
+        // 先创建音频元素并设置 src（与视频并发加载，避免视频先出、声音延迟）
+        let hasSeparateAudio = false
         if (result.audioUrl && !result.isCombined) {
           console.log('Creating separate audio element for DASH format')
           currentAudioElement = document.createElement('audio')
-          currentAudioElement.src = result.audioUrl
           currentAudioElement.crossOrigin = 'anonymous'
-
+          currentAudioElement.preload = 'auto'
+          currentAudioElement.src = result.audioUrl
           if (savedVol !== null) {
             currentAudioElement.volume = parseFloat(savedVol)
           }
+          currentAudioElement.load()
+          hasSeparateAudio = true
+
+          // 音频 ready 后，若视频已经在播放，立即跟上并同步时间
+          currentAudioElement.addEventListener('canplay', function onAudioCanPlay() {
+            if (currentAudioElement && !videoPlayer.paused && currentAudioElement.paused) {
+              currentAudioElement.currentTime = videoPlayer.currentTime
+              currentAudioElement.play().catch(e => console.log('Audio play error:', e))
+            }
+          }, { once: true })
 
           videoPlayer.addEventListener('play', dashSyncHandlers.onPlay)
           videoPlayer.addEventListener('pause', dashSyncHandlers.onPause)
@@ -4027,6 +4047,12 @@
           videoPlayer.addEventListener('seeked', dashSyncHandlers.onSeeked)
         }
 
+        // 再设置视频 src 并 load，保证音视频网络请求并发发出
+        videoPlayer.crossOrigin = 'anonymous'
+        videoPlayer.src = result.url
+        if (savedVol !== null) {
+          videoPlayer.volume = parseFloat(savedVol)
+        }
         videoPlayer.load()
 
         // 异步预加载进度条快照数据，不阻塞视频播放
@@ -4041,6 +4067,9 @@
           if (!hasLoaded && !hasError) {
             if (progress !== null && progress !== undefined && !initialProgressSet) {
               videoPlayer.currentTime = progress
+              if (hasSeparateAudio && currentAudioElement) {
+                currentAudioElement.currentTime = progress
+              }
               initialProgressSet = true
               console.log('Set initial progress to:', progress)
             }
@@ -4055,6 +4084,9 @@
           if (!hasLoaded && !hasError) {
             if (progress !== null && progress !== undefined && !initialProgressSet) {
               videoPlayer.currentTime = progress
+              if (hasSeparateAudio && currentAudioElement) {
+                currentAudioElement.currentTime = progress
+              }
               initialProgressSet = true
               console.log('Set initial progress to:', progress)
             }

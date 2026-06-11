@@ -167,3 +167,15 @@ function updateSettingsUserName() {
     }
   }
 }
+
+// 从主进程获取应用版本号并显示在"关于"部分
+async function initAppVersion() {
+  const versionEl = document.getElementById('appVersion')
+  if (!versionEl) return
+  try {
+    const version = await ipcRenderer.invoke('get-app-version')
+    versionEl.textContent = 'v' + (version || '1.0.0')
+  } catch (err) {
+    versionEl.textContent = 'v1.0.0'
+  }
+}
