@@ -8,7 +8,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (typeof initPopularTabs === 'function') initPopularTabs()
   if (typeof initRankingFilters === 'function') initRankingFilters()
   checkLoginStatus()
-  loadPageContent('home')
+  navigateToPage('home')
 })
 
 function initEventListeners() {

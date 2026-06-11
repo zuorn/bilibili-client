@@ -1,5 +1,60 @@
-const DEFAULT_FAVORITES_ID = 166434448
-const DEFAULT_FAVORITES_NAME = '默认收藏夹'
+let currentUserDefaultFavoritesId = null
+
+async function getDefaultFavoritesId() {
+  // 重置缓存：如果需要获取最新的默认收藏夹ID，先清除缓存
+  // 切换用户后需要调用此函数来刷新缓存
+  
+  try {
+    console.log('[Favorites] 开始获取默认收藏夹ID...')
+    const result = await ipcRenderer.invoke('get-favorites-folders')
+    console.log('[Favorites] get-favorites-folders 返回结果:', JSON.stringify(result))
+    
+    if (result.success && result.data) {
+      console.log('[Favorites] 收藏夹数据:', JSON.stringify(result.data))
+      
+      // 首先查找标记为默认的收藏夹
+      let defaultFolder = result.data.find(folder => folder.is_default === true)
+      
+      // 如果没有标记为默认的，查找名称为"默认收藏夹"的
+      if (!defaultFolder) {
+        defaultFolder = result.data.find(folder => folder.name === '默认收藏夹')
+      }
+      
+      console.log('[Favorites] 找到的默认收藏夹:', JSON.stringify(defaultFolder))
+      
+      if (defaultFolder) {
+        // 获取收藏夹ID，优先使用 fid，其次使用 id
+        const folderId = defaultFolder.fid !== undefined ? defaultFolder.fid : (defaultFolder.id !== undefined ? defaultFolder.id : null)
+        console.log('[Favorites] 默认收藏夹ID (处理前):', folderId, '类型:', typeof folderId)
+        
+        // 检查ID是否有效：不能是 null, undefined, '', 0 或 '0'
+        const isValidId = folderId !== null && folderId !== undefined && folderId !== '' && folderId !== 0 && String(folderId) !== '0'
+        
+        if (isValidId) {
+          currentUserDefaultFavoritesId = String(folderId)
+          console.log('[Favorites] 获取到当前用户的默认收藏夹ID:', currentUserDefaultFavoritesId)
+          return currentUserDefaultFavoritesId
+        } else {
+          console.log('[Favorites] 默认收藏夹ID无效（可能是假的默认收藏夹）')
+        }
+      } else {
+        console.log('[Favorites] 未找到默认收藏夹')
+      }
+    } else {
+      console.log('[Favorites] get-favorites-folders 调用失败:', result.error)
+    }
+  } catch (error) {
+    console.error('[Favorites] 获取默认收藏夹ID失败:', error)
+  }
+  
+  return null
+}
+
+// 清除默认收藏夹缓存（切换用户时调用）
+function clearDefaultFavoritesCache() {
+  currentUserDefaultFavoritesId = null
+  console.log('[Favorites] 已清除默认收藏夹缓存')
+}
 
 function formatHistoryTime(timestamp) {
   if (!timestamp) return ''
@@ -171,7 +226,12 @@ async function handleCleanExpiredContent() {
   if (!confirmed) return
   
   try {
-    const result = await ipcRenderer.invoke('clean-favorites-expired', DEFAULT_FAVORITES_ID)
+    const defaultFavoritesId = await getDefaultFavoritesId()
+    if (!defaultFavoritesId) {
+      showToast('无法获取默认收藏夹ID')
+      return
+    }
+    const result = await ipcRenderer.invoke('clean-favorites-expired', defaultFavoritesId)
     if (result.success) {
       await showConfirmDialog({
         title: '成功',
@@ -1005,7 +1065,15 @@ async function loadFavorites(append = false) {
   state.isFavoritesLoading = true
 
   try {
-    const result = await ipcRenderer.invoke('get-favorites', DEFAULT_FAVORITES_ID, state.favoritesPageNum, 36)
+    const defaultFavoritesId = await getDefaultFavoritesId()
+    if (!defaultFavoritesId) {
+      if (!append) {
+        showEmptyMessage('favoritesGrid', '无法获取默认收藏夹')
+      }
+      return
+    }
+    
+    const result = await ipcRenderer.invoke('get-favorites', defaultFavoritesId, state.favoritesPageNum, 36)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
         id: item.id || 0,
@@ -1025,9 +1093,9 @@ async function loadFavorites(append = false) {
 
       if (videos.length > 0) {
         if (append) {
-          appendVideos(videos, 'favoritesGrid', navigateToUP, getFavoritesCardOptions(DEFAULT_FAVORITES_ID, DEFAULT_FAVORITES_NAME, 'favoritesGrid'))
+          appendVideos(videos, 'favoritesGrid', navigateToUP, getFavoritesCardOptions(defaultFavoritesId, '默认收藏夹', 'favoritesGrid'))
         } else {
-          renderVideos(videos, 'favoritesGrid', navigateToUP, getFavoritesCardOptions(DEFAULT_FAVORITES_ID, DEFAULT_FAVORITES_NAME, 'favoritesGrid'))
+          renderVideos(videos, 'favoritesGrid', navigateToUP, getFavoritesCardOptions(defaultFavoritesId, '默认收藏夹', 'favoritesGrid'))
         }
         state.hasMoreFavorites = result.hasMore || false
         state.favoritesPageNum++
@@ -1097,7 +1165,13 @@ async function loadToview(append = false) {
 
 async function searchFavorites(keyword) {
   try {
-    const result = await ipcRenderer.invoke('get-favorites', DEFAULT_FAVORITES_ID, 1, 36, keyword)
+    const defaultFavoritesId = await getDefaultFavoritesId()
+    if (!defaultFavoritesId) {
+      showEmptyMessage('favoritesGrid', '无法获取默认收藏夹')
+      return
+    }
+    
+    const result = await ipcRenderer.invoke('get-favorites', defaultFavoritesId, 1, 36, keyword)
     if (result.success && result.data) {
       const videos = result.data.map(item => ({
         id: item.id || 0,
@@ -1116,7 +1190,7 @@ async function searchFavorites(keyword) {
       }))
 
       if (videos.length > 0) {
-        renderVideos(videos, 'favoritesGrid', navigateToUP, getFavoritesCardOptions(DEFAULT_FAVORITES_ID, DEFAULT_FAVORITES_NAME, 'favoritesGrid'))
+        renderVideos(videos, 'favoritesGrid', navigateToUP, getFavoritesCardOptions(defaultFavoritesId, '默认收藏夹', 'favoritesGrid'))
       } else {
         showEmptyMessage('favoritesGrid', `未找到包含 "${keyword}" 的收藏内容`)
       }
@@ -1178,11 +1252,38 @@ async function loadFavoritesDefault(append = false) {
   }
 
   state.isFavoritesDefaultLoading = true
+  console.log('[Favorites] loadFavoritesDefault called, append:', append)
 
   try {
+    // 检查用户是否登录
+    const isLoggedIn = currentUser.isLogin === true || currentUser.isLogin === 1 || currentUser.mid > 0
+    console.log('[Favorites] 用户登录状态:', isLoggedIn)
+    
+    if (!isLoggedIn) {
+      if (!append) {
+        showEmptyMessage('favoritesDefaultGrid', '请先登录以查看收藏内容')
+      }
+      return
+    }
+    
+    const defaultFavoritesId = await getDefaultFavoritesId()
+    console.log('[Favorites] loadFavoritesDefault got defaultFavoritesId:', defaultFavoritesId)
+    
+    if (!defaultFavoritesId) {
+      if (!append) {
+        // 如果无法获取有效默认收藏夹ID，显示空状态
+        showEmptyMessage('favoritesDefaultGrid', '暂无收藏内容')
+      }
+      return
+    }
+    
     const pageSize = 36
-    const result = await ipcRenderer.invoke('get-favorites', DEFAULT_FAVORITES_ID, state.favoritesDefaultPageNum, pageSize)
+    console.log('[Favorites] 调用 get-favorites API, mediaId:', defaultFavoritesId, 'pageNum:', state.favoritesDefaultPageNum)
+    const result = await ipcRenderer.invoke('get-favorites', defaultFavoritesId, state.favoritesDefaultPageNum, pageSize)
+    console.log('[Favorites] get-favorites 返回结果:', JSON.stringify(result))
+    
     if (result.success && result.data) {
+      console.log('[Favorites] 收藏内容数量:', result.data.length)
       const videos = result.data.map(item => ({
         id: item.id || 0,
         aid: item.aid || 0,
@@ -1200,9 +1301,9 @@ async function loadFavoritesDefault(append = false) {
 
       if (videos.length > 0) {
         if (append) {
-          appendVideos(videos, 'favoritesDefaultGrid', navigateToUP, getFavoritesCardOptions(DEFAULT_FAVORITES_ID, DEFAULT_FAVORITES_NAME, 'favoritesDefaultGrid'))
+          appendVideos(videos, 'favoritesDefaultGrid', navigateToUP, getFavoritesCardOptions(defaultFavoritesId, '默认收藏夹', 'favoritesDefaultGrid'))
         } else {
-          renderVideos(videos, 'favoritesDefaultGrid', navigateToUP, getFavoritesCardOptions(DEFAULT_FAVORITES_ID, DEFAULT_FAVORITES_NAME, 'favoritesDefaultGrid'))
+          renderVideos(videos, 'favoritesDefaultGrid', navigateToUP, getFavoritesCardOptions(defaultFavoritesId, '默认收藏夹', 'favoritesDefaultGrid'))
         }
         state.hasMoreFavoritesDefault = result.hasMore || (videos.length === pageSize)
         state.favoritesDefaultPageNum++

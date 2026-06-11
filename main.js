@@ -71,7 +71,8 @@ const sharedState = {
   reportTimer: null,
   playerWindow: null,
   playerVideoAspect: 16/9,
-  tray: null
+  tray: null,
+  isQuitting: false
 }
 
 // 初始化 MPV 模块（传入共享状态）
@@ -153,6 +154,7 @@ function createTray() {
     {
       label: '退出应用',
       click: () => {
+        sharedState.isQuitting = true
         mpv.stopVideo()
         app.quit()
       }
@@ -208,8 +210,10 @@ app.whenReady().then(async () => {
 
   // 监听主窗口关闭事件，最小化到托盘
   sharedState.mainWindow.on('close', (event) => {
-    event.preventDefault()
-    sharedState.mainWindow.hide()
+    if (!sharedState.isQuitting) {
+      event.preventDefault()
+      sharedState.mainWindow.hide()
+    }
   })
 
   app.on('activate', () => {

@@ -110,26 +110,65 @@ function setMainWindow(mw) {
   _mainWindow = mw
 }
 
-function fetchApi(url) {
-  return new Promise((resolve, reject) => {
-    const urlObj = new URL(url)
-    const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-      'Referer': 'https://www.bilibili.com/client',
-      'Accept': 'application/json, text/plain, */*',
-      'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-      'Accept-Encoding': 'gzip, deflate, br',
-      'Origin': 'https://www.bilibili.com',
-      'Connection': 'keep-alive',
-      'Cache-Control': 'no-cache',
-      'Pragma': 'no-cache',
-      'TE': 'Trailers'
-    }
+async function fetchApi(url) {
+  const urlObj = new URL(url)
+  const headers = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Referer': 'https://www.bilibili.com/client',
+    'Accept': 'application/json, text/plain, */*',
+    'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br',
+    'Origin': 'https://www.bilibili.com',
+    'Connection': 'keep-alive',
+    'Cache-Control': 'no-cache',
+    'Pragma': 'no-cache',
+    'TE': 'Trailers'
+  }
 
-    const savedCookies = cookieManager.getSavedCookies()
-    if (Object.keys(savedCookies).length > 0) {
-      headers['Cookie'] = cookieManager.getCookieString()
+  // 优先从 session 获取最新的 Cookie，确保登录后使用正确的会话
+  let cookieString = ''
+  try {
+    if (_mainWindow && _mainWindow.webContents && _mainWindow.webContents.session) {
+      const sessionCookies = await _mainWindow.webContents.session.cookies.get({ domain: '.bilibili.com' })
+      if (sessionCookies && sessionCookies.length > 0) {
+        // 调试：查看 session 中的关键 Cookie
+        const sessdataCookie = sessionCookies.find(c => c.name === 'SESSDATA')
+        const dedeUserCookie = sessionCookies.find(c => c.name === 'DedeUserID')
+        log('fetchApi: session 中的 SESSDATA:', sessdataCookie ? sessdataCookie.value.substring(0, 20) + '...' : '不存在')
+        log('fetchApi: session 中的 DedeUserID:', dedeUserCookie ? dedeUserCookie.value : '不存在')
+        
+        cookieString = sessionCookies
+          .filter(c => c && c.name && c.value)
+          .map(c => `${c.name}=${encodeURIComponent(typeof c.value === 'string' ? c.value : String(c.value || ''))}`)
+          .join('; ')
+        log('fetchApi: 使用 session 中的 Cookie')
+      }
     }
+  } catch (e) {
+    log('fetchApi: 从 session 获取 Cookie 失败:', e.message)
+  }
+  
+  // 如果从 session 获取失败，使用保存的 Cookie
+  if (!cookieString) {
+    const savedCookies = cookieManager.getSavedCookies()
+    log('fetchApi: 使用保存的 Cookie')
+    log('fetchApi: savedCookies 中的 SESSDATA:', savedCookies.SESSDATA ? savedCookies.SESSDATA.substring(0, 20) + '...' : '不存在')
+    log('fetchApi: savedCookies 中的 DedeUserID:', savedCookies.DedeUserID || '不存在')
+    if (Object.keys(savedCookies).length > 0) {
+      cookieString = cookieManager.getCookieString()
+    }
+  }
+  
+  if (cookieString) {
+    headers['Cookie'] = cookieString
+    // 调试：查看最终使用的 Cookie 中的关键信息
+    const sessdataMatch = cookieString.match(/SESSDATA=([^;]+)/)
+    const dedeUserMatch = cookieString.match(/DedeUserID=([^;]+)/)
+    log('fetchApi: 最终使用的 SESSDATA:', sessdataMatch ? sessdataMatch[1].substring(0, 20) + '...' : '不存在')
+    log('fetchApi: 最终使用的 DedeUserID:', dedeUserMatch ? dedeUserMatch[1] : '不存在')
+  }
+  
+  return new Promise((resolve, reject) => {
 
     const options = {
       hostname: urlObj.hostname,

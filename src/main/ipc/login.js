@@ -359,6 +359,24 @@ function registerLoginHandlers(deps) {
   ipcMain.handle('logout', async () => {
     log('logout called')
     cookieManager.clearCookies()
+    
+    if (deps.mainWindow && deps.mainWindow.webContents && deps.mainWindow.webContents.session) {
+      try {
+        const cookies = await deps.mainWindow.webContents.session.cookies.get({ domain: '.bilibili.com' })
+        for (const cookie of cookies) {
+          try {
+            await deps.mainWindow.webContents.session.cookies.remove('https://www.bilibili.com', cookie.name)
+            log('Removed session cookie:', cookie.name)
+          } catch (e) {
+            log('Failed to remove session cookie:', cookie.name, e.message)
+          }
+        }
+        log('All session cookies cleared')
+      } catch (e) {
+        log('Failed to clear session cookies:', e.message)
+      }
+    }
+    
     return { success: true, message: '退出登录成功' }
   })
 

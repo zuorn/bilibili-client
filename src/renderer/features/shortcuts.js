@@ -444,20 +444,22 @@ function applyShortcuts(e) {
     }
   }
 
+  // 滚动快捷键：仅在首次按下（非 repeat）时启动连续滚动
   const scrollDownShortcut = userShortcuts.scrollDown
   if (scrollDownShortcut && scrollDownShortcut.keys && matchAnyShortcut(e, scrollDownShortcut.keys)) {
     e.preventDefault()
-    // 按下时先翻半页，之后长按由主循环继续滚动
-    scrollHalfPage('down')
-    if (typeof startContinuousScroll === 'function') startContinuousScroll('down')
+    if (!e.repeat && typeof startContinuousScroll === 'function') {
+      startContinuousScroll('down')
+    }
     return
   }
 
   const scrollUpShortcut = userShortcuts.scrollUp
   if (scrollUpShortcut && scrollUpShortcut.keys && matchAnyShortcut(e, scrollUpShortcut.keys)) {
     e.preventDefault()
-    scrollHalfPage('up')
-    if (typeof startContinuousScroll === 'function') startContinuousScroll('up')
+    if (!e.repeat && typeof startContinuousScroll === 'function') {
+      startContinuousScroll('up')
+    }
     return
   }
 

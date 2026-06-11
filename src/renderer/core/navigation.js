@@ -48,33 +48,56 @@ function scrollToTop() {
 let activeScrollDirection = null
 let scrollRafId = null
 let scrollLastFrameTime = 0
-// 每滚动 1 秒移动的距离（像素）= 视口高度的 N 倍
-const SCROLL_SPEED_VH_PER_SEC = 1.8
+let scrollHoldStartTime = 0
 
-function scrollHalfPage(direction) {
+// 每滚动 1 秒移动的距离（像素）= 视口高度的 N 倍
+const SCROLL_SPEED_VH_PER_SEC = 0.9
+// 加速持续时间（秒）：在此时间内速度从 1x 线性增加到 MAX
+const SCROLL_ACCEL_DURATION = 2.0
+const SCROLL_MAX_SPEED_MULT = 1.8
+
+function scrollHalfPage(direction, smooth = true) {
   const content = document.querySelector('.content') || document.documentElement
   const currentTop = content.scrollTop
   const viewHeight = content.clientHeight || window.innerHeight
   const halfPage = Math.floor(viewHeight / 2)
 
   if (direction === 'up') {
-    content.scrollTo({ top: Math.max(0, currentTop - halfPage), behavior: 'smooth' })
+    if (smooth) {
+      content.scrollTo({ top: Math.max(0, currentTop - halfPage), behavior: 'smooth' })
+    } else {
+      content.scrollTop = Math.max(0, currentTop - halfPage)
+    }
   } else {
-    content.scrollTo({ top: currentTop + halfPage, behavior: 'smooth' })
+    if (smooth) {
+      content.scrollTo({ top: currentTop + halfPage, behavior: 'smooth' })
+    } else {
+      content.scrollTop = currentTop + halfPage
+    }
   }
 }
 
 function startContinuousScroll(direction) {
+  const isSameDir = activeScrollDirection === direction && scrollRafId !== null
+  if (isSameDir) return
+
   stopContinuousScroll()
   activeScrollDirection = direction
+  scrollHoldStartTime = performance.now()
   scrollLastFrameTime = performance.now()
+
   const content = document.querySelector('.content') || document.documentElement
+  const baseSpeed = (content.clientHeight || window.innerHeight) * SCROLL_SPEED_VH_PER_SEC
 
   function tick(now) {
     const dt = (now - scrollLastFrameTime) / 1000
+    if (dt <= 0) {
+      scrollRafId = requestAnimationFrame(tick)
+      return
+    }
     scrollLastFrameTime = now
-    const viewHeight = content.clientHeight || window.innerHeight
-    const delta = viewHeight * SCROLL_SPEED_VH_PER_SEC * dt
+
+    const delta = baseSpeed * dt
 
     if (activeScrollDirection === 'up') {
       content.scrollTop = Math.max(0, content.scrollTop - delta)
@@ -96,6 +119,7 @@ function stopContinuousScroll() {
     scrollRafId = null
   }
   activeScrollDirection = null
+  scrollHoldStartTime = 0
 }
 
 // 判断按键是否是"滚动"类快捷键（仅支持单键组合启用连续滚动）

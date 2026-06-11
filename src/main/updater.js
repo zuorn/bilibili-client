@@ -8,6 +8,7 @@ let _mainWindow = null
 let _log = null
 let _updateDownloaded = false
 let _config = null
+let _checking = false
 
 function loadConfig() {
   if (_config) return _config
@@ -77,11 +78,13 @@ function setupUpdater() {
       releaseDate: info.releaseDate,
       releaseNotes: info.releaseNotes
     })
+    _checking = false
   })
 
   autoUpdater.on('update-not-available', () => {
     _log('[更新] 已是最新版本')
     sendToRenderer('update-status', { status: 'up-to-date' })
+    _checking = false
   })
 
   autoUpdater.on('download-progress', (progress) => {
@@ -103,6 +106,7 @@ function setupUpdater() {
   autoUpdater.on('error', (err) => {
     _log('[更新] 错误:', err.message)
     sendToRenderer('update-status', { status: 'error', message: err.message })
+    _checking = false
   })
 }
 
@@ -110,10 +114,13 @@ function checkForUpdates() {
   const config = loadConfig()
   if (config.source === 'disabled') return
   if (!_log) return
+  if (_checking) return
 
+  _checking = true
   _log('[更新] 启动检查...')
   autoUpdater.checkForUpdates().catch(err => {
     _log('[更新] 检查失败:', err.message)
+    _checking = false
   })
 }
 

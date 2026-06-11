@@ -118,9 +118,14 @@ function registerFavoritesHandlers(deps) {
     }
   })
 
-  ipcMain.handle('get-favorites', async (event, mediaId = 166434448, pageNum = 1, pageSize = 36, keyword = '') => {
-    log('get-favorites called, mediaId:', mediaId, 'pageNum:', pageNum, 'pageSize:', pageSize, 'keyword:', keyword)
+  ipcMain.handle('get-favorites', async (event, mediaId = null, pageNum = 1, pageSize = 36, keyword = '') => {
+    log('get-favorites called, mediaId:', mediaId, 'type:', typeof mediaId, 'pageNum:', pageNum, 'pageSize:', pageSize, 'keyword:', keyword)
     try {
+      if (!mediaId && mediaId !== 0) {
+        log('get-favorites error: mediaId is required')
+        return { success: false, error: '缺少收藏夹ID' }
+      }
+      log('get-favorites: mediaId is valid, proceeding...')
       const url = `https://api.bilibili.com/x/v3/fav/resource/list?media_id=${mediaId}&pn=${pageNum}&ps=${pageSize}&keyword=${encodeURIComponent(keyword)}&order=mtime&type=0&tid=0&platform=web&web_location=333.1387`
       log('Favorites API URL:', url)
       const result = await fetchApi(url)
@@ -708,9 +713,13 @@ function registerFavoritesHandlers(deps) {
   })
 
   // 清空失效内容
-  ipcMain.handle('clean-favorites-expired', async (event, mediaId = 166434448) => {
+  ipcMain.handle('clean-favorites-expired', async (event, mediaId = null) => {
     log('clean-favorites-expired called, mediaId:', mediaId)
     try {
+      if (!mediaId && mediaId !== 0) {
+        log('clean-favorites-expired error: mediaId is required')
+        return { success: false, error: '缺少收藏夹ID' }
+      }
       const savedCookies = cookieManager.getSavedCookies()
       const csrf = savedCookies.bili_jct || ''
 
