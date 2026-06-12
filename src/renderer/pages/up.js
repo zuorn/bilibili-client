@@ -20,6 +20,21 @@ function observeDynamicImages(container) {
   })
 }
 
+// 从动态数据中提取显示文本（兼容不同 API 返回格式）
+function getDynamicDisplayText(d) {
+  if (typeof d.desc === 'string' && d.desc) return d.desc
+  if (d.desc?.text) return d.desc.text
+  if (d.desc?.rich_text_nodes?.length) {
+    return d.desc.rich_text_nodes.map(n => n.text || n.orig_text || '').join('')
+  }
+  if (typeof d.opusSummary === 'string') return d.opusSummary
+  if (d.opusSummary?.text) return d.opusSummary.text
+  if (d.opusSummary?.rich_text_nodes?.length) {
+    return d.opusSummary.rich_text_nodes.map(n => n.text || n.orig_text || '').join('')
+  }
+  return ''
+}
+
 function switchUpTab(tabName) {
   pageStates.up.currentTab = tabName
 
@@ -554,11 +569,8 @@ function createUpDynamicCard(d) {
 
   // Body
   let bodyHtml = ''
-  // 多源提取文本内容（兼容不同 API 返回格式）
-  let desc = d.desc
-  if (!desc && d.opusSummary) desc = d.opusSummary
-
   // Text content
+  const desc = getDynamicDisplayText(d)
   if (desc) {
     bodyHtml += `<div class="up-dynamic-desc">${escapeHtmlWithEmoji(desc)}</div>`
   }
@@ -600,10 +612,15 @@ function createUpDynamicCard(d) {
   }
 
   // Forward content
-  if (d.orig && d.orig.id) {
+  if (d.orig && (d.orig.id || d.orig.authorName || d.orig.desc || d.orig.bvid || (d.orig.drawItems && d.orig.drawItems.length > 0))) {
     bodyHtml += '<div class="up-dynamic-forward">'
-    bodyHtml += `<div class="up-dynamic-forward-header"><span>@${escapeHtml(d.orig.authorName || '')}</span></div>`
-    bodyHtml += `<div class="up-dynamic-forward-desc">${escapeHtmlWithEmoji(d.orig.desc || '')}</div>`
+    if (d.orig.authorName || d.orig.desc) {
+      bodyHtml += `<div class="up-dynamic-forward-header"><span>@${escapeHtml(d.orig.authorName || '')}</span></div>`
+    }
+    const origDesc = getDynamicDisplayText(d.orig)
+    if (origDesc) {
+      bodyHtml += `<div class="up-dynamic-forward-desc">${escapeHtmlWithEmoji(origDesc)}</div>`
+    }
     if (d.orig.bvid) {
       bodyHtml += `<div class="up-dynamic-forward-video video-card" data-bvid="${d.orig.bvid}" data-cid="${d.orig.cid || ''}">`
       if (d.orig.cover) {

@@ -1,4 +1,3 @@
-/* 更新按钮 */
 .update-btn {
   height: 30px;
   padding: 0 14px;
@@ -21,7 +20,6 @@
   color: #333;
 }
 
-/* 发现新版本（自动下载中）— 蓝色 */
 .update-btn.update-available {
   color: #00a1d6;
   background: rgba(0, 161, 214, 0.08);
@@ -31,13 +29,11 @@
   color: #00b5e5;
 }
 
-/* 下载中 — 蓝色 + 文字显示进度百分比 */
 .update-btn.update-downloading {
   color: #00a1d6;
   background: rgba(0, 161, 214, 0.08);
 }
 
-/* 下载完成 — 绿色 */
 .update-btn.update-downloaded {
   color: #1e8e3e;
   background: rgba(30, 142, 62, 0.1);
@@ -48,17 +44,6 @@
   color: #fff;
 }
 
-/* 错误 — 红色 */
-.update-btn.update-error {
-  color: #e74c3c;
-  background: rgba(231, 76, 60, 0.08);
-}
-.update-btn.update-error:hover {
-  background: rgba(231, 76, 60, 0.15);
-  color: #c0392b;
-}
-
-/* 暗色主题 */
 body.dark-theme .update-btn {
   color: #808080;
 }
@@ -84,11 +69,4 @@ body.dark-theme .update-btn.update-downloaded {
 body.dark-theme .update-btn.update-downloaded:hover {
   background: #1e8e3e;
   color: #fff;
-}
-body.dark-theme .update-btn.update-error {
-  color: #e74c3c;
-  background: rgba(231, 76, 60, 0.12);
-}
-body.dark-theme .update-btn.update-error:hover {
-  background: rgba(231, 76, 60, 0.2);
 }

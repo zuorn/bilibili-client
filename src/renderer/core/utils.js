@@ -139,20 +139,23 @@ function escapeHtml(str) {
 
 function escapeHtmlWithEmoji(str) {
   if (!str) return ''
-  // 临时替换emoji图片标签（自闭合）和话题标签
+  // 临时替换 extractDynamicText 生成的所有 HTML 标签
   const placeholders = []
-  // 匹配自闭合的img标签和有闭合标签的span标签
-  let processedStr = str.replace(/<img class="dynamic-emoji"[^>]*\/?>|<span class="dynamic-topic"[^>]*>.*?<\/span>/g, (match) => {
-    placeholders.push(match)
-    return `__PLACEHOLDER_${placeholders.length - 1}__`
-  })
+  // 匹配：emoji图片（自闭合）、话题、@提及、链接、视频链接
+  let processedStr = str.replace(
+    /<img class="dynamic-emoji"[^>]*\/?>|<span class="dynamic-(topic|at|video-link)"[^>]*>[\s\S]*?<\/span>|<a class="dynamic-link"[^>]*>[\s\S]*?<\/a>/g,
+    (match) => {
+      placeholders.push(match)
+      return `__PLACEHOLDER_${placeholders.length - 1}__`
+    }
+  )
 
-  // 转义HTML
+  // 转义HTML（文本部分的 < > & 等字符）
   const div = document.createElement('div')
   div.textContent = processedStr
   let escaped = div.innerHTML
 
-  // 恢复emoji图片标签和话题标签
+  // 恢复所有动态内容标签
   placeholders.forEach((tag, index) => {
     escaped = escaped.replace(`__PLACEHOLDER_${index}__`, tag)
   })

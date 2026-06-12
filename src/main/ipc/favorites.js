@@ -556,8 +556,34 @@ function registerFavoritesHandlers(deps) {
         }
       }
 
+      // 检查 add_media_ids 是否有效
+      if (!addMediaIdsStr || addMediaIdsStr === '') {
+        log('add-to-favorites error: add_media_ids is empty')
+        return { success: false, error: '缺少收藏夹ID' }
+      }
+
+      // 如果 rid 是字符串（bvid），需要先获取对应的 aid
+      let resourceId = rid
+      if (typeof rid === 'string' && rid.startsWith('BV')) {
+        log('add-to-favorites: rid is bvid, need to get aid first')
+        try {
+          const videoInfo = await fetchApi(`https://api.bilibili.com/x/web-interface/view?bvid=${rid}`)
+          log('add-to-favorites: video info result:', videoInfo)
+          if (videoInfo.code === 0 && videoInfo.data && videoInfo.data.aid) {
+            resourceId = videoInfo.data.aid
+            log('add-to-favorites: got aid from bvid:', resourceId)
+          } else {
+            log('add-to-favorites: failed to get aid from bvid')
+            return { success: false, error: '无法获取视频信息' }
+          }
+        } catch (error) {
+          log('add-to-favorites: error getting video info:', error.message)
+          return { success: false, error: '获取视频信息失败: ' + error.message }
+        }
+      }
+
       const signParamsInput = {
-        rid: rid,
+        rid: resourceId,
         type: type || 2,
         add_media_ids: addMediaIdsStr
       }
@@ -582,16 +608,25 @@ function registerFavoritesHandlers(deps) {
       }
 
       log('Favorites deal API params:', bodyParams)
-      const result = await fetchApiPost('https://api.bilibili.com/x/v3/fav/resource/deal', bodyParams)
-      log('Favorites deal result code:', result.code, 'message:', result.message)
-
-      if (result.code === 0) {
-        return { success: true, data: result.data }
-      } else {
-        return { success: false, error: result.message || '收藏失败' }
+      log('Favorites deal API URL:', 'https://api.bilibili.com/x/v3/fav/resource/deal')
+      
+      try {
+        const result = await fetchApiPost('https://api.bilibili.com/x/v3/fav/resource/deal', bodyParams)
+        log('Favorites deal result:', JSON.stringify(result))
+        
+        if (result.code === 0) {
+          return { success: true, data: result.data }
+        } else {
+          return { success: false, error: result.message || '收藏失败' }
+        }
+      } catch (error) {
+        log('Error calling favorites deal API:', error.message)
+        log('Error stack:', error.stack)
+        return { success: false, error: '请求错误: ' + error.message }
       }
     } catch (error) {
       log('Error adding to favorites:', error.message)
+      log('Error stack:', error.stack)
       return { success: false, error: error.message }
     }
   })

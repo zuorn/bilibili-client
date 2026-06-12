@@ -9,5 +9,8 @@
       "Bash(npm run *)",
       "WebSearch"
     ]
-  }
+  },
+  "enabledMcpjsonServers": [
+    "codegraph"
+  ]
 }

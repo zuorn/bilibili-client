@@ -948,6 +948,19 @@ function handleDynamicScroll() {
   }
 }
 
+// 滚动时显示滚动条，停止滚动后延时隐藏
+function initDynamicSidebarScroll(sidebar) {
+  if (!sidebar) return
+  let scrollTimer
+  sidebar.addEventListener('scroll', () => {
+    sidebar.classList.add('is-scrolling')
+    clearTimeout(scrollTimer)
+    scrollTimer = setTimeout(() => {
+      sidebar.classList.remove('is-scrolling')
+    }, 600)
+  })
+}
+
 async function initDynamicPage() {
   const videoContainer = document.getElementById('videoContainer')
   const followingList = document.getElementById('followingList')
@@ -965,6 +978,9 @@ async function initDynamicPage() {
   } else {
     selectAllDynamic()
   }
+
+  // 滚动时才显示滚动条
+  initDynamicSidebarScroll(followingList)
 
   const followings = await fetchFollowings(currentUser?.mid)
   if (followings.length > 0) {

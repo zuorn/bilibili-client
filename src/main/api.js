@@ -386,7 +386,7 @@ function buildRecommendUrl(page = 1) {
 }
 
 function fetchApiPost(url, bodyParams) {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const urlObj = new URL(url)
     const body = Object.entries(bodyParams)
       .map(([k, v]) => `${encodeURIComponent(k)}=${encodeURIComponent(String(v))}`)
@@ -407,9 +407,34 @@ function fetchApiPost(url, bodyParams) {
       'TE': 'Trailers'
     }
 
-    const savedCookies = cookieManager.getSavedCookies()
-    if (Object.keys(savedCookies).length > 0) {
-      headers['Cookie'] = cookieManager.getCookieString()
+    // 优先从 session 获取最新的 Cookie，确保登录后使用正确的会话
+    let cookieString = ''
+    try {
+      if (_mainWindow && _mainWindow.webContents && _mainWindow.webContents.session) {
+        const sessionCookies = await _mainWindow.webContents.session.cookies.get({ domain: '.bilibili.com' })
+        if (sessionCookies && sessionCookies.length > 0) {
+          cookieString = sessionCookies
+            .filter(c => c && c.name && c.value)
+            .map(c => `${c.name}=${encodeURIComponent(typeof c.value === 'string' ? c.value : String(c.value || ''))}`)
+            .join('; ')
+          log('fetchApiPost: 使用 session 中的 Cookie')
+        }
+      }
+    } catch (e) {
+      log('fetchApiPost: 从 session 获取 Cookie 失败:', e.message)
+    }
+
+    // 如果从 session 获取失败，使用保存的 Cookie
+    if (!cookieString) {
+      const savedCookies = cookieManager.getSavedCookies()
+      log('fetchApiPost: 使用保存的 Cookie')
+      if (Object.keys(savedCookies).length > 0) {
+        cookieString = cookieManager.getCookieString()
+      }
+    }
+
+    if (cookieString) {
+      headers['Cookie'] = cookieString
     }
 
     const options = {

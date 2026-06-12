@@ -348,10 +348,11 @@ function registerUpHandlers(deps) {
             resultItem.articleId = article.id || 0
           }
 
-          // Forward content (orig)
-          if (item.orig) {
+          // Forward content (orig) - 支持 item.orig、dynamicModule.orig、dynamicModule.dyn_forward?.item 三种数据结构
+          const origData = item.orig || dynamicModule.orig || dynamicModule.dyn_forward?.item
+          if (origData) {
             // 处理 orig.modules 可能是数组或对象的情况
-            let origModules = item.orig.modules || {}
+            let origModules = origData.modules || {}
             if (Array.isArray(origModules)) {
               const moduleMap = {}
               origModules.forEach(m => {
@@ -367,11 +368,14 @@ function registerUpHandlers(deps) {
             const origDynamicModule = origModules.module_dynamic || {}
             const origAuthorModule = origModules.module_author || {}
             const origMajor = origDynamicModule.major || {}
-            const origDesc = origDynamicModule.desc || {}
+            const origDesc = origModules.module_desc || origDynamicModule.desc || {}
+
+            // 优先从 orig 自身取 id，再从 orig data 取
+            const origId = item.orig?.id_str || item.orig?.id || origData.id_str || origData.id || (item.type === 'DYNAMIC_TYPE_FORWARD' ? item.id_str : '') || 'forward_' + Date.now()
 
             resultItem.orig = {
-              id: item.orig.id_str || '',
-              type: item.orig.type || '',
+              id: origId,
+              type: origData.type || '',
               // 作者信息可能在 user 对象里，也可能直接在 origAuthorModule 里
               authorName: origAuthorModule.user?.name || origAuthorModule.name || '',
               authorFace: origAuthorModule.user?.face || origAuthorModule.face || '',

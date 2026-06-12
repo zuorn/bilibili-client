@@ -23,8 +23,8 @@ async function getDefaultFavoritesId() {
       console.log('[Favorites] 找到的默认收藏夹:', JSON.stringify(defaultFolder))
       
       if (defaultFolder) {
-        // 获取收藏夹ID，优先使用 fid，其次使用 id
-        const folderId = defaultFolder.fid !== undefined ? defaultFolder.fid : (defaultFolder.id !== undefined ? defaultFolder.id : null)
+        // 获取收藏夹ID，优先使用 id（B站 API 的 media_id 参数需要的是 id），其次使用 fid
+        const folderId = defaultFolder.id !== undefined ? defaultFolder.id : (defaultFolder.fid !== undefined ? defaultFolder.fid : null)
         console.log('[Favorites] 默认收藏夹ID (处理前):', folderId, '类型:', typeof folderId)
         
         // 检查ID是否有效：不能是 null, undefined, '', 0 或 '0'
@@ -349,7 +349,7 @@ function renderFolderList(folders) {
   }
 
   container.innerHTML = folders.map(folder => `
-    <div class="select-folder-item" data-fid="${folder.fid}" data-name="${folder.name}">
+    <div class="select-folder-item" data-fid="${folder.id}" data-name="${folder.name}">
       <div class="select-folder-radio"></div>
       <div class="select-folder-info">
         <div class="select-folder-name">${folder.name}</div>
@@ -378,7 +378,18 @@ function renderFolderList(folders) {
 
 // 处理选择收藏夹（移动收藏逻辑）
 async function handleSelectFolder(fid, folderName) {
+  console.log('[Favorites] handleSelectFolder called, fid:', fid, 'folderName:', folderName)
+  
   if (!currentVideoToFavorite) {
+    console.log('[Favorites] currentVideoToFavorite is null')
+    hideSelectFolderModal()
+    return
+  }
+
+  // 验证收藏夹 ID 是否有效
+  if (!fid || fid === '' || fid === '0') {
+    console.log('[Favorites] 收藏夹ID无效:', fid)
+    showToast('收藏夹ID无效')
     hideSelectFolderModal()
     return
   }
@@ -387,8 +398,13 @@ async function handleSelectFolder(fid, folderName) {
   const sourceMediaId = currentSourceMediaId
   const containerId = currentSourceContainerId
   
+  console.log('[Favorites] video:', video)
+  console.log('[Favorites] sourceMediaId:', sourceMediaId)
+  console.log('[Favorites] containerId:', containerId)
+  
   // 如果目标收藏夹和原收藏夹相同，不执行操作
   if (sourceMediaId !== null && String(fid) === String(sourceMediaId)) {
+    console.log('[Favorites] 目标收藏夹和原收藏夹相同')
     showToast('已在该收藏夹中')
     hideSelectFolderModal()
     return
@@ -396,13 +412,21 @@ async function handleSelectFolder(fid, folderName) {
   
   try {
     // 步骤1：先将视频添加到新收藏夹
-    // rid 参数：优先使用 aid，如果没有则使用 bvid（视频类型时 bvid 也可以作为 rid）
-    const resourceId = video.aid || video.bvid
-    if (!resourceId) {
+    // rid 参数：优先使用 aid（如果 aid > 0），否则使用 bvid
+    // 注意：video.aid 可能是 0，需要检查是否大于 0
+    let resourceId
+    if (video.aid && video.aid > 0) {
+      resourceId = video.aid
+    } else if (video.bvid && video.bvid !== '') {
+      resourceId = video.bvid
+    } else {
+      console.log('[Favorites] 无法获取视频ID, aid:', video.aid, 'bvid:', video.bvid)
       showToast('无法获取视频ID')
       hideSelectFolderModal()
       return
     }
+    
+    console.log('[Favorites] resourceId:', resourceId)
     
     const addResult = await ipcRenderer.invoke('add-to-favorites', {
       rid: resourceId,
@@ -410,7 +434,10 @@ async function handleSelectFolder(fid, folderName) {
       add_media_ids: String(fid)
     })
 
+    console.log('[Favorites] add-to-favorites result:', addResult)
+
     if (!addResult.success) {
+      console.log('[Favorites] 添加到收藏夹失败:', addResult.error)
       showToast(addResult.error || '添加到收藏夹失败')
       hideSelectFolderModal()
       return
@@ -418,20 +445,28 @@ async function handleSelectFolder(fid, folderName) {
 
     // 步骤2：如果视频来自某个收藏夹，从原收藏夹中移除
     // 这里需要使用收藏条目ID（video.id），而不是视频AV号（video.aid）
-    if (sourceMediaId !== null) {
+    if (sourceMediaId !== null && sourceMediaId !== undefined) {
       const favEntryId = currentSourceFavEntryId || video.id || 0
+      console.log('[Favorites] 从原收藏夹移除, favEntryId:', favEntryId, 'sourceMediaId:', sourceMediaId)
+      
+      // 如果 favEntryId 是 0，可能无法正确移除，但仍然尝试
       const removeResult = await ipcRenderer.invoke('unfavorite-video', {
         resources: `${favEntryId}:2`,
         media_id: sourceMediaId
       })
 
+      console.log('[Favorites] unfavorite-video result:', removeResult)
+
       if (!removeResult.success) {
+        console.log('[Favorites] 从原收藏夹移除失败:', removeResult.error)
         showToast('添加成功，但从原收藏夹移除失败')
       } else {
+        console.log('[Favorites] 移动成功')
         showToast(`已移动到「${folderName}」`)
         
         // 从当前列表中移除视频卡片
         const card = document.querySelector(`.video-card[data-bvid="${video.bvid}"]`)
+        console.log('[Favorites] 找到的卡片:', card)
         if (card) {
           const wrapper = card.closest('.video-item-wrapper')
           const targetElement = wrapper || card
@@ -444,16 +479,18 @@ async function handleSelectFolder(fid, folderName) {
             if (targetElement.parentNode) {
               targetElement.parentNode.removeChild(targetElement)
               checkFavoritesContainerEmpty(containerId)
+              console.log('[Favorites] 卡片已移除')
             }
           }, 250)
         }
       }
     } else {
       // 如果没有原收藏夹（比如从其他地方收藏），只提示添加成功
+      console.log('[Favorites] 添加成功（没有原收藏夹）')
       showToast(`已收藏到「${folderName}」`)
     }
   } catch (error) {
-    console.error('移动收藏失败:', error)
+    console.error('[Favorites] 移动收藏失败:', error)
     showToast(error.message || '移动收藏失败')
   } finally {
     hideSelectFolderModal()
@@ -2073,7 +2110,7 @@ async function renderSortFavoriteList() {
     if (result.success && result.data) {
       sortableFolders = [...result.data]
       container.innerHTML = sortableFolders.map((fav, index) => {
-        const folderId = fav.fid || fav.id
+        const folderId = fav.id || fav.fid
         // 转义特殊字符，防止HTML注入
         const safeName = (fav.name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
         // 如果没有封面，使用默认背景色
@@ -2168,7 +2205,7 @@ function refreshSortList() {
   if (!container) return
   
   container.innerHTML = sortableFolders.map((fav, index) => {
-    const folderId = fav.fid || fav.id
+    const folderId = fav.id || fav.fid
     // 转义特殊字符，防止HTML注入
     const safeName = (fav.name || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;')
     // 如果没有封面，使用默认背景色
@@ -2194,9 +2231,8 @@ async function handleSortFavorites() {
     return
   }
   
-  const sortIds = sortableFolders.map(f => f.fid || f.id).join(',')
-  
-  try {
+  const sortIds = sortableFolders.map(f => f.id || f.fid).join(',')
+    try {
     const result = await ipcRenderer.invoke('sort-favorites', sortIds)
     if (result.success) {
       showToast('排序成功')

@@ -1,14 +1,17 @@
 # ============================================================
 # 自动更新配置
 # ============================================================
-# 发布渠道: github | generic | disabled
-# ------------------------------------------------------------
-# github  — 使用 GitHub Releases 发布和更新
-# generic — 使用自建 HTTP 服务器发布和更新
-# disabled — 禁用自动更新
+# 多渠道更新：同时检查 generic 和 github 渠道
+# 优先级：先检查 generic，再检查 github，选择版本号最高的更新
 # ============================================================
 
-source: generic
+# ------------------------------------------------------------
+# 通用 HTTP 服务器配置
+# ------------------------------------------------------------
+generic:
+  # 服务器上放置构建产物的目录 URL（不含末尾斜杠）
+  # electron-updater 会自动在此 URL 后追加 /latest.yml 读取版本元数据
+  url: "https://talktime.oss-cn-shanghai.aliyuncs.com/doc/bl/bl"
 
 # ------------------------------------------------------------
 # GitHub Releases 配置
@@ -17,43 +20,10 @@ source: generic
 #   1. 在 GitHub 上创建 Personal Access Token (经典令牌)
 #      访问: https://github.com/settings/tokens
 #      权限: repo (全部) 或 public_repo (公开仓库)
-#
-#   2. 设置 GH_TOKEN 环境变量：
-#      Windows PowerShell:
-#        [Environment]::SetEnvironmentVariable("GH_TOKEN","ghp_xxxxxxxxxxxx","User")
-#      Windows CMD:
-#        setx GH_TOKEN ghp_xxxxxxxxxxxx
-#      macOS / Linux:
-#        export GH_TOKEN=ghp_xxxxxxxxxxxx
-#
-#   3. 运行构建命令即可自动上传：
-#      npm run build:win    # Windows 安装包
-#      npm run build:mac    # macOS DMG
-#      npm run build:linux  # Linux AppImage
-#
-#   构建完成后 electron-builder 会自动将安装包发布到
-#   GitHub Releases，用户客户端将自动检测到更新。
 # ------------------------------------------------------------
 github:
   owner: zuorn
   repo: bilibili-client
-
-# ------------------------------------------------------------
-# 通用 HTTP 服务器配置（使用 source: generic 时生效）
-# ------------------------------------------------------------
-# 前置条件：
-#   1. 先运行 npm run build:win 构建安装包
-#   2. 将 dist/ 目录下的所有文件上传到 HTTP 服务器
-#      需要的文件:
-#        - latest.yml            (版本元数据)
-#        - Bilibili-Client-Setup-x.x.x.exe  (安装包)
-#        - Bilibili-Client-Setup-x.x.x.exe.blockmap  (增量更新)
-#   3. 确保服务器支持 HTTP Range 请求（增量更新必需）
-# ------------------------------------------------------------
-generic:
-  # 服务器上放置构建产物的目录 URL（不含末尾斜杠）
-  # electron-updater 会自动在此 URL 后追加 /latest.yml 读取版本元数据
-  url: "https://talktime.oss-cn-shanghai.aliyuncs.com/doc/bl/bl"
 
 # ------------------------------------------------------------
 # 启动时自动检查更新（推荐开启）

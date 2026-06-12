@@ -174,8 +174,8 @@ async function initAppVersion() {
   if (!versionEl) return
   try {
     const version = await ipcRenderer.invoke('get-app-version')
-    versionEl.textContent = 'v' + (version || '1.0.0')
+    versionEl.textContent = 'V' + (version || '1.0.0')
   } catch (err) {
-    versionEl.textContent = 'v1.0.0'
+    versionEl.textContent = 'V1.0.0'
   }
 }

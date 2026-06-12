@@ -1,5 +1,5 @@
 // scripts/build-win.js — 交互式 Windows 构建脚本
-// 流程：确认版本号 → 写入 package.json → 清理 → 构建 → 选择是否上传（箭头键或 y/n 都支持）
+// 流程：确认版本号 → 写入 package.json → 清理 → 构建 → 选择上传目标（OSS/GitHub/两者/不上传）
 
 const path = require('path')
 const fs = require('fs')
@@ -171,6 +171,74 @@ function run(cmd, opts) {
   execSync(cmd, { stdio: 'inherit', cwd: PROJECT_ROOT, ...(opts || {}) })
 }
 
+// ============ 上传到 GitHub Releases ============
+function uploadToGitHubReleases(version) {
+  const distDir = path.join(PROJECT_ROOT, 'dist')
+
+  // 检查 gh CLI 是否可用
+  try {
+    execSync('gh --version', { stdio: 'pipe', cwd: PROJECT_ROOT })
+  } catch (e) {
+    console.error('[错误] 未找到 GitHub CLI (gh)，请先安装: https://cli.github.com/')
+    process.exit(1)
+  }
+
+  // 检查是否已登录
+  try {
+    execSync('gh auth status', { stdio: 'pipe', cwd: PROJECT_ROOT })
+  } catch (e) {
+    console.error('[错误] 未登录 GitHub CLI，请先执行: gh auth login')
+    process.exit(1)
+  }
+
+  // 读取 package.json 获取仓库信息
+  const pkg = JSON.parse(fs.readFileSync(PKG_PATH, 'utf8'))
+  const publishConfig = pkg.build && pkg.build.publish
+  const owner = publishConfig && publishConfig.owner
+  const repo = publishConfig && publishConfig.repo
+
+  if (!owner || !repo) {
+    console.error('[错误] package.json 中未配置 build.publish.owner 或 build.publish.repo')
+    process.exit(1)
+  }
+
+  // 查找构建产物
+  const setupFile = path.join(distDir, 'Bilibili-Client-Setup-' + version + '.exe')
+  if (!fs.existsSync(setupFile)) {
+    console.error('[错误] 未找到构建产物: ' + setupFile)
+    process.exit(1)
+  }
+
+  const tagName = 'V' + version
+  const releaseTitle = 'V' + version
+  const releaseNotes = '## Bilibili Client V' + version + '\n\n请下载 `Bilibili-Client-Setup-' + version + '.exe` 进行安装。'
+
+  console.log('仓库: ' + owner + '/' + repo)
+  console.log('标签: ' + tagName)
+  console.log('文件: ' + path.basename(setupFile))
+
+  // 创建 Release 并上传文件
+  // 先检查 Release 是否已存在
+  let releaseExists = false
+  try {
+    execSync('gh release view ' + tagName + ' --repo ' + owner + '/' + repo, { stdio: 'pipe', cwd: PROJECT_ROOT })
+    releaseExists = true
+  } catch (e) {
+    // Release 不存在
+  }
+
+  if (releaseExists) {
+    console.log('Release ' + tagName + ' 已存在，上传资源到现有 Release...')
+    run('gh release upload ' + tagName + ' "' + setupFile + '" --repo ' + owner + '/' + repo + ' --clobber')
+  } else {
+    console.log('创建新 Release ' + tagName + '...')
+    run('gh release create ' + tagName + ' "' + setupFile + '" --repo ' + owner + '/' + repo + ' --title "' + releaseTitle + '" --notes "' + releaseNotes + '"')
+  }
+
+  console.log('✓ GitHub Release 上传成功')
+  console.log('  访问: https://github.com/' + owner + '/' + repo + '/releases/tag/' + tagName)
+}
+
 // ============ 主流程 ============
 async function main() {
   console.log('========================================')
@@ -204,30 +272,42 @@ async function main() {
   console.log('\n--- 第 2 步: 构建 Windows 安装包')
   run('npx electron-builder --win')
 
-  console.log('\n--- 第 3 步: 是否上传到 OSS')
+  console.log('\n--- 第 3 步: 选择上传目标')
   const answer = await choose(
-    '是否需要上传到 OSS？',
+    '请选择上传目标：',
     [
-      { label: '不上传', value: 'no' },
-      { label: '上传', value: 'yes' }
+      { label: '不上传', value: 'none' },
+      { label: '仅上传到 OSS', value: 'oss' },
+      { label: '仅上传到 GitHub', value: 'github' },
+      { label: '同时上传到 OSS 和 GitHub', value: 'both' }
     ],
     0 // 默认选中「不上传」
   )
-  const shouldUpload = (answer === 'yes')
 
-  if (shouldUpload) {
+  const uploadToOSS = (answer === 'oss' || answer === 'both')
+  const uploadToGitHub = (answer === 'github' || answer === 'both')
+
+  if (uploadToOSS) {
     console.log('\n开始上传到 OSS...')
     run('node scripts/publish-oss.js')
-    console.log('\n✓ 上传完成')
-  } else {
-    console.log('\n已跳过上传。之后如需上传可执行: npm run publish:oss')
+    console.log('\n✓ OSS 上传完成')
+  }
+
+  if (uploadToGitHub) {
+    console.log('\n开始上传到 GitHub Releases...')
+    uploadToGitHubReleases(version)
+    console.log('\n✓ GitHub Releases 上传完成')
+  }
+
+  if (!uploadToOSS && !uploadToGitHub) {
+    console.log('\n已跳过上传。之后如需上传可执行: npm run publish:oss 或手动上传到 GitHub')
   }
 
   console.log('\n--- 第 4 步: 清理临时构建文件')
   run('npm run clean:dist')
 
   console.log('\n========================================')
-  console.log('  完成！版本: v' + version)
+  console.log('  完成！版本: V' + version)
   console.log('========================================')
   process.exit(0)
 }

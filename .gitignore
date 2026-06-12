@@ -30,3 +30,12 @@ config.json
 *.secret
 oss-config.json
 
+
+# 代码助手相关文件
+.codebuddy/
+.codegraph/
+.workbuddy/
+.mcp.json
+.cursor/
+.claude/
+.claude
