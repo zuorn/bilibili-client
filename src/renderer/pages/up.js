@@ -35,6 +35,68 @@ function getDynamicDisplayText(d) {
   return ''
 }
 
+// 生成带展开/收起功能的文本HTML（UP 页面版本）
+function createUpExpandableText(text, maxLength = 500) {
+  if (!text) return ''
+
+  // 移除开头的空白字符（解决第一行缩进问题）
+  let processedText = text.replace(/^[\s\n]+/, '')
+  // 将换行符转换为<br>标签
+  processedText = processedText.replace(/\n/g, '<br>')
+
+  // 计算文本长度（只计算纯文本内容，不计算HTML标签）
+  const tempDiv = document.createElement('div')
+  tempDiv.innerHTML = processedText
+  const plainText = tempDiv.textContent || tempDiv.innerText || ''
+
+  let charCount = 0
+  for (let i = 0; i < plainText.length; i++) {
+    charCount += /[一-龥]/.test(plainText[i]) ? 2 : 1
+  }
+
+  // 如果文本长度未超过限制，直接返回（但仍用结构包裹以便一致处理）
+  if (charCount <= maxLength) {
+    return `<span class="up-dynamic-desc-full">${processedText}</span>`
+  }
+
+  // 需要截取，保留HTML标签的同时截取文本
+  let truncatedHtml = ''
+  let currentLength = 0
+  let i = 0
+
+  while (i < processedText.length && currentLength < maxLength) {
+    if (processedText[i] === '<') {
+      const tagEnd = processedText.indexOf('>', i)
+      if (tagEnd !== -1) {
+        truncatedHtml += processedText.substring(i, tagEnd + 1)
+        i = tagEnd + 1
+        continue
+      }
+    }
+
+    const char = processedText[i]
+    if (char === '<') {
+      i++
+      continue
+    }
+
+    const charLen = /[一-龥]/.test(char) ? 2 : 1
+    if (currentLength + charLen <= maxLength) {
+      truncatedHtml += char
+      currentLength += charLen
+    } else {
+      break
+    }
+    i++
+  }
+
+  return `
+    <span class="up-dynamic-desc-text">${truncatedHtml}...</span>
+    <span class="up-dynamic-desc-full" style="display: none;">${processedText}</span>
+    <span class="up-dynamic-desc-expand-btn" data-expanded="false">展开全部</span>
+  `
+}
+
 function switchUpTab(tabName) {
   pageStates.up.currentTab = tabName
 
@@ -572,7 +634,7 @@ function createUpDynamicCard(d) {
   // Text content
   const desc = getDynamicDisplayText(d)
   if (desc) {
-    bodyHtml += `<div class="up-dynamic-desc">${escapeHtmlWithEmoji(desc)}</div>`
+    bodyHtml += `<div class="up-dynamic-desc">${createUpExpandableText(desc)}</div>`
   }
 
   const type = d.type
@@ -581,7 +643,7 @@ function createUpDynamicCard(d) {
   if (type === 'DYNAMIC_TYPE_AV' && d.bvid) {
     bodyHtml += `<div class="up-dynamic-video-card video-card" data-bvid="${d.bvid}" data-cid="${d.cid || ''}">`
     if (d.cover) {
-      bodyHtml += `<div class="up-dynamic-video-cover-wrap video-thumbnail"><img class="up-dynamic-video-cover" data-src="${optimizeCoverUrl(d.cover, 672, 378)}" alt="" loading="lazy" decoding="async"><span class="up-dynamic-video-duration">${d.duration || ''}</span><span class="up-dynamic-video-danmaku">弹幕 ${formatCount(d.danmaku)}</span><div class="up-dynamic-video-title">${escapeHtml(d.title || '')}</div></div>`
+      bodyHtml += `<div class="up-dynamic-video-cover-wrap video-thumbnail"><img class="up-dynamic-video-cover" data-src="${optimizeCoverUrl(d.cover, 672, 378)}" alt="" loading="lazy" decoding="async"><div class="up-dynamic-video-stats"><span class="up-dynamic-stats-left"><span class="up-dynamic-video-play">${formatCount(d.play || d.view)}播放</span><span class="up-dynamic-video-danmaku">弹幕 ${formatCount(d.danmaku)}</span></span><span class="up-dynamic-video-duration">${d.duration || ''}</span></div><div class="up-dynamic-video-title">${escapeHtml(d.title || '')}</div></div>`
     }
     bodyHtml += '</div>'
   }
@@ -624,7 +686,7 @@ function createUpDynamicCard(d) {
     if (d.orig.bvid) {
       bodyHtml += `<div class="up-dynamic-forward-video video-card" data-bvid="${d.orig.bvid}" data-cid="${d.orig.cid || ''}">`
       if (d.orig.cover) {
-        bodyHtml += `<div class="up-dynamic-forward-cover video-thumbnail"><img class="up-dynamic-video-cover" data-src="${optimizeCoverUrl(d.orig.cover, 672, 378)}" alt="" loading="lazy" decoding="async"><span class="up-dynamic-video-duration">${d.orig.duration || ''}</span><span class="up-dynamic-video-danmaku">弹幕 ${formatCount(d.orig.danmaku)}</span><div class="up-dynamic-video-title">${escapeHtml(d.orig.title || '')}</div></div>`
+        bodyHtml += `<div class="up-dynamic-forward-cover video-thumbnail"><img class="up-dynamic-video-cover" data-src="${optimizeCoverUrl(d.orig.cover, 672, 378)}" alt="" loading="lazy" decoding="async"><div class="up-dynamic-video-stats"><span class="up-dynamic-stats-left"><span class="up-dynamic-video-play">${formatCount(d.orig.play || d.orig.view)}播放</span><span class="up-dynamic-video-danmaku">弹幕 ${formatCount(d.orig.danmaku)}</span></span><span class="up-dynamic-video-duration">${d.orig.duration || ''}</span></div><div class="up-dynamic-video-title">${escapeHtml(d.orig.title || '')}</div></div>`
       }
       bodyHtml += '</div>'
     }
@@ -642,6 +704,19 @@ function createUpDynamicCard(d) {
   // Opus / general post with cover
   if ((type === 'DYNAMIC_TYPE_WORD' || type === 'DYNAMIC_TYPE_OPUS') && d.cover) {
     bodyHtml += `<div class="up-dynamic-cover-img"><img data-src="${optimizeCoverUrl(d.cover, 500, 300)}" alt="" loading="lazy" decoding="async"></div>`
+  }
+
+  // Live room card
+  if (d.liveRoomId) {
+    bodyHtml += `<div class="up-dynamic-live-card" data-room-id="${d.liveRoomId}" data-live-link="${d.liveLink || ''}">`
+    bodyHtml += '<div class="up-dynamic-live-badge">直播中</div>'
+    if (d.liveCover) {
+      bodyHtml += `<div class="up-dynamic-live-cover"><img data-src="${optimizeCoverUrl(d.liveCover, 672, 378)}" alt="" loading="lazy" decoding="async">`
+      bodyHtml += `<div class="up-dynamic-live-stats"><span class="up-dynamic-live-online">${formatCount(d.liveOnline)}观看</span><span class="up-dynamic-live-area">${escapeHtml(d.liveArea || '')}</span></div>`
+      bodyHtml += '</div>'
+    }
+    bodyHtml += `<div class="up-dynamic-live-info"><div class="up-dynamic-live-title">${escapeHtml(d.liveTitle || '')}</div></div>`
+    bodyHtml += '</div>'
   }
 
   // Footer with stats
@@ -678,6 +753,41 @@ function createUpDynamicCard(d) {
       e.stopPropagation()
       const bvid = el.dataset.bvid
       if (bvid) playVideo(bvid, '', '')
+    })
+  })
+
+  // Live card click handler
+  const liveCard = card.querySelector('.up-dynamic-live-card')
+  if (liveCard) {
+    liveCard.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const link = liveCard.dataset.liveLink
+      if (link) {
+        window.open(link, '_blank')
+      }
+    })
+  }
+
+  // 展开/收起按钮点击事件
+  card.querySelectorAll('.up-dynamic-desc-expand-btn').forEach(el => {
+    el.style.cursor = 'pointer'
+    el.addEventListener('click', (e) => {
+      e.stopPropagation()
+      const isExpanded = el.dataset.expanded === 'true'
+      const descFull = el.previousElementSibling
+      const descText = descFull?.previousElementSibling
+
+      if (isExpanded) {
+        descFull.style.display = 'none'
+        if (descText) descText.style.display = 'inline'
+        el.textContent = '展开全部'
+        el.dataset.expanded = 'false'
+      } else {
+        if (descText) descText.style.display = 'none'
+        descFull.style.display = 'inline'
+        el.textContent = '收起'
+        el.dataset.expanded = 'true'
+      }
     })
   })
 
@@ -1360,7 +1470,7 @@ function createSeasonArchiveCard(item) {
   
   const title = item.title || ''
   const cover = item.pic || ''
-  const duration = formatDuration(item.duration)
+  const duration = formatDuration(item.duration) || '00:00'
   const play = item.stat?.view || 0
   const pubdate = item.pubdate || 0
   
@@ -1398,13 +1508,6 @@ function createSeasonArchiveCard(item) {
   })
   
   return card
-}
-
-function formatDuration(seconds) {
-  if (!seconds) return '00:00'
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
 }
 
 function formatNumber(num) {

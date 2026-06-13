@@ -54,6 +54,7 @@ function getClickableElements() {
     '.hot-item',
     '.history-tag',
     '.my-tab',
+    '.up-tab',
     '.bottom-action-btn',
     '.nav-link',
     '.bangumi-card',

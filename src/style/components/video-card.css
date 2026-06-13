@@ -108,6 +108,19 @@
   font-weight: 500;
 }
 
+.video-play-count {
+  position: absolute;
+  bottom: 8px;
+  left: 8px;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(4px);
+  color: #fff;
+  font-size: 12px;
+  padding: 3px 8px;
+  border-radius: 6px;
+  font-weight: 500;
+}
+
 .video-title-row {
   display: flex;
   justify-content: space-between;
@@ -349,6 +362,10 @@
 }
 
 .video-card.preview-active .video-thumbnail > .video-duration {
+  opacity: 0;
+}
+
+.video-card.preview-active .video-thumbnail > .video-play-count {
   opacity: 0;
 }
 

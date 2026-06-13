@@ -239,14 +239,16 @@ function createDynamicVideoCard(dynamic, options = {}) {
   const duration = dynamic.duration || ''
   const bvid = dynamic.bvid || ''
   const cid = dynamic.cid || ''
+  const playCount = formatCount(dynamic.view || dynamic.play || 0)
 
   card.dataset.bvid = bvid
   card.dataset.cid = cid
 
   let durationHtml = duration ? '<div class="video-duration">' + duration + '</div>' : ''
+  let playHtml = playCount ? '<span class="video-play-count">' + playCount + '播放</span>' : ''
   const coverSrc = optimizeCoverUrl(thumbnail, COVER_WIDTH, COVER_HEIGHT)
 
-  card.innerHTML = '<div class="video-thumbnail"><img src="" alt="' + title + '" data-src="' + coverSrc + '">' + durationHtml + '</div>'
+  card.innerHTML = '<div class="video-thumbnail"><img src="" alt="' + title + '" data-src="' + coverSrc + '">' + playHtml + durationHtml + '</div>'
 
   const img = card.querySelector('.video-thumbnail img')
   setupLazyImage(img, options.eager)
@@ -267,11 +269,8 @@ function createDynamicVideoInfo(dynamic, onAuthorClick) {
   const title = dynamic.title || dynamic.desc || '暂无标题'
   const author = dynamic.authorName || dynamic.author || '未知'
   const authorMid = dynamic.authorMid || ''
-  const pubTs = dynamic.pubTs || dynamic.time || 0
-  const pubTime = dynamic.pubTime || ''
-  const videoDate = pubTime || formatDynamicTime(pubTs)
 
-  info.innerHTML = '<h3 class="video-title">' + title + '</h3><div class="video-footer"><div class="video-author-row"><svg class="up-icon up-clickable" data-mid="' + authorMid + '" viewBox="0 0 40 28" fill="none"><rect x="2" y="2" width="36" height="24" rx="6" ry="6" stroke="currentColor" stroke-width="1.5" fill="none"/><text x="20" y="20" text-anchor="middle" font-size="13" font-weight="bold" fill="currentColor" font-family="inherit">U P</text></svg><span class="video-author-name up-clickable" data-mid="' + authorMid + '">' + author + '</span>' + (videoDate ? '<span class="video-publish-date up-clickable" data-mid="' + authorMid + '">' + videoDate + '</span>' : '') + '</div><span class="video-play">' + (dynamic.view || dynamic.play || '') + '</span></div>'
+  info.innerHTML = '<h3 class="video-title">' + title + '</h3><div class="video-footer"><div class="video-author-row"><svg class="up-icon up-clickable" data-mid="' + authorMid + '" viewBox="0 0 40 28" fill="none"><rect x="2" y="2" width="36" height="24" rx="6" ry="6" stroke="currentColor" stroke-width="1.5" fill="none"/><text x="20" y="20" text-anchor="middle" font-size="13" font-weight="bold" fill="currentColor" font-family="inherit">U P</text></svg><span class="video-author-name up-clickable" data-mid="' + authorMid + '">' + author + '</span></div></div>'
 
   const upClickableElements = info.querySelectorAll('.up-clickable')
   upClickableElements.forEach(el => {
@@ -414,7 +413,7 @@ function createDynamicCard(d) {
     bodyHtml += `<div class="dynamic-video-info"><div class="dynamic-video-title">${escapeHtml(d.title || '')}</div></div>`
     if (d.cover) {
       bodyHtml += `<div class="dynamic-video-cover-wrap video-thumbnail"><img class="dynamic-video-cover" data-src="${optimizeCoverUrl(d.cover, 672, 378)}" alt="" loading="lazy" decoding="async">`
-      bodyHtml += `<div class="dynamic-video-stats"><span class="dynamic-video-duration">${d.duration || ''}</span><span class="dynamic-video-play">${formatCount(d.play)}播放</span><span class="dynamic-video-danmaku">${formatCount(d.danmaku)}弹幕</span></div>`
+      bodyHtml += `<div class="dynamic-video-stats"><span class="dynamic-stats-left"><span class="dynamic-video-play">${formatCount(d.play)}播放</span><span class="dynamic-video-danmaku">${formatCount(d.danmaku)}弹幕</span></span><span class="dynamic-video-duration">${d.duration || ''}</span></div>`
       bodyHtml += `</div>`
     }
     bodyHtml += '</div>'
@@ -468,7 +467,7 @@ function createDynamicCard(d) {
       bodyHtml += `<div class="dynamic-video-info"><div class="dynamic-video-title">${escapeHtml(d.orig.title || '')}</div></div>`
       if (d.orig.cover) {
         bodyHtml += `<div class="dynamic-forward-cover video-thumbnail"><img class="dynamic-video-cover" data-src="${optimizeCoverUrl(d.orig.cover, 672, 378)}" alt="" loading="lazy" decoding="async">`
-        bodyHtml += `<div class="dynamic-video-stats"><span class="dynamic-video-duration">${d.orig.duration || ''}</span><span class="dynamic-video-play">${formatCount(d.orig.play)}播放</span><span class="dynamic-video-danmaku">${formatCount(d.orig.danmaku)}弹幕</span></div>`
+        bodyHtml += `<div class="dynamic-video-stats"><span class="dynamic-stats-left"><span class="dynamic-video-play">${formatCount(d.orig.play)}播放</span><span class="dynamic-video-danmaku">${formatCount(d.orig.danmaku)}弹幕</span></span><span class="dynamic-video-duration">${d.orig.duration || ''}</span></div>`
         bodyHtml += `</div>`
       }
       bodyHtml += '</div>'

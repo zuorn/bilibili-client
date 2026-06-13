@@ -99,10 +99,13 @@ function createVideoCard(video, onAuthorClick, options = {}) {
 
   const showAddToView = options.showAddToView !== false
 
+  const playCount = video.play || video.view || ''
+
   card.innerHTML = `
     <div class="video-thumbnail">
       <img src="" alt="${video.title}" data-src="${coverSrc}">
       <span class="video-duration">${video.duration}</span>
+      ${playCount ? `<span class="video-play-count">${playCount}</span>` : ''}
       ${showAddToView ? `
       <button class="add-to-view-btn" title="添加到稍后再看">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -194,7 +197,6 @@ function createVideoInfo(video, onAuthorClick, options = {}) {
         ${video.author ? `<span class="video-author-name up-clickable" data-mid="${video.owner?.mid || video.mid || ''}">${video.author}</span>` : ''}
         ${video.publish_date ? `<span class="video-publish-date up-clickable" data-mid="${video.owner?.mid || video.mid || ''}">${video.publish_date}</span>` : ''}
       </div>
-      <span class="video-play">${video.play}</span>
     </div>
   `
 

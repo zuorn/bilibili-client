@@ -70,6 +70,8 @@ function extractDynamicText(desc, summary) {
   return ''
 }
 
+const UP_DYNAMIC_FEATURES = 'itemOpusStyle,listOnlyfans,opusBigCover,onlyfansVote,decorationCard,onlyfansAssetsV2,forwardListHidden,ugcDelete'
+
 function registerUpHandlers(deps) {
   const { ipcMain, fetchApi, fetchApiPost, log, cookieManager, fetchWbiKeys, getMixKey, signParams } = deps
 
@@ -176,7 +178,7 @@ function registerUpHandlers(deps) {
   ipcMain.handle('fetch-up-dynamics', async (event, mid, offset = '') => {
     log('fetch-up-dynamics called, mid:', mid, 'offset:', offset)
     try {
-      let url = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=${mid}&timezone_offset=-480&platform=web&ps=100`
+      let url = `https://api.bilibili.com/x/polymer/web-dynamic/v1/feed/space?host_mid=${mid}&timezone_offset=-480&platform=web&features=${UP_DYNAMIC_FEATURES}&ps=100`
       if (offset) {
         url += `&offset=${offset}`
       }
@@ -214,21 +216,24 @@ function registerUpHandlers(deps) {
           const authorModule = modules.module_author || {}
           const majorModule = dynamicModule.major || {}
           const desc = modules.module_desc || dynamicModule.desc || {}
+          const statModule = modules.module_stat || {}
           const stat = dynamicModule.stat || {}
 
           const resultItem = {
             id: item.id_str || '',
             type: item.type || '',
-            authorName: authorModule.name || '',
+            authorName: authorModule.user?.name || authorModule.name || '',
             authorFace: authorModule.face || '',
             authorMid: authorModule.mid || 0,
             pubTs: authorModule.pub_ts || 0,
             pubTime: authorModule.pub_time || '',
             desc: extractDynamicText(desc),
-            view: stat.view || 0,
-            like: stat.like || 0,
-            forward_count: stat.forward || 0,
-            comment: stat.comment || 0
+            view: statModule.view?.count ?? stat.view ?? 0,
+            like: statModule.like?.count ?? stat.like ?? 0,
+            forward_count: statModule.forward?.count ?? stat.forward ?? 0,
+            comment: statModule.comment?.count ?? stat.comment ?? 0,
+            play: 0,
+            danmaku: 0
           }
 
           // Video content
