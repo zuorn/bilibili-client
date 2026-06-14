@@ -2797,9 +2797,9 @@
     // Named DASH audio sync handlers so we can remove them before re-adding
     const dashSyncHandlers = {
       onPlay: () => {
+        // 初始播放由 tryStartPlayback 通过 Promise.all 同时启动，这里只处理后续暂停恢复的场景
         if (currentAudioElement && currentAudioElement.paused) {
-          // 播放前先同步到视频当前时间，避免音频从 0 开始导致音画不同步
-          if (Math.abs(currentAudioElement.currentTime - videoPlayer.currentTime) > 0.1) {
+          if (Math.abs(currentAudioElement.currentTime - videoPlayer.currentTime) > 0.5) {
             currentAudioElement.currentTime = videoPlayer.currentTime
           }
           currentAudioElement.play().catch(e => console.log('Audio play error:', e))
@@ -4044,6 +4044,8 @@
 
           // 音频 ready 后，若视频已经在播放，立即跟上并同步时间
           currentAudioElement.addEventListener('canplay', function onAudioCanPlay() {
+            markAudioReady()
+            // 如果视频已经开始播放但音频还没跟上，立即同步并播放
             if (currentAudioElement && !videoPlayer.paused && currentAudioElement.paused) {
               currentAudioElement.currentTime = videoPlayer.currentTime
               currentAudioElement.play().catch(e => console.log('Audio play error:', e))
@@ -4067,43 +4069,68 @@
         // 异步预加载进度条快照数据，不阻塞视频播放
         loadSnapshotData(bvid, cid)
 
-        let hasLoaded = false
+        let videoReady = false
+        let audioReady = false
         let hasError = false
         let initialProgressSet = false
 
+        // 等待音视频都就绪后同时开始播放，解决音频慢半拍问题
+        async function tryStartPlayback() {
+          if (hasError) return
+          // DASH 模式：等音频也 ready
+          if (hasSeparateAudio && !audioReady) return
+          // 视频还没 ready
+          if (!videoReady) return
+          // 已经播放中
+          if (!videoPlayer.paused) return
+
+          if (!initialProgressSet && progress !== null && progress !== undefined) {
+            videoPlayer.currentTime = progress
+            if (hasSeparateAudio && currentAudioElement) {
+              currentAudioElement.currentTime = progress
+            }
+            initialProgressSet = true
+            console.log('Set initial progress to:', progress)
+          }
+
+          // 音视频时间对齐
+          if (hasSeparateAudio && currentAudioElement) {
+            currentAudioElement.currentTime = videoPlayer.currentTime
+          }
+
+          loadingOverlay.style.display = 'none'
+
+          // 同时启动音视频，避免 onPlay 事件链导致的异步延迟
+          if (hasSeparateAudio && currentAudioElement) {
+            await Promise.all([
+              videoPlayer.play(),
+              currentAudioElement.play()
+            ]).catch(e => console.log('Play error:', e))
+            console.log('[播放] 音视频同步开始 (DASH)')
+          } else {
+            await videoPlayer.play()
+            console.log('[播放] 视频开始 (合并流)')
+          }
+        }
+
         videoPlayer.addEventListener('loadedmetadata', function onMeta() {
           console.log('Video metadata loaded')
-          if (!hasLoaded && !hasError) {
-            if (progress !== null && progress !== undefined && !initialProgressSet) {
-              videoPlayer.currentTime = progress
-              if (hasSeparateAudio && currentAudioElement) {
-                currentAudioElement.currentTime = progress
-              }
-              initialProgressSet = true
-              console.log('Set initial progress to:', progress)
-            }
-            hasLoaded = true
-            loadingOverlay.style.display = 'none'
-            videoPlayer.play()
-          }
+          videoReady = true
+          tryStartPlayback()
         }, { once: true })
 
         videoPlayer.addEventListener('canplay', function onCanPlay() {
           console.log('Video can play')
-          if (!hasLoaded && !hasError) {
-            if (progress !== null && progress !== undefined && !initialProgressSet) {
-              videoPlayer.currentTime = progress
-              if (hasSeparateAudio && currentAudioElement) {
-                currentAudioElement.currentTime = progress
-              }
-              initialProgressSet = true
-              console.log('Set initial progress to:', progress)
-            }
-            hasLoaded = true
-            loadingOverlay.style.display = 'none'
-            videoPlayer.play()
-          }
+          videoReady = true
+          tryStartPlayback()
         }, { once: true })
+
+        // 标记音频就绪
+        function markAudioReady() {
+          audioReady = true
+          console.log('Audio ready')
+          tryStartPlayback()
+        }
 
         videoPlayer.addEventListener('error', function onErr(e) {
           console.error('Video player error:', videoPlayer.error)
