@@ -291,8 +291,8 @@ document.addEventListener('keydown', e => {
     return
   }
 
-  // 按下 f 键开启访问键
-  if (e.key === 'f' && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+  // 按下 f 键开启访问键（已开启时不重复触发，将 f 作为普通输入字符）
+  if (e.key === 'f' && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey && !accesskeyEnabled) {
     e.preventDefault()
     e.stopImmediatePropagation()
     showAccesskeyLabels()

@@ -7,6 +7,77 @@ const cookieManager = require('../cookieManager')
 
 let builtinReportTimer = null
 
+function getPlayerStatePath() {
+  const { app } = require('electron')
+  return path.join(app.getPath('userData'), 'player-window-state.json')
+}
+
+function savePlayerWindowState(playerWindow, log) {
+  try {
+    if (!playerWindow || playerWindow.isDestroyed()) return
+    // 始终保存 bounds，全屏时 getBounds() 返回的是所在显示屏的尺寸
+    // 恢复时用于确定窗口应该在哪个屏幕上全屏
+    const bounds = playerWindow.getBounds()
+    const data = {
+      fullscreen: playerWindow.isFullScreen(),
+      isMaximized: playerWindow.isMaximized(),
+      bounds: bounds
+    }
+    fs.writeFileSync(getPlayerStatePath(), JSON.stringify(data, null, 2))
+    log('[播放器状态] 已保存: fullscreen=' + data.fullscreen + ' bounds=' + JSON.stringify(bounds))
+  } catch (e) {
+    log('[播放器状态保存] 失败:', e.message)
+  }
+}
+
+function loadPlayerWindowState(log) {
+  try {
+    const filePath = getPlayerStatePath()
+    if (fs.existsSync(filePath)) {
+      const data = JSON.parse(fs.readFileSync(filePath, 'utf-8'))
+      log('[播放器状态] 已加载: fullscreen=' + data.fullscreen + (data.bounds ? ' bounds=' + JSON.stringify(data.bounds) : ''))
+      return data
+    }
+  } catch (e) {
+    log('[播放器状态加载] 失败:', e.message)
+  }
+  return null
+}
+
+function isBoundsOnScreen(bounds) {
+  try {
+    const { screen } = require('electron')
+    const displays = screen.getAllDisplays()
+    return displays.some(d => {
+      const { x, y, width, height } = d.workArea
+      // Window should be at least partially visible on this display
+      return bounds.x < x + width && bounds.x + bounds.width > x &&
+             bounds.y < y + height && bounds.y + bounds.height > y
+    })
+  } catch (e) {
+    return false
+  }
+}
+
+// 获取播放窗口当前所在屏幕的 workArea（而非主屏）
+function getPlayerWorkArea(state) {
+  const { screen } = require('electron')
+  if (state.playerWindow && !state.playerWindow.isDestroyed()) {
+    const bounds = state.playerWindow.getBounds()
+    const display = screen.getDisplayMatching(bounds)
+    return display.workArea
+  }
+  return screen.getPrimaryDisplay().workArea
+}
+
+// 确保窗口坐标在指定 workArea 内（不完全超出屏幕）
+function clampToWorkArea(x, y, width, height, workArea) {
+  return {
+    x: Math.max(workArea.x, Math.min(workArea.x + workArea.width - width, x)),
+    y: Math.max(workArea.y, Math.min(workArea.y + workArea.height - height, y))
+  }
+}
+
 function startBuiltinReportTimer(state, log) {
   stopBuiltinReportTimer()
   builtinReportTimer = setInterval(async () => {
@@ -115,6 +186,7 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
   log('Opening builtin player for:', bvid, title, 'dimension:', dimension, 'progress:', progress)
 
   if (state.playerWindow) {
+    savePlayerWindowState(state.playerWindow, log)
     state.playerWindow.close()
     state.playerWindow = null
   }
@@ -203,6 +275,7 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
     height: windowHeight,
     frame: false,
     menuBarVisible: false,
+    show: false,
     webPreferences: {
       nodeIntegration: true,
       contextIsolation: false,
@@ -213,12 +286,45 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
     }
   })
 
-  const screen = require('electron').screen
-  const primaryDisplay = screen.getPrimaryDisplay()
-  const workArea = primaryDisplay.workArea
-  const x = Math.floor((workArea.width - windowWidth) / 2)
-  const y = Math.floor((workArea.height - windowHeight) / 2)
-  state.playerWindow.setPosition(Math.max(0, x), Math.max(0, y))
+  // 加载上次关闭时保存的窗口状态（位置/大小/全屏）
+  const savedState = loadPlayerWindowState(log)
+  state._restoreFullscreen = savedState && savedState.fullscreen
+  // 保存上次的 bounds 用于全屏恢复时确定目标屏幕
+  state._savedPlayerBounds = savedState ? savedState.bounds : null
+
+  if (savedState && savedState.bounds && isBoundsOnScreen(savedState.bounds) && !state._restoreFullscreen) {
+    // 非全屏状态：恢复到上次位置，但窗口大小按当前视频比例重新计算
+    const sb = savedState.bounds
+    const savedCenterX = Math.round(sb.x + sb.width / 2)
+    const savedCenterY = Math.round(sb.y + sb.height / 2)
+    let restoreX = Math.round(savedCenterX - windowWidth / 2)
+    let restoreY = Math.round(savedCenterY - windowHeight / 2)
+    // 基于上次窗口中心点找到所在屏幕，用其 workArea 钳制新窗口位置
+    const { screen } = require('electron')
+    const nearestDisplay = screen.getDisplayNearestPoint({ x: savedCenterX, y: savedCenterY })
+    const wa = nearestDisplay.workArea
+    const clamped = clampToWorkArea(restoreX, restoreY, windowWidth, windowHeight, wa)
+    state.playerWindow.setBounds({ x: clamped.x, y: clamped.y, width: windowWidth, height: windowHeight })
+    log('[播放器窗口] 恢复上次位置 (中心不变)，按当前视频比例调整窗口: ' + windowWidth + 'x' + windowHeight)
+  } else if (state._restoreFullscreen && savedState.bounds) {
+    // 全屏状态：先把窗口移到上次所在的屏幕中央，稍后在 did-finish-load 中全屏
+    const sb = savedState.bounds
+    const centerX = Math.round(sb.x + (sb.width - windowWidth) / 2)
+    const centerY = Math.round(sb.y + (sb.height - windowHeight) / 2)
+    // 不钳制到 0，副屏可能有负坐标或大于主屏的坐标
+    const clamped = clampToWorkArea(centerX, centerY, windowWidth, windowHeight, {
+      x: sb.x, y: sb.y, width: sb.width, height: sb.height
+    })
+    state.playerWindow.setPosition(clamped.x, clamped.y)
+    log('[播放器窗口] 准备在屏幕 [' + sb.x + ',' + sb.y + ' ' + sb.width + 'x' + sb.height + '] 上恢复全屏')
+  } else {
+    const { screen } = require('electron')
+    const primaryDisplay = screen.getPrimaryDisplay()
+    const workArea = primaryDisplay.workArea
+    const x = Math.floor(workArea.x + (workArea.width - windowWidth) / 2)
+    const y = Math.floor(workArea.y + (workArea.height - windowHeight) / 2)
+    state.playerWindow.setPosition(x, y)
+  }
   const session = state.playerWindow.webContents.session
   session.webRequest.onBeforeSendHeaders((details, callback) => {
     const url = details.url
@@ -252,15 +358,25 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
 
   state.playerWindow.loadFile('src/pages/player.html')
 
+  // 兜底：非全屏恢复时，ready-to-show 即显示；全屏恢复留给 did-finish-load 处理
+  state.playerWindow.once('ready-to-show', () => {
+    if (!state._restoreFullscreen && state.playerWindow && !state.playerWindow.isDestroyed() && !state.playerWindow.isVisible()) {
+      state.playerWindow.show()
+      log('[播放器窗口] ready-to-show 兜底显示')
+    }
+  })
+
   // Capture window reference locally to prevent stale closures from sending
   // data to the wrong window after rapid re-opens.
   const playerWindow = state.playerWindow
 
   playerWindow.on('enter-full-screen', () => {
     playerWindow.webContents.send('fullscreen-changed', true)
+    savePlayerWindowState(playerWindow, log)
   })
   playerWindow.on('leave-full-screen', () => {
     playerWindow.webContents.send('fullscreen-changed', false)
+    savePlayerWindowState(playerWindow, log)
   })
 
   // 立即启动预加载：与窗口加载并行获取视频URL和视频信息
@@ -330,6 +446,20 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
   // include its result directly. If it's not ready, the player page will
   // receive it via a follow-up 'prefetch-data' event.
   playerWindow.webContents.once('did-finish-load', async () => {
+    // 先恢复全屏状态，再显示窗口，避免用户看到窗口从普通大小跳到全屏的过程
+    if (state._restoreFullscreen) {
+      state._restoreFullscreen = false
+      if (playerWindow && !playerWindow.isDestroyed()) {
+        playerWindow.setFullScreen(true)
+        log('[播放器窗口] 恢复全屏状态')
+      }
+    }
+    // 立即显示窗口（不等 prefetch 完成）
+    if (playerWindow && !playerWindow.isDestroyed()) {
+      playerWindow.show()
+      log('[播放器窗口] 已显示')
+    }
+
     let preFetchData = null
     try {
       preFetchData = await Promise.race([
@@ -395,6 +525,10 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
   }
 
   startBuiltinReportTimer(state, log)
+
+  playerWindow.on('close', () => {
+    savePlayerWindowState(playerWindow, log)
+  })
 
   playerWindow.on('closed', () => {
     log('[播放器窗口关闭]')
@@ -510,9 +644,7 @@ function registerBuiltinPlayerHandlers(deps) {
       }
 
       const currentBounds = state.playerWindow.getBounds()
-      const { screen } = require('electron')
-      const primaryDisplay = screen.getPrimaryDisplay()
-      const workArea = primaryDisplay.workArea
+      const workArea = getPlayerWorkArea(state)
 
       const aspect = state.playerVideoAspect || 16 / 9
       const minWidth = 320
@@ -548,9 +680,9 @@ function registerBuiltinPlayerHandlers(deps) {
       let newX = Math.round(cx - newWidth / 2)
       let newY = Math.round(cy - newHeight / 2)
 
-      // Keep on screen
-      newX = Math.max(0, Math.min(workArea.width - newWidth, newX))
-      newY = Math.max(0, Math.min(workArea.height - newHeight, newY))
+      // Keep on current display
+      const clamped = clampToWorkArea(newX, newY, newWidth, newHeight, workArea)
+      newX = clamped.x; newY = clamped.y
 
       state.playerWindow.setBounds({
         x: newX, y: newY,
@@ -584,9 +716,7 @@ function registerBuiltinPlayerHandlers(deps) {
 
   ipcMain.handle('resize-player-window', async (event, width, height) => {
     if (state.playerWindow && width && height) {
-      const { screen } = require('electron')
-      const primaryDisplay = screen.getPrimaryDisplay()
-      const workArea = primaryDisplay.workArea
+      const workArea = getPlayerWorkArea(state)
 
       const maxWindowWidth = Math.floor(workArea.width * 0.9)
       const maxWindowHeight = Math.floor(workArea.height * 0.9)
@@ -615,9 +745,15 @@ function registerBuiltinPlayerHandlers(deps) {
       const widthDelta = newWidth - currentBounds.width
       const heightDelta = newHeight - currentBounds.height
 
+      const clamped2 = clampToWorkArea(
+        currentBounds.x - widthDelta / 2,
+        currentBounds.y - heightDelta / 2,
+        newWidth, newHeight, workArea
+      )
+
       state.playerWindow.setBounds({
-        x: Math.max(0, Math.min(workArea.width - newWidth, currentBounds.x - widthDelta / 2)),
-        y: Math.max(0, Math.min(workArea.height - newHeight, currentBounds.y - heightDelta / 2)),
+        x: clamped2.x,
+        y: clamped2.y,
         width: newWidth,
         height: newHeight
       }, true)
@@ -655,9 +791,7 @@ function registerBuiltinPlayerHandlers(deps) {
       return { success: false, reason: 'no-window-or-fullscreen' }
     }
 
-    const { screen } = require('electron')
-    const primaryDisplay = screen.getPrimaryDisplay()
-    const workArea = primaryDisplay.workArea
+    const workArea = getPlayerWorkArea(state)
 
     const rot = ((rotation % 360) + 360) % 360
     const isPortrait = (rot === 90 || rot === 270)
@@ -693,12 +827,11 @@ function registerBuiltinPlayerHandlers(deps) {
     const cy = currentBounds.y + currentBounds.height / 2
     let newX = Math.round(cx - newWidth / 2)
     let newY = Math.round(cy - newHeight / 2)
-    newX = Math.max(0, Math.min(workArea.width - newWidth, newX))
-    newY = Math.max(0, Math.min(workArea.height - newHeight, newY))
+    const clamped = clampToWorkArea(newX, newY, newWidth, newHeight, workArea)
 
     state.playerVideoAspect = newAspect
     state.playerWindow.setBounds({
-      x: newX, y: newY,
+      x: clamped.x, y: clamped.y,
       width: newWidth, height: newHeight
     }, false)
 
@@ -756,8 +889,7 @@ function registerBuiltinPlayerHandlers(deps) {
       const ref = Math.min(currentBounds.width, currentBounds.height)
       let pw = Math.max(480, ref)
       let ph = Math.round(pw * ratio) // 保持原比例作为竖版估算比例
-      const { screen } = require('electron')
-      const workArea = screen.getPrimaryDisplay().workArea
+      const workArea = getPlayerWorkArea(state)
       const mxw = Math.floor(workArea.width * 0.95)
       const mxh = Math.floor(workArea.height * 0.95)
       if (pw > mxw) { pw = mxw; ph = Math.round(pw * ratio) }
@@ -782,14 +914,13 @@ function registerBuiltinPlayerHandlers(deps) {
       case 'right': newX += step; break
     }
 
-    const { screen } = require('electron')
-    const workArea = screen.getPrimaryDisplay().workArea
-    newX = Math.max(0, Math.min(workArea.width - base.width, newX))
-    newY = Math.max(0, Math.min(workArea.height - base.height, newY))
+    // 使用当前窗口所在屏幕的 workArea 进行边界钳制
+    const workArea = getPlayerWorkArea(state)
+    const clamped = clampToWorkArea(newX, newY, base.width, base.height, workArea)
 
     state.playerWindow.setBounds({
-      x: newX,
-      y: newY,
+      x: clamped.x,
+      y: clamped.y,
       width: base.width,
       height: base.height
     }, false)

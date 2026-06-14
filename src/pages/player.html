@@ -553,8 +553,17 @@
       box-shadow: 0 0 8px rgba(0, 161, 214, 0.6);
     }
 
-    .progress-bar:hover .progress-thumb {
+    .progress-bar:hover .progress-thumb,
+    .progress-bar.dragging .progress-thumb {
       opacity: 1;
+    }
+
+    .progress-bar.dragging .progress-fill {
+      background-color: #00a1d6;
+    }
+
+    .progress-bar.dragging {
+      cursor: grabbing;
     }
 
     /* 进度条悬停预览 —— 始终在布局中（visibility 而非 display:none），避免首次悬停时触发重布局导致尺寸闪烁 */
@@ -2414,9 +2423,9 @@
 
       <video class="video-player" id="videoPlayer" playsinline webkit-playsinline draggable="false"
         preload="metadata"
-        style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;background:#000"></video>
+        style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:contain;background:#000"></video>
       <canvas class="anime4k-canvas" id="anime4kCanvas"
-        style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:cover;background:#000;display:none"></canvas>
+        style="position:fixed;top:0;left:0;width:100vw;height:100vh;object-fit:contain;background:#000;display:none"></canvas>
 
       <div class="drag-region"></div>
 
@@ -5045,11 +5054,53 @@
       e.preventDefault()
     })
 
-    progressBar.addEventListener('click', (e) => {
+    // 进度跳转辅助函数
+    function seekProgressByEvent(e) {
       const rect = progressBar.getBoundingClientRect()
-      const percent = (e.clientX - rect.left) / rect.width
-      videoPlayer.currentTime = percent * videoPlayer.duration
+      const percent = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+      const duration = videoPlayer.duration || 0
+      if (duration > 0) {
+        videoPlayer.currentTime = percent * duration
+      }
+    }
+
+    progressBar.addEventListener('click', (e) => {
+      seekProgressByEvent(e)
     })
+
+    // 进度条拖拽滑块功能
+    let isDraggingProgress = false
+    let dragStartOnProgress = false
+
+    document.addEventListener('mousedown', (e) => {
+      if (e.button !== 0) return
+      // 仅当点击在进度条上时启动拖拽
+      if (!e.target.closest('#progressBar')) return
+      e.preventDefault()
+      isDraggingProgress = true
+      dragStartOnProgress = true
+      progressBar.classList.add('dragging')
+      seekProgressByEvent(e)
+    })
+
+    document.addEventListener('mousemove', (e) => {
+      if (!isDraggingProgress) return
+      e.preventDefault()
+      seekProgressByEvent(e)
+    })
+
+    const stopDraggingProgress = () => {
+      if (!isDraggingProgress) return
+      isDraggingProgress = false
+      progressBar.classList.remove('dragging')
+      // 若没有移动鼠标（纯点击），不阻止后续 click 事件
+      if (dragStartOnProgress) {
+        dragStartOnProgress = false
+      }
+    }
+
+    document.addEventListener('mouseup', stopDraggingProgress)
+    window.addEventListener('blur', stopDraggingProgress)
 
     // 进度条悬停预览功能
     let previewTimeout = null
@@ -5639,10 +5690,19 @@
       const canvas = document.getElementById('anime4kCanvas')
       if (isFullscreen) {
         videoPlayer.classList.add('fullscreen-mode')
-        if (canvas) canvas.classList.add('fullscreen-mode')
+        // 直接设 style 覆盖内联 object-fit:cover，全屏时按视频比例显示（留黑边）
+        videoPlayer.style.objectFit = 'contain'
+        if (canvas) {
+          canvas.classList.add('fullscreen-mode')
+          canvas.style.objectFit = 'contain'
+        }
       } else {
         videoPlayer.classList.remove('fullscreen-mode')
-        if (canvas) canvas.classList.remove('fullscreen-mode')
+        videoPlayer.style.objectFit = ''
+        if (canvas) {
+          canvas.classList.remove('fullscreen-mode')
+          canvas.style.objectFit = ''
+        }
       }
     })
 
