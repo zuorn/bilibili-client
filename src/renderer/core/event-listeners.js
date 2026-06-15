@@ -504,4 +504,18 @@ function initEventListeners() {
       toggleFollow()
     }
   })
+
+  // 右键视频卡片：在新窗口打开（不关闭已有播放窗口），左键行为不变
+  document.addEventListener('contextmenu', (e) => {
+    const videoCard = e.target.closest('.video-card')
+    if (!videoCard) return
+    const bvid = videoCard.dataset.bvid
+    if (!bvid) return
+    e.preventDefault()
+    const titleEl = videoCard.querySelector('.video-title, .dynamic-video-title, .up-dynamic-video-title')
+    const title = titleEl?.textContent?.trim() || ''
+    if (typeof playVideoInNewWindow === 'function') {
+      playVideoInNewWindow(bvid, videoCard.dataset.cid || '', title)
+    }
+  })
 }

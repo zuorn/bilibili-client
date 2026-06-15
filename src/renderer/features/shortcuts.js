@@ -468,6 +468,29 @@ function applyShortcuts(e) {
     e.preventDefault()
     handleTriggerAction()
   }
+
+  // = 放大主窗口，- 缩小主窗口
+  if (e.key === '=' && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+    e.preventDefault()
+    ipcRenderer.invoke('zoom-main-window', 1)
+    return
+  }
+  if (e.key === '-' && !e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+    e.preventDefault()
+    ipcRenderer.invoke('zoom-main-window', -1)
+    return
+  }
+
+  // Ctrl+WASD 移动主窗口
+  if (e.ctrlKey && !e.shiftKey && !e.altKey && !e.metaKey) {
+    const dirMap = { w: 'up', a: 'left', s: 'down', d: 'right' }
+    const dir = dirMap[e.key.toLowerCase()]
+    if (dir) {
+      e.preventDefault()
+      ipcRenderer.invoke('move-main-window', dir)
+      return
+    }
+  }
 }
 
 function handleTriggerAction() {

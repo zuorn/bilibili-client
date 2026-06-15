@@ -52,6 +52,23 @@ async function playVideo(bvid, cid, title, progress, episodeData = null) {
   }
 }
 
+// 右键在新窗口打开视频（不关闭已有播放窗口）
+async function playVideoInNewWindow(bvid, cid, title) {
+  const useBuiltin = useBuiltinPlayer()
+  const mpvPath = getMpvPath()
+
+  if (!useBuiltin && !mpvPath) {
+    showToast('请先在设置中开启内置播放器或配置 MPV 路径')
+    return
+  }
+
+  const showDanmaku = localStorage.getItem('showDanmaku') !== 'false'
+  const result = await ipcRenderer.invoke('play-video-new-window', bvid, cid, title, mpvPath, showDanmaku, useBuiltin, null, null)
+  if (!result.success) {
+    showToast(result.error || '播放失败')
+  }
+}
+
 function extractSeasonId(item) {
   if (item.season_id) return item.season_id
   const url = item.url || item.link || ''

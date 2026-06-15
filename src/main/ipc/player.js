@@ -371,6 +371,47 @@ function registerPlayerHandlers(deps) {
     }
   })
 
+  // 右键打开新播放窗口：不关闭已有窗口，支持多窗口同时播放
+  ipcMain.handle('play-video-new-window', async (event, bvid, cid, title, mpvPath, showDanmaku = true, useBuiltin = false, progress = null, episodeData = null) => {
+    const { openBuiltinPlayer, findMpvExecutable } = deps
+    // 注意：不调用 stopVideo()，保留已有播放窗口
+
+    log('play-video-new-window called, bvid:', bvid, 'title:', title)
+
+    if (useBuiltin) {
+      let videoDimension = null
+      try {
+        const videoInfo = await getVideoInfo(bvid)
+        if (videoInfo) {
+          videoDimension = videoInfo.dimension
+          if (!cid) cid = videoInfo.cid
+        }
+      } catch (e) { /* ignore */ }
+      return await openBuiltinPlayer(bvid, cid, title, videoDimension, progress, deps, episodeData)
+    }
+
+    // MPV 路径：直接 spawn 新进程，不关闭已有的
+    try {
+      const mpvExecutable = findMpvExecutable(mpvPath)
+      if (!mpvExecutable) {
+        // 没有 MPV，回退到内置播放器
+        let videoDimension = null
+        try { const vi = await getVideoInfo(bvid); if (vi) { videoDimension = vi.dimension; if (!cid) cid = vi.cid } } catch (e) {}
+        return await openBuiltinPlayer(bvid, cid, title, videoDimension, progress, deps, episodeData)
+      }
+
+      const mpvArgs = [`"https://www.bilibili.com/video/${bvid}"`]
+      const { spawn } = require('child_process')
+      const mpvDir = require('path').dirname(mpvExecutable)
+      spawn(mpvExecutable, mpvArgs, { shell: true, cwd: mpvDir, windowsHide: true, detached: true, stdio: 'ignore' }).unref()
+      log('Started new MPV instance:', mpvExecutable)
+      return { success: true }
+    } catch (error) {
+      log('Failed to start MPV (new window):', error.message)
+      return { success: false, error: error.message }
+    }
+  })
+
   ipcMain.handle('get-video-url', async (event, bvid, cid) => {
     const cookieString = cookieManager.getCookieString()
     return await fetchBestPlayUrl(bvid, cid, cookieString, log)
