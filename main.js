@@ -1,6 +1,39 @@
-// 强制设置 UTF-8 编码
-process.env.LANG = 'zh_CN.UTF-8'
-process.stdout.write('[3J[H[2J')
+// 强制设置 UTF-8 编码（跨平台）
+process.env.LANG = 'en_US.UTF-8'
+process.env.LC_ALL = 'en_US.UTF-8'
+process.env.LC_CTYPE = 'en_US.UTF-8'
+
+// 设置 stdout/stderr 编码为 UTF-8
+if (process.stdout.setDefaultEncoding) {
+  process.stdout.setDefaultEncoding('utf8')
+}
+if (process.stderr.setDefaultEncoding) {
+  process.stderr.setDefaultEncoding('utf8')
+}
+if (process.stdout.setEncoding) {
+  process.stdout.setEncoding('utf8')
+}
+if (process.stderr.setEncoding) {
+  process.stderr.setEncoding('utf8')
+}
+
+// Windows 下设置控制台编码为 UTF-8（通过 PowerShell 直接调用 Win32 API 最可靠）
+if (process.platform === 'win32') {
+  try {
+    require('child_process').execSync(
+      'powershell -NoProfile -NonInteractive -Command "$api=Add-Type -Name WCP -Namespace C -MemberDefinition \'[DllImport(\\\"kernel32.dll\\\")]public static extern bool SetConsoleOutputCP(uint cp);\' -PassThru; $api::SetConsoleOutputCP(65001)"',
+      { stdio: 'pipe', timeout: 5000 }
+    )
+  } catch (_) {
+    // 备用：chcp
+    try { require('child_process').execSync('chcp 65001', { stdio: 'pipe', timeout: 5000 }) } catch (__) {}
+  }
+}
+
+// Windows 下清屏（Linux 终端无需清屏）
+if (process.platform === 'win32') {
+  process.stdout.write('\x1b[3J\x1b[H\x1b[2J')
+}
 
 const { app, BrowserWindow, ipcMain, screen, dialog, Menu, Tray } = require('electron')
 const path = require('path')
