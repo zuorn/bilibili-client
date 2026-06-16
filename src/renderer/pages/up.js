@@ -1467,20 +1467,22 @@ function createCollectionsSeriesCard(item) {
 function createSeasonArchiveCard(item) {
   const card = document.createElement('div')
   card.className = 'video-card'
-  
+
   const title = item.title || ''
   const cover = item.pic || ''
   const duration = formatDuration(item.duration) || '00:00'
   const play = item.stat?.view || 0
   const pubdate = item.pubdate || 0
-  
+  const authorName = item.owner?.name || ''
+  const authorMid = item.owner?.mid || ''
+
   function formatDate(timestamp) {
     if (!timestamp) return ''
     const date = new Date(timestamp * 1000)
     const now = new Date()
     const diff = now - date
     const days = Math.floor(diff / (1000 * 60 * 60 * 24))
-    
+
     if (days === 0) return '今天'
     if (days === 1) return '昨天'
     if (days < 7) return `${days}天前`
@@ -1488,26 +1490,44 @@ function createSeasonArchiveCard(item) {
     if (days < 365) return `${Math.floor(days / 30)}个月前`
     return `${Math.floor(days / 365)}年前`
   }
-  
+
   card.innerHTML = `
     <div class="video-thumbnail">
       <img src="${fixImageUrl(cover)}" alt="${escapeHtml(title)}" loading="lazy" decoding="async">
       <span class="video-duration">${duration}</span>
+      <span class="video-play-count">${formatNumber(play)}播放</span>
     </div>
-    <div class="video-info">
+  `
+
+  // 分开创建 video-info，和首页卡片结构一致
+  const info = document.createElement('div')
+  info.className = 'video-info'
+  info.innerHTML = `
+    <div class="video-title-row">
       <h3 class="video-title">${escapeHtml(title)}</h3>
-      <div class="video-meta">
-        <span class="video-views">${formatNumber(play)}播放</span>
-        <span class="video-date">${formatDate(pubdate)}</span>
+    </div>
+    <div class="video-footer">
+      <div class="video-author-row">
+        <svg class="up-icon" viewBox="0 0 40 28" fill="none">
+          <rect x="2" y="2" width="36" height="24" rx="6" ry="6" stroke="currentColor" stroke-width="1.5" fill="none"/>
+          <text x="20" y="20" text-anchor="middle" font-size="13" font-weight="bold" fill="currentColor" font-family="inherit">U P</text>
+        </svg>
+        ${authorName ? `<span class="video-author-name">${escapeHtml(authorName)}</span>` : ''}
+        <span class="video-publish-date">${formatDate(pubdate)}</span>
       </div>
     </div>
   `
+
+  const wrapper = document.createElement('div')
+  wrapper.className = 'video-item-wrapper'
+  wrapper.appendChild(card)
+  wrapper.appendChild(info)
   
-  card.addEventListener('click', () => {
+  wrapper.addEventListener('click', () => {
     playVideo(item.bvid)
   })
-  
-  return card
+
+  return wrapper
 }
 
 function formatNumber(num) {

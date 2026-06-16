@@ -1292,6 +1292,7 @@ body.dark-theme .up-dynamic-live-title {
   margin-top: -16px;
 }
 
+
 .collections-series-card {
   background-color: #fff;
   border-radius: 10px;
@@ -1592,7 +1593,7 @@ body.dark-theme .up-dynamic-live-title {
 .season-detail-card {
   display: flex;
   gap: 16px;
-  background-color: #fff;
+  background-color: #f6f7f8;
   padding: 16px;
   border-radius: 12px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
