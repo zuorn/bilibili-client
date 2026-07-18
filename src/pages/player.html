@@ -4150,7 +4150,7 @@
 
         // 超时后显示错误并允许重试
         loadVideoTimeout = setTimeout(() => {
-          if (!hasLoaded && !hasError) {
+          if (videoPlayer.readyState === 0 && !hasError) {
             console.log('Video loading timeout, showing error')
             hasError = true
             videoPlayer.removeAttribute('src')

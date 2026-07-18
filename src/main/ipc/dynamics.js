@@ -400,20 +400,72 @@ function registerDynamicsHandlers(deps) {
   ipcMain.handle('get-dynamic-portal', async () => {
     log('get-dynamic-portal called')
     try {
-      const url = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/uplist'
-      log('Using dynamic portal API:', url)
-      const result = await fetchApi(url)
-      log('Dynamic portal result code:', result.code)
-      log('Dynamic portal result data keys:', result.data ? Object.keys(result.data) : 'no data')
+      const vmid = cookieManager.getSavedCookies().DedeUserID
+      if (!vmid) {
+        return { success: false, error: '未登录' }
+      }
 
-      if (result.code === 0 && result.data) {
-        return {
-          success: true,
-          data: result.data
+      // 并行请求：关注列表 + 动态门户（获取 has_update 标记）
+      const [followingsResult, uplistResult] = await Promise.all([
+        (async () => {
+          const allFollowings = []
+          let pn = 1
+          const ps = 50
+          let hasMore = true
+          while (hasMore && pn <= 20) {
+            const url = `https://api.bilibili.com/x/relation/followings?vmid=${vmid}&pn=${pn}&ps=${ps}&order=desc`
+            const result = await fetchApi(url)
+            if (result.code === 0 && result.data) {
+              const list = result.data.list || []
+              allFollowings.push(...list)
+              hasMore = list.length === ps
+              pn++
+            } else {
+              hasMore = false
+            }
+          }
+          log('Fetched all followings count:', allFollowings.length)
+          return allFollowings
+        })(),
+        (async () => {
+          const url = 'https://api.bilibili.com/x/polymer/web-dynamic/v1/uplist'
+          const result = await fetchApi(url)
+          if (result.code === 0 && result.data) {
+            const items = result.data.items || result.data.up_list || []
+            log('Uplist result count:', items.length)
+            return items
+          }
+          return []
+        })()
+      ])
+
+      // 从 uplist 中提取 has_update 映射 (mid -> has_update)
+      const updateMap = {}
+      if (Array.isArray(uplistResult)) {
+        uplistResult.forEach(item => {
+          if (item.mid) {
+            updateMap[item.mid] = item.has_update || false
+          }
+        })
+      }
+
+      // 合并关注列表与更新标记，有更新的排在前面
+      const mergedList = followingsResult.map(item => ({
+        mid: item.mid,
+        uname: item.uname,
+        face: item.face,
+        official_verify: item.official_verify || null,
+        vip: item.vip || null,
+        has_update: updateMap[item.mid] || false
+      })).sort((a, b) => (b.has_update ? 1 : 0) - (a.has_update ? 1 : 0))
+
+      log('Merged followings count:', mergedList.length)
+
+      return {
+        success: true,
+        data: {
+          items: mergedList
         }
-      } else {
-        log('Dynamic portal API error:', result.message)
-        return { success: false, error: result.message || '获取动态门户失败' }
       }
     } catch (error) {
       log('Error getting dynamic portal:', error.message)

@@ -88,15 +88,27 @@ function registerFeedsHandlers(deps) {
         log('Using ranking/v2 endpoint:', endpoint)
         result = await fetchWithRetry(endpoint)
       } else if (tab === 'weekly') {
-        // 每周必看接口需要 WBI 签名
-        const params = {
-          number: 375,
-          web_location: 'bilibili-electron'
+        // 先获取最新期数
+        let latestNumber = 375
+        try {
+          const listEndpoint = 'https://api.bilibili.com/x/web-interface/popular/series/list'
+          const listResult = await fetchWithRetry(listEndpoint)
+          if (listResult && listResult.success && listResult.data?.code === 0) {
+            const seriesList = listResult.data?.data?.list || []
+            if (seriesList.length > 0) {
+              latestNumber = seriesList[0].number
+            }
+          }
+        } catch (e) {
+          log('获取每周必看期数列表失败，使用默认值:', e.message)
         }
+
+        // 每周必看接口需要 WBI 签名
+        const params = { number: latestNumber, web_location: 'bilibili-electron' }
         const keys = await fetchWbiKeys()
         const mixKey = getMixKey(keys.imgKey, keys.subKey)
         const signed = signParams(params, mixKey)
-        endpoint = `https://api.bilibili.com/x/web-interface/popular/series/one?number=375&web_location=bilibili-electron&w_rid=${signed.w_rid}&wts=${signed.wts}`
+        endpoint = `https://api.bilibili.com/x/web-interface/popular/series/one?number=${latestNumber}&web_location=bilibili-electron&w_rid=${signed.w_rid}&wts=${signed.wts}`
         log('Using weekly endpoint:', endpoint)
         result = await fetchWithRetry(endpoint)
       } else if (tab === 'precious') {

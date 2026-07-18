@@ -152,26 +152,14 @@ function registerPlayerHandlers(deps) {
 
     if (useBuiltin) {
       let videoDimension = null
-      if (!cid) {
-        try {
-          const videoInfo = await getVideoInfo(bvid)
-          if (videoInfo) {
-            videoDimension = videoInfo.dimension
-            log('Got dimension for builtin player:', videoDimension)
-          }
-        } catch (error) {
-          log('Failed to get video dimension:', error.message)
+      try {
+        const videoInfo = await getVideoInfo(bvid)
+        if (videoInfo) {
+          videoDimension = videoInfo.dimension
+          log('Got dimension for builtin player:', videoDimension)
         }
-      } else {
-        try {
-          const videoInfo = await getVideoInfo(bvid)
-          if (videoInfo) {
-            videoDimension = videoInfo.dimension
-            log('Got dimension for builtin player:', videoDimension)
-          }
-        } catch (error) {
-          log('Failed to get video dimension:', error.message)
-        }
+      } catch (error) {
+        log('Failed to get video dimension:', error.message)
       }
       return await openBuiltinPlayer(bvid, cid, title, videoDimension, progress, deps, episodeData)
     }

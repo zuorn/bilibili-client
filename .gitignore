@@ -39,3 +39,4 @@ oss-config.json
 .cursor/
 .claude/
 .claude
+.mimocode/

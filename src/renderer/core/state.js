@@ -49,6 +49,8 @@ let currentDynamicOffset = ''
 let dynamicHasMore = true
 let isDynamicLoading = false
 let followingListData = []
+let clickedUpIds = new Set()
+let lastClickedUpId = null
 
 // 番剧全部页面状态
 let bangumiAllState = {

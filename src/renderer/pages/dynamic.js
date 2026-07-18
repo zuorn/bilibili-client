@@ -132,7 +132,6 @@ async function fetchFollowings(mid) {
 
       console.log('Portal data keys:', Object.keys(portalData))
 
-      // Bilibili API 返回的 up 列表在 items 字段中
       const upList = portalData.items || portalData.up_list || []
       
       if (Array.isArray(upList) && upList.length > 0) {
@@ -198,7 +197,20 @@ function renderFollowingList(followings) {
     return
   }
 
-  followings.forEach(up => {
+  // 排序：未点击且有更新 > 刚点击的(保持位置) > 其他已点击 > 无更新
+  const sorted = [...followings].sort((a, b) => {
+    const aClicked = clickedUpIds.has(a.mid)
+    const bClicked = clickedUpIds.has(b.mid)
+    const aIsLast = a.mid === lastClickedUpId
+    const bIsLast = b.mid === lastClickedUpId
+
+    const aGroup = (!aClicked && a.has_update) ? 0 : (aIsLast ? 1 : (aClicked ? 2 : 2))
+    const bGroup = (!bClicked && b.has_update) ? 0 : (bIsLast ? 1 : (bClicked ? 2 : 2))
+    if (aGroup !== bGroup) return aGroup - bGroup
+    return 0
+  })
+
+  sorted.forEach(up => {
     const item = document.createElement('div')
     item.className = 'following-item' + (currentUpId === up.mid ? ' active' : '')
     item.dataset.upId = up.mid
@@ -218,8 +230,10 @@ function renderFollowingList(followings) {
       vipBadge = '<span class="vip-badge">大会员</span>'
     }
 
+    // 有更新且未点击才显示小红点
+    const showDot = up.has_update && !clickedUpIds.has(up.mid)
     let updateDot = ''
-    if (up.has_update) {
+    if (showDot) {
       updateDot = '<span class="update-dot"></span>'
     }
 
@@ -853,10 +867,12 @@ function selectDynamicUp(upId, upName) {
   isDynamicLoading = false
   isDynamicContentLoading = false
 
-  document.querySelectorAll('.following-item').forEach(item => {
-    item.classList.remove('active')
-  })
-  document.querySelector('.following-item[data-up-id="' + upId + '"]')?.classList.add('active')
+  // 标记该 UP 主为已点击，小红点将不再显示
+  clickedUpIds.add(upId)
+  lastClickedUpId = upId
+
+  // 重新排序并渲染关注列表
+  renderFollowingList(followingListData)
 
   const allDynamicBtn = document.getElementById('allDynamicBtn')
   if (allDynamicBtn) allDynamicBtn.classList.remove('active')

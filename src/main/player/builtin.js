@@ -197,7 +197,7 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
   let videoDuration = null
   let firstVideoInfo = null
 
-  if (!finalCid || !videoDimension) {
+  if (!finalCid || !videoDimension || !videoAid || !videoDuration) {
     try {
       firstVideoInfo = await getVideoInfo(bvid)
       if (firstVideoInfo) {
@@ -214,20 +214,6 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
       }
     } catch (error) {
       log('Failed to get video info:', error.message)
-    }
-  }
-
-  if (!videoAid || !videoDuration) {
-    try {
-      const info = await getVideoInfo(bvid)
-      if (info) {
-        videoAid = videoAid || info.aid
-        videoDuration = videoDuration || info.duration
-        finalCid = finalCid || info.cid
-        log('补充获取 video info: aid=' + videoAid + ', cid=' + finalCid + ', duration=' + videoDuration)
-      }
-    } catch (error) {
-      log('Failed to get video info for aid/duration:', error.message)
     }
   }
 
@@ -464,7 +450,7 @@ async function openBuiltinPlayer(bvid, cid, title, dimension, progress, deps, ep
     try {
       preFetchData = await Promise.race([
         preFetchPromise,
-        new Promise(r => setTimeout(() => r(null), 500))
+        new Promise(r => setTimeout(() => r(null), 2000))
       ])
     } catch (e) {
       log('[播放器预加载] 等待异常:', e.message)
