@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bilibili Client</title>
+  <meta name="description" content="Bilibili Client —— 一个基于 Electron 的哔哩哔哩桌面客户端，支持 Windows / macOS / Linux。">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='6' width='20' height='14' rx='3' fill='%23FB7299'/%3E%3Crect x='6' y='3' width='3' height='4' rx='1' fill='%23FB7299'/%3E%3Crect x='15' y='3' width='3' height='4' rx='1' fill='%23FB7299'/%3E%3Ccircle cx='9' cy='13' r='1.4' fill='white'/%3E%3Ccircle cx='15' cy='13' r='1.4' fill='white'/%3E%3C/svg%3E">
+  <style>
+    :root {
+      --pink: #fb7299;
+      --pink-2: #ff9bb8;
+      --blue: #23ade5;
+      --text: #15151a;
+      --text-soft: #6b6b76;
+      --text-faint: #9a9aa6;
+      --bg: #fbfbfd;
+      --card: rgba(255, 255, 255, 0.7);
+      --border: rgba(20, 20, 30, 0.08);
+      --shadow: 0 20px 60px -20px rgba(251, 114, 153, 0.30);
+      --radius: 22px;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --text: #f3f3f6;
+        --text-soft: #a8a8b4;
+        --text-faint: #6c6c78;
+        --bg: #0a0a0f;
+        --card: rgba(255, 255, 255, 0.05);
+        --border: rgba(255, 255, 255, 0.10);
+        --shadow: 0 30px 70px -25px rgba(0, 0, 0, 0.7);
+      }
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: "PingFang SC", -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", Roboto, Helvetica, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    /* ===== 背景光晕 ===== */
+    .bg-orbs { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+    .orb { position: absolute; border-radius: 50%; filter: blur(90px); opacity: .55; }
+    .orb.a { width: 540px; height: 540px; background: var(--pink); top: -180px; left: -120px; animation: float1 18s ease-in-out infinite; }
+    .orb.b { width: 460px; height: 460px; background: var(--blue); top: 120px; right: -140px; opacity: .4; animation: float2 22s ease-in-out infinite; }
+    .orb.c { width: 420px; height: 420px; background: #ffd1e0; bottom: -160px; left: 35%; opacity: .35; animation: float1 26s ease-in-out infinite; }
+    @keyframes float1 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(40px,40px) scale(1.08); } }
+    @keyframes float2 { 0%,100% { transform: translate(0,0) scale(1); } 50% { transform: translate(-50px,30px) scale(1.1); } }
+    @media (prefers-color-scheme: dark) { .orb { opacity: .28; } }
+
+    .wrap { max-width: 1040px; margin: 0 auto; padding: 0 24px; }
+
+    /* ===== 顶部导航 ===== */
+    header {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 26px 0; position: relative; z-index: 2;
+    }
+    .brand { display: flex; align-items: center; gap: 13px; }
+    .brand-logo {
+      width: 42px; height: 42px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--pink), var(--pink-2));
+      display: grid; place-items: center;
+      box-shadow: 0 8px 22px -6px rgba(251, 114, 153, 0.6);
+    }
+    .brand-logo svg { width: 25px; height: 25px; }
+    .brand-name { font-size: 19px; font-weight: 800; letter-spacing: .3px; }
+    .brand-sub { font-size: 12px; color: var(--text-faint); margin-top: -2px; }
+    .nav { display: flex; gap: 6px; }
+    .nav-link {
+      font-size: 14px; font-weight: 500; color: var(--text-soft); padding: 9px 16px;
+      border-radius: 11px; transition: .25s;
+    }
+    .nav-link:hover { color: var(--pink); background: rgba(251, 114, 153, 0.08); }
+
+    /* ===== 英雄区 ===== */
+    .hero { text-align: center; padding: 54px 0 30px; position: relative; z-index: 1; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      font-size: 13px; font-weight: 600; color: var(--pink);
+      background: rgba(251, 114, 153, 0.10); border: 1px solid rgba(251, 114, 153, 0.22);
+      padding: 7px 16px; border-radius: 999px; margin-bottom: 26px;
+      backdrop-filter: blur(8px);
+    }
+    .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--pink); box-shadow: 0 0 0 4px rgba(251,114,153,.18); animation: pulse 2s infinite; }
+    @keyframes pulse { 0%,100% { box-shadow: 0 0 0 3px rgba(251,114,153,.25);} 50% { box-shadow: 0 0 0 7px rgba(251,114,153,0);} }
+    .hero h1 { font-size: 58px; line-height: 1.1; font-weight: 850; letter-spacing: -1.5px; }
+    .hero h1 .grad {
+      background: linear-gradient(115deg, var(--pink) 10%, var(--blue) 95%);
+      -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    }
+    .hero p { font-size: 18px; color: var(--text-soft); margin: 22px auto 0; max-width: 580px; }
+    .hero-cta { margin-top: 38px; display: flex; gap: 14px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 9px;
+      font-size: 16px; font-weight: 650; padding: 15px 30px; border-radius: 14px;
+      cursor: pointer; border: 1.5px solid transparent; transition: .25s; white-space: nowrap;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, var(--pink), var(--pink-2));
+      color: #fff; box-shadow: 0 14px 34px -10px rgba(251, 114, 153, 0.65);
+    }
+    .btn-primary:hover { transform: translateY(-3px); box-shadow: 0 20px 42px -10px rgba(251, 114, 153, 0.8); }
+    .btn-ghost { background: var(--card); color: var(--text); border-color: var(--border); backdrop-filter: blur(10px); }
+    .btn-ghost:hover { border-color: var(--pink); color: var(--pink); transform: translateY(-3px); }
+    .platforms { margin-top: 20px; font-size: 13.5px; color: var(--text-faint); letter-spacing: .2px; }
+
+    /* =========================================================
+       应用预览 —— 复刻项目真实界面（sidebar + header + video grid）
+       ========================================================= */
+    .preview {
+      margin: 52px auto 0; max-width: 960px;
+      border-radius: 14px; overflow: hidden;
+      background: #fff; border: 1px solid #eee;
+      box-shadow: var(--shadow);
+      display: flex; height: 540px;
+      animation: rise 1s .15s both;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+    /* 侧边栏 */
+    .pv-sidebar {
+      width: 64px; flex-shrink: 0; background: #f6f7f8; border-right: 1px solid #eee;
+      display: flex; flex-direction: column; align-items: center; padding: 12px 0;
+    }
+    .pv-back {
+      width: 100%; border: none; background: transparent; cursor: default;
+      display: flex; flex-direction: column; align-items: center; padding: 12px 8px;
+      margin-bottom: 4px; color: #61666d;
+    }
+    .pv-back svg { width: 26px; height: 26px; }
+    .pv-side-item {
+      width: 100%; border: none; background: transparent; cursor: default;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 12px 8px; margin-bottom: 4px; color: #61666d; font-weight: 500;
+    }
+    .pv-side-item svg { width: 26px; height: 26px; margin-bottom: 4px; }
+    .pv-side-item span { font-size: 11px; }
+    .pv-side-item.active, .pv-side-item:hover { color: var(--pink); }
+    .pv-spacer { flex: 1; }
+    .pv-avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--pink); display: grid; place-items: center; margin: 4px 0; }
+    .pv-avatar svg { width: 22px; height: 22px; }
+    .pv-theme, .pv-settings {
+      width: 100%; border: none; background: transparent; cursor: default;
+      display: flex; flex-direction: column; align-items: center; padding: 12px 8px;
+      color: #61666d;
+    }
+    .pv-theme svg, .pv-settings svg { width: 26px; height: 26px; }
+    .pv-theme:hover, .pv-settings:hover { color: var(--pink); }
+
+    /* 主区域 */
+    .pv-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .pv-header {
+      height: 60px; flex-shrink: 0; border-bottom: 1px solid #eee;
+      display: flex; align-items: center; justify-content: space-between; padding: 0 18px;
+    }
+    .pv-header-left { display: flex; align-items: center; gap: 14px; }
+    .pv-logo { height: 40px; display: block; }
+    .pv-nav { display: flex; align-items: center; gap: 2px; }
+    .pv-nav-link {
+      color: #373535; text-decoration: none; padding: 0 14px; font-size: 15px; font-weight: 700;
+      height: 60px; display: flex; align-items: center; position: relative; white-space: nowrap;
+    }
+    .pv-nav-link:hover { color: var(--pink); }
+    .pv-nav-link.active { color: var(--pink); }
+    .pv-nav-link.active::after {
+      content: ''; position: absolute; bottom: 11px; left: 50%; transform: translateX(-50%);
+      width: 22px; height: 3px; border-radius: 2px;
+      background: linear-gradient(90deg, #fb7299 0%, #ff85ad 100%);
+    }
+    .pv-header-right { display: flex; align-items: center; gap: 14px; }
+    .pv-search {
+      display: flex; align-items: center; background: linear-gradient(180deg, #f7f7f7 0%, #f0f0f0 100%);
+      border: 1px solid #e8e8e8; border-radius: 24px; padding: 0 14px; height: 34px; width: 240px;
+    }
+    .pv-search input { flex: 1; border: none; background: none; outline: none; font-size: 13px; color: #18191c; }
+    .pv-search input::placeholder { color: #b8b8b8; }
+    .pv-search svg { width: 16px; height: 16px; color: #999; flex-shrink: 0; }
+    .pv-win { display: flex; }
+    .pv-win button {
+      width: 40px; height: 40px; border: none; background: transparent; color: #666;
+      cursor: default; display: grid; place-items: center; border-radius: 8px;
+    }
+    .pv-win button svg { width: 18px; height: 18px; }
+    .pv-win .close:hover { background: #e81123; color: #fff; }
+    .pv-win button:not(.close):hover { background: #f5f5f5; }
+
+    /* 内容区 / 视频网格 */
+    .pv-content { flex: 1; overflow: hidden; padding: 18px; background: #fff; }
+    .pv-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; }
+    .pv-card { cursor: default; }
+    .pv-thumb {
+      position: relative; width: 100%; padding-top: 56.25%; border-radius: 8px;
+      overflow: hidden; background: linear-gradient(135deg, #f3f4f6, #e3e5e9);
+      box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.05);
+    }
+    .pv-thumb .g {
+      position: absolute; inset: 0; display: grid; place-items: center;
+      font-size: 44px; line-height: 1;
+      filter: drop-shadow(0 6px 12px rgba(0, 0, 0, 0.28));
+    }
+    .pv-badge {
+      position: absolute; bottom: 6px; background: rgba(0,0,0,.72); color: #fff;
+      font-size: 11px; padding: 2px 6px; border-radius: 4px; font-weight: 500; backdrop-filter: blur(4px);
+    }
+    .pv-badge.dur { right: 6px; }
+    .pv-badge.plays { left: 6px; display: flex; align-items: center; gap: 3px; }
+    .pv-badge.plays svg { width: 12px; height: 12px; }
+    .pv-title {
+      font-size: 12.5px; color: #18191c; line-height: 1.45; margin-top: 8px;
+      display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+      height: 36px;
+    }
+    .pv-meta { display: flex; justify-content: space-between; align-items: center; margin-top: 5px; font-size: 11.5px; color: #9499a0; }
+    .pv-meta .up { display: flex; align-items: center; gap: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* 暗色模式下的预览（项目自带暗色主题） */
+    @media (prefers-color-scheme: dark) {
+      .preview { background: #1a1a1a; border-color: #2a2a2a; }
+      .pv-sidebar { background: #161616; border-color: #2a2a2a; }
+      .pv-header { background: #1a1a1a; border-color: #2a2a2a; }
+      .pv-content { background: #1a1a1a; }
+      .pv-nav-link { color: #c9ccd0; }
+      .pv-nav-link:hover, .pv-nav-link.active { color: var(--pink); }
+      .pv-search { background: #2a2a2a; border-color: #333; }
+      .pv-search input { color: #e0e0e0; }
+      .pv-title { color: #e0e0e0; }
+      .pv-side-item, .pv-back, .pv-theme, .pv-settings { color: #a0a0a0; }
+      .pv-side-item.active, .pv-side-item:hover, .pv-theme:hover, .pv-settings:hover { color: var(--pink); }
+      .pv-win button { color: #aaa; }
+      .pv-win button:not(.close):hover { background: #2a2a2a; }
+    }
+
+    /* ===== 下载卡片 ===== */
+    .section-title { text-align: center; font-size: 30px; font-weight: 800; letter-spacing: -.5px; margin: 84px 0 8px; }
+    .section-sub { text-align: center; color: var(--text-soft); font-size: 15px; margin-bottom: 34px; }
+    .cards { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .card {
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 0 0 26px; text-align: center; box-shadow: var(--shadow);
+      backdrop-filter: blur(20px); transition: .3s; position: relative; overflow: visible;
+    }
+    .card::before {
+      content: ""; position: absolute; inset: 0; border-radius: var(--radius);
+      background: radial-gradient(140% 120% at 50% -10%, rgba(251,114,153,.12), transparent 60%);
+      opacity: 0; transition: .3s; pointer-events: none;
+    }
+    .card:hover { transform: translateY(-6px); border-color: rgba(251,114,153,.4); }
+    .card:hover::before { opacity: 1; }
+    .card.recommended { border-color: rgba(251,114,153,.55); }
+    .card.recommended::after {
+      content: "为你推荐"; position: absolute; top: 16px; right: -34px; transform: rotate(45deg);
+      background: linear-gradient(135deg, var(--pink), var(--pink-2)); color: #fff;
+      font-size: 11px; font-weight: 700; padding: 4px 40px;
+    }
+    .card .cover {
+      position: relative; height: 122px; display: grid; place-items: center;
+      border-top-left-radius: var(--radius); border-top-right-radius: var(--radius);
+    }
+    .card.windows .cover { background: linear-gradient(135deg, #38a8ff, #0a6cff); }
+    .card.macos .cover   { background: linear-gradient(135deg, #f1f1f5, #cdcdd7); }
+    .card.linux .cover   { background: linear-gradient(135deg, #2e2e38, #15151b); }
+    .card .os-badge {
+      position: absolute; left: 18px; bottom: -22px; z-index: 2;
+      width: 50px; height: 50px; border-radius: 13px; background: #fff;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.18); display: grid; place-items: center;
+    }
+    .card .os-badge svg { width: 30px; height: 30px; }
+    .card.windows .os-badge { color: #0078d4; }
+    .card.macos .os-badge { color: #1a1a1a; }
+    .card .mock {
+      width: 66%; height: 66px; background: #fff; border-radius: 10px; overflow: hidden;
+      display: flex; box-shadow: 0 12px 26px rgba(0, 0, 0, 0.28);
+    }
+    .card .mock .m-side { width: 16px; background: #f6f7f8; border-right: 1px solid #ececec; flex-shrink: 0; }
+    .card .mock .m-main { flex: 1; display: grid; place-items: center; background: #fff; }
+    .card .mock .m-play {
+      width: 20px; height: 20px; border-radius: 50%; background: var(--pink); display: grid; place-items: center;
+    }
+    .card .mock .m-play::after {
+      content: ''; width: 0; height: 0; margin-left: 2px;
+      border-left: 6px solid #fff; border-top: 4px solid transparent; border-bottom: 4px solid transparent;
+    }
+    .card .card-body { padding: 32px 24px 0; }
+    .card h3 { font-size: 19px; font-weight: 750; }
+    .card .fmt { font-size: 13.5px; color: var(--text-soft); margin: 5px 0 20px; }
+    .card .dl {
+      display: block; width: 100%; padding: 13px; border-radius: 12px;
+      background: linear-gradient(135deg, var(--pink), var(--pink-2)); color: #fff;
+      font-weight: 650; font-size: 15px; transition: .25s; box-shadow: 0 10px 24px -10px rgba(251,114,153,.6);
+    }
+    .card .dl:hover { transform: translateY(-2px); box-shadow: 0 16px 30px -10px rgba(251,114,153,.8); }
+    .card .alt { display: block; margin-top: 12px; font-size: 13px; color: var(--text-faint); transition: .2s; }
+    .card .alt:hover { color: var(--pink); }
+
+    /* ===== 特性 ===== */
+    .features { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; margin-top: 10px; }
+    .feature {
+      background: var(--card); border: 1px solid var(--border); border-radius: 18px;
+      padding: 28px 24px; backdrop-filter: blur(20px); transition: .3s;
+    }
+    .feature:hover { transform: translateY(-4px); border-color: rgba(251,114,153,.35); }
+    .feature .ficon {
+      width: 48px; height: 48px; border-radius: 13px; display: grid; place-items: center;
+      font-size: 24px; background: rgba(251, 114, 153, 0.10); margin-bottom: 14px;
+    }
+    .feature h4 { font-size: 17px; font-weight: 700; margin-bottom: 7px; }
+    .feature p { font-size: 14.5px; color: var(--text-soft); }
+
+    /* ===== 播放器聚光区 ===== */
+    .spotlight {
+      display: flex; gap: 30px; align-items: center;
+      background: var(--card); border: 1px solid var(--border); border-radius: var(--radius);
+      padding: 32px; backdrop-filter: blur(20px); box-shadow: var(--shadow); margin-bottom: 22px;
+    }
+    .spotlight .sl-text { flex: 1; min-width: 0; }
+    .spotlight h3 { font-size: 23px; font-weight: 800; margin-bottom: 12px; letter-spacing: -.3px; }
+    .spotlight p { font-size: 15px; color: var(--text-soft); }
+    .spotlight .tags { display: flex; flex-wrap: wrap; gap: 9px; margin-top: 18px; }
+    .spotlight .tag {
+      font-size: 13px; font-weight: 600; padding: 6px 13px; border-radius: 999px;
+      background: rgba(251, 114, 153, 0.10); color: var(--pink); border: 1px solid rgba(251, 114, 153, 0.18);
+    }
+    .sl-visual { width: 260px; flex-shrink: 0; }
+    .sl-screen {
+      position: relative; height: 150px; border-radius: 12px; overflow: hidden;
+      background: linear-gradient(135deg, #1c1c22, #2a2a33); display: grid; place-items: center;
+    }
+    .sl-dm { position: absolute; color: #fff; font-size: 12px; opacity: .85; white-space: nowrap; }
+    .sl-dm.d1 { top: 26px; left: -40px; animation: dm1 6s linear infinite; }
+    .sl-dm.d2 { top: 64px; left: -40px; color: #ffd1e0; animation: dm2 7.5s linear infinite; }
+    @keyframes dm1 { from { transform: translateX(0); } to { transform: translateX(330px); } }
+    @keyframes dm2 { from { transform: translateX(0); } to { transform: translateX(330px); } }
+    .sl-play {
+      width: 46px; height: 46px; border-radius: 50%; border: none; background: rgba(251, 114, 153, 0.92);
+      color: #fff; font-size: 15px; display: grid; place-items: center; box-shadow: 0 6px 18px rgba(251, 114, 153, 0.5);
+    }
+    .sl-bar { height: 5px; background: rgba(255, 255, 255, 0.15); border-radius: 3px; margin-top: 10px; overflow: hidden; }
+    .sl-prog { display: block; width: 45%; height: 100%; background: var(--pink); border-radius: 3px; }
+    @media (max-width: 760px) {
+      .spotlight { flex-direction: column; align-items: stretch; }
+      .sl-visual { width: 100%; }
+    }
+
+    /* ===== 页脚 ===== */
+    footer {
+      margin-top: 80px; border-top: 1px solid var(--border);
+      padding: 34px 0 48px; text-align: center; font-size: 13.5px; color: var(--text-faint);
+    }
+    footer .links { display: flex; gap: 22px; justify-content: center; margin-bottom: 14px; flex-wrap: wrap; }
+    footer a { color: var(--text-soft); transition: .2s; }
+    footer a:hover { color: var(--pink); }
+
+    /* ===== 入场动画 ===== */
+    .anim { opacity: 0; transform: translateY(24px); animation: rise .9s cubic-bezier(.2,.7,.3,1) forwards; }
+    .anim.d1 { animation-delay: .05s; } .anim.d2 { animation-delay: .15s; }
+    .anim.d3 { animation-delay: .25s; } .anim.d4 { animation-delay: .35s; }
+    @keyframes rise { to { opacity: 1; transform: translateY(0); } }
+    @media (prefers-reduced-motion: reduce) {
+      .anim, .preview { animation: none; opacity: 1; transform: none; }
+      .orb { animation: none; }
+    }
+
+    @media (max-width: 880px) {
+      .preview { height: 420px; }
+      .pv-grid { grid-template-columns: repeat(3, 1fr); }
+    }
+    @media (max-width: 760px) {
+      .hero h1 { font-size: 40px; }
+      .cards, .features { grid-template-columns: 1fr; }
+      .preview { height: 380px; }
+      .pv-search { display: none; }
+      .pv-grid { grid-template-columns: repeat(2, 1fr); }
+      .nav { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-orbs"><div class="orb a"></div><div class="orb b"></div><div class="orb c"></div></div>
+
+  <div class="wrap">
+    <header class="anim d1">
+      <div class="brand">
+        <div class="brand-logo">
+          <svg viewBox="0 0 24 24" fill="none">
+            <rect x="2" y="6" width="20" height="14" rx="3" fill="white"/>
+            <rect x="6" y="3" width="3" height="4" rx="1" fill="white"/>
+            <rect x="15" y="3" width="3" height="4" rx="1" fill="white"/>
+            <circle cx="9" cy="13" r="1.4" fill="#FB7299"/>
+            <circle cx="15" cy="13" r="1.4" fill="#FB7299"/>
+          </svg>
+        </div>
+        <div>
+          <div class="brand-name">Bilibili Client</div>
+          <div class="brand-sub">基于 Electron 的桌面客户端</div>
+        </div>
+      </div>
+      <nav class="nav">
+        <a class="nav-link" href="https://github.com/zuorn/bilibili-client" target="_blank" rel="noopener">GitHub</a>
+        <a class="nav-link" href="https://github.com/zuorn/bilibili-client/releases" target="_blank" rel="noopener">更新日志</a>
+      </nav>
+    </header>
+
+    <section class="hero">
+      <div class="badge anim d1"><span class="dot"></span><span id="versionBadge">最新版本</span></div>
+      <h1 class="anim d2">把 B 站<br><span class="grad">装进你的桌面</span></h1>
+      <p class="anim d2">一个轻量、精致的哔哩哔哩桌面客户端。用 MPV 播放器、实时弹幕与 Vim 风格快捷键，重新定义你的桌面看番体验。</p>
+      <div class="hero-cta anim d3">
+        <a class="btn btn-primary" id="heroBtn" href="#">⬇ 立即下载</a>
+        <a class="btn btn-ghost" href="https://github.com/zuorn/bilibili-client" target="_blank" rel="noopener">在 GitHub 查看</a>
+      </div>
+      <div class="platforms anim d3" id="platforms">支持 Windows · macOS · Linux</div>
+
+      <!-- 应用预览：复刻项目真实界面 -->
+      <div class="preview">
+        <!-- 侧边栏 -->
+        <aside class="pv-sidebar">
+          <button class="pv-back" title="返回">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 12H5"/><polyline points="12 19 5 12 12 5"/></svg>
+          </button>
+          <button class="pv-side-item active">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            <span>首页</span>
+          </button>
+          <button class="pv-side-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 10 Q19 3 21 8 L13.5 12"/><path d="M14 12 Q21 19 16 21 L12 13.5"/><path d="M12 14 Q5 21 3 16 L10.5 12"/><path d="M10 12 Q3 5 8 3 L12 10.5"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/></svg>
+            <span>动态</span>
+          </button>
+          <button class="pv-side-item">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+            <span>我的</span>
+          </button>
+          <div class="pv-spacer"></div>
+          <div class="pv-avatar">
+            <svg viewBox="0 0 48 48" fill="none"><circle cx="24" cy="24" r="20" fill="#fb7299"/><circle cx="24" cy="20" r="8" fill="white"/><circle cx="20" cy="18" r="1.5" fill="#fb7299"/><circle cx="28" cy="18" r="1.5" fill="#fb7299"/><path d="M20 26 Q24 30 28 26" stroke="#fb7299" stroke-width="2" fill="none"/></svg>
+          </div>
+          <button class="pv-theme" title="切换主题">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><path d="M12 1v2m0 18v2M4.22 4.22l1.42 1.42m12.72 12.72l1.42 1.42M1 12h2m18 0h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/></svg>
+          </button>
+          <button class="pv-settings" title="设置">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          </button>
+        </aside>
+
+        <!-- 主区域 -->
+        <div class="pv-main">
+          <div class="pv-header">
+            <div class="pv-header-left">
+              <svg class="pv-logo" viewBox="0 0 24 24" fill="none">
+                <rect x="2" y="6" width="20" height="14" rx="3" fill="#FB7299"/>
+                <rect x="6" y="3" width="3" height="4" rx="1" fill="#FB7299"/>
+                <rect x="15" y="3" width="3" height="4" rx="1" fill="#FB7299"/>
+                <circle cx="9" cy="13" r="1.4" fill="white"/>
+                <circle cx="15" cy="13" r="1.4" fill="white"/>
+              </svg>
+              <nav class="pv-nav">
+                <a class="pv-nav-link active">推荐</a>
+                <a class="pv-nav-link">热门</a>
+                <a class="pv-nav-link">追番</a>
+                <a class="pv-nav-link">影视</a>
+              </nav>
+            </div>
+            <div class="pv-header-right">
+              <div class="pv-search">
+                <input type="text" placeholder="搜索你感兴趣的视频" readonly>
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+              </div>
+              <div class="pv-win">
+                <button title="最小化"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 12h12"/></svg></button>
+                <button title="最大化"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/></svg></button>
+                <button class="close" title="关闭"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="pv-content">
+            <div class="pv-grid">
+              <!-- 视频卡片 x8，缩略图用渐变近似真实封面 -->
+              <div class="pv-card">
+                <div class="pv-thumb"><div class="g" style="background:linear-gradient(135deg,#ff9bb8,#fb7299)">🎵</div><span class="pv-badge plays"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>12.3万</span><span class="pv-badge dur">10:24</span></div>
+                <div class="pv-title">【4K】当我用电子木鱼敲完一整首大悲咒之后……</div>
+                <div class="pv-meta"><span class="up">UP主 · 阿婆主</span><span>3天前</span></div>
+              </div>
+              <div class="pv-card">
+                <div class="pv-thumb"><div class="g" style="background:linear-gradient(135deg,#23ade5,#5ee7df)">📓</div><span class="pv-badge plays"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>8.7万</span><span class="pv-badge dur">06:11</span></div>
+                <div class="pv-title">从零开始的手账排版教程，新手也能轻松上手</div>
+                <div class="pv-meta"><span class="up">生活区 · 小鹿</span><span>1周前</span></div>
+              </div>
+              <div class="pv-card">
+                <div class="pv-thumb"><div class="g" style="background:linear-gradient(135deg,#ffb86c,#fb7299)">🏛️</div><span class="pv-badge plays"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>25.1万</span><span class="pv-badge dur">14:52</span></div>
+                <div class="pv-title">这届年轻人为什么越来越爱逛博物馆了？</div>
+                <div class="pv-meta"><span class="up">知识区 · 老白</span><span>2天前</span></div>
+              </div>
+              <div class="pv-card">
+                <div class="pv-thumb"><div class="g" style="background:linear-gradient(135deg,#a18cd1,#fbc2eb)">🍜</div><span class="pv-badge plays"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>5.2万</span><span class="pv-badge dur">08:33</span></div>
+                <div class="pv-title">只有潮汕人才懂的宵夜地图，深夜放毒预警</div>
+                <div class="pv-meta"><span class="up">美食区 · 阿强</span><span>5天前</span></div>
+              </div>
+              <div class="pv-card">
+                <div class="pv-thumb"><div class="g" style="background:linear-gradient(135deg,#84fab0,#8fd3f4)">🏠</div><span class="pv-badge plays"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>33.6万</span><span class="pv-badge dur">11:09</span></div>
+                <div class="pv-title">把老家改造成赛博朋克风，邻居都看傻了</div>
+                <div class="pv-meta"><span class="up">家居区 · 设计喵</span><span>4天前</span></div>
+              </div>
+              <div class="pv-card">
+                <div class="pv-thumb"><div class="g" style="background:linear-gradient(135deg,#fb7299,#ff5e62)">🎸</div><span class="pv-badge plays"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>19.8万</span><span class="pv-badge dur">07:45</span></div>
+                <div class="pv-title">一首歌带你去旅行｜环游世界的吉他弹唱</div>
+                <div class="pv-meta"><span class="up">音乐区 · 大鹏</span><span>6天前</span></div>
+              </div>
+              <div class="pv-card">
+                <div class="pv-thumb"><div class="g" style="background:linear-gradient(135deg,#667eea,#764ba2)">💻</div><span class="pv-badge plays"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>41.2万</span><span class="pv-badge dur">16:20</span></div>
+                <div class="pv-title">硬核拆解：一张显卡是怎么造出来的？</div>
+                <div class="pv-meta"><span class="up">科技区 · 极客湾</span><span>1天前</span></div>
+              </div>
+              <div class="pv-card">
+                <div class="pv-thumb"><div class="g" style="background:linear-gradient(135deg,#f6d365,#fda085)">🐱</div><span class="pv-badge plays"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>7.4万</span><span class="pv-badge dur">09:58</span></div>
+                <div class="pv-title">养猫三年总结的 20 个冷知识，第 7 个绝了</div>
+                <div class="pv-meta"><span class="up">萌宠区 · 猫管家</span><span>3天前</span></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <h2 class="section-title anim d1">选择你的平台</h2>
+    <p class="section-sub anim d1">免费、开源，一次下载即可使用</p>
+    <div class="cards" id="cards">
+      <div class="card anim d1 windows" data-platform="windows">
+        <div class="cover">
+          <div class="mock"><span class="m-side"></span><span class="m-main"><span class="m-play"></span></span></div>
+          <span class="os-badge"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="2.5" y="2.5" width="8.5" height="8.5" rx="1"/><rect x="13" y="2.5" width="8.5" height="8.5" rx="1"/><rect x="2.5" y="13" width="8.5" height="8.5" rx="1"/><rect x="13" y="13" width="8.5" height="8.5" rx="1"/></svg></span>
+        </div>
+        <div class="card-body">
+          <h3>Windows</h3>
+          <div class="fmt">.exe 安装包</div>
+          <a class="dl" id="dl-windows" href="#">下载 Windows 版</a>
+          <a class="alt" href="https://github.com/zuorn/bilibili-client/releases/latest" target="_blank" rel="noopener">备用下载 / 其他版本</a>
+        </div>
+      </div>
+
+      <div class="card anim d2 macos" data-platform="macos">
+        <div class="cover">
+          <div class="mock"><span class="m-side"></span><span class="m-main"><span class="m-play"></span></span></div>
+          <span class="os-badge"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.365 1.43c0 1.14-.42 2.21-1.12 3.01-.79.93-2.06 1.65-3.11 1.56-.13-1.09.42-2.24 1.09-2.98.75-.85 2.05-1.51 3.14-1.59zM20.94 17.04c-.55 1.27-.82 1.84-1.53 2.96-.99 1.56-2.39 3.5-4.12 3.51-1.54.02-2.00-1.01-4.16-1.00-2.16.01-2.61 1.02-4.15 1.00-1.73-.01-3.05-1.78-4.04-3.33C.45 16.27-.23 11.5 1.4 8.6c1.04-1.99 2.69-3.17 4.34-3.17 1.62 0 2.65 1.03 4.01 1.03 1.33 0 2.14-1.03 4.05-1.03 1.43 0 2.95.78 4.03 2.13-3.54 1.94-2.97 6.99.11 8.48z"/></svg></span>
+        </div>
+        <div class="card-body">
+          <h3>macOS</h3>
+          <div class="fmt">.dmg 磁盘镜像</div>
+          <a class="dl" id="dl-macos" href="https://github.com/zuorn/bilibili-client/releases/latest" target="_blank" rel="noopener">下载 macOS 版</a>
+          <a class="alt" href="https://github.com/zuorn/bilibili-client/releases/latest" target="_blank" rel="noopener">备用下载 / 其他版本</a>
+        </div>
+      </div>
+
+      <div class="card anim d3 linux" data-platform="linux">
+        <div class="cover">
+          <div class="mock"><span class="m-side"></span><span class="m-main"><span class="m-play"></span></span></div>
+          <span class="os-badge"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6.3" rx="3.1" ry="2.3" fill="#1b1b1b"/><ellipse cx="12" cy="15" rx="6.6" ry="7.4" fill="#1b1b1b"/><ellipse cx="12" cy="15.5" rx="4" ry="5.6" fill="#fff"/><circle cx="9.1" cy="8" r="1.7" fill="#fff"/><circle cx="14.9" cy="8" r="1.7" fill="#fff"/><circle cx="9.2" cy="8.2" r="0.85" fill="#1b1b1b"/><circle cx="14.8" cy="8.2" r="0.85" fill="#1b1b1b"/><polygon points="10.7,10.2 13.3,10.2 12,12.3" fill="#ff9b3d"/><ellipse cx="12" cy="21.6" rx="3" ry="1.3" fill="#ff9b3d"/></svg></span>
+        </div>
+        <div class="card-body">
+          <h3>Linux</h3>
+          <div class="fmt">.AppImage 便携版</div>
+          <a class="dl" id="dl-linux" href="https://github.com/zuorn/bilibili-client/releases/latest" target="_blank" rel="noopener">下载 Linux 版</a>
+          <a class="alt" href="https://github.com/zuorn/bilibili-client/releases/latest" target="_blank" rel="noopener">备用下载 / 其他版本</a>
+        </div>
+      </div>
+    </div>
+
+    <h2 class="section-title anim d1">不只是浏览器，更是播放器</h2>
+    <p class="section-sub anim d1">为「看番」这件小事，做了很多特别的事</p>
+
+    <!-- 播放器聚光 -->
+    <div class="spotlight anim d1">
+      <div class="sl-text">
+        <h3>为播放而生的桌面播放器</h3>
+        <p>不只是换个窗口看视频。Bilibili Client 内置独立播放窗口，同时支持 <b>外置 MPV</b> 与 <b>内置播放器</b> 双引擎：自动探测本机 MPV 可执行文件，找不到时无缝回退内置播放器，开箱即用。</p>
+        <p>播放时直接拉取 B 站 DASH 最高清晰度音视频直链（跳过网页解析，启动更快），并把弹幕 XML 实时转换为 ASS 字幕轨与画面同步渲染；观看进度自动记录并上报观看历史，下次打开接着看，播放窗口的位置、大小与全屏状态也会一并记忆还原。</p>
+        <div class="tags">
+          <span class="tag">MPV 硬解</span>
+          <span class="tag">DASH 直链</span>
+          <span class="tag">弹幕同步</span>
+          <span class="tag">进度续播</span>
+          <span class="tag">窗口记忆</span>
+        </div>
+      </div>
+      <div class="sl-visual">
+        <div class="sl-screen">
+          <div class="sl-dm d1">前方高能！</div>
+          <div class="sl-dm d2">哈哈哈哈哈</div>
+          <button class="sl-play">▶</button>
+        </div>
+        <div class="sl-bar"><span class="sl-prog"></span></div>
+      </div>
+    </div>
+
+    <div class="features">
+      <div class="feature anim d1">
+        <div class="ficon">🎬</div>
+        <h4>双播放引擎</h4>
+        <p>内置播放器与外置 MPV 双模式，自动识别本机 MPV，缺失时无缝回退内置播放器。</p>
+      </div>
+      <div class="feature anim d2">
+        <div class="ficon">💬</div>
+        <h4>实时弹幕</h4>
+        <p>把 B 站弹幕 XML 实时转换为 ASS 字幕轨，与画面同步飘过，原汁原味。</p>
+      </div>
+      <div class="feature anim d3">
+        <div class="ficon">⏯️</div>
+        <h4>进度记忆续播</h4>
+        <p>自动记录并上报观看进度，关掉再打开接着看，追番不断档。</p>
+      </div>
+      <div class="feature anim d1">
+        <div class="ficon">⌨️</div>
+        <h4>Vim 风格快捷键</h4>
+        <p>普通 / 插入 / 播放器多模式，h j k l 导航，支持自定义按键映射。</p>
+      </div>
+      <div class="feature anim d2">
+        <div class="ficon">⭐</div>
+        <h4>收藏与追番</h4>
+        <p>统一管理收藏夹、追番进度与 UP 主动态，一处尽览不遗漏。</p>
+      </div>
+      <div class="feature anim d3">
+        <div class="ficon">🔄</div>
+        <h4>自动更新</h4>
+        <p>内置更新检测，新版本后台就绪，一键升级始终用上最新特性。</p>
+      </div>
+    </div>
+
+    <footer>
+      <div class="links">
+        <a href="https://github.com/zuorn/bilibili-client" target="_blank" rel="noopener">GitHub 仓库</a>
+        <a href="https://github.com/zuorn/bilibili-client/releases" target="_blank" rel="noopener">全部版本</a>
+        <a href="https://github.com/zuorn/bilibili-client/issues" target="_blank" rel="noopener">问题反馈</a>
+      </div>
+      <div>Bilibili Client 并非官方应用 · 基于 ISC 许可证开源 · © Zuorn</div>
+    </footer>
+  </div>
+
+  <script>
+    // ===== 配置（发布新版本时只需更新这里） =====
+    const CONFIG = {
+      version: '0.0.7',
+      repo: 'zuorn/bilibili-client',
+      ossBase: 'https://talktime.oss-cn-shanghai.aliyuncs.com/doc/bl/bl'
+    };
+
+    const releaseUrl = 'https://github.com/' + CONFIG.repo + '/releases/latest';
+    const windowsExe = CONFIG.ossBase + '/Bilibili-Client-Setup-' + CONFIG.version + '.exe';
+
+    document.getElementById('versionBadge').textContent = 'v' + CONFIG.version;
+
+    // ===== 平台检测 =====
+    const ua = navigator.userAgent;
+    let platform = 'unknown';
+    if (/Windows/i.test(ua)) platform = 'windows';
+    else if (/Macintosh|Mac OS X/i.test(ua)) platform = 'macos';
+    else if (/Linux/i.test(ua) && !/Android/i.test(ua)) platform = 'linux';
+
+    const platformLabel = { windows: 'Windows', macos: 'macOS', linux: 'Linux' };
+
+    if (platform !== 'unknown') {
+      const card = document.querySelector('.card[data-platform="' + platform + '"]');
+      if (card) card.classList.add('recommended');
+      document.getElementById('platforms').textContent =
+        '检测到你正在使用 ' + platformLabel[platform] + ' · 也支持其他平台';
+    }
+
+    // ===== 下载链接 =====
+    const dlWindows = document.getElementById('dl-windows');
+    dlWindows.href = windowsExe;
+    dlWindows.setAttribute('target', '_blank');
+    dlWindows.setAttribute('rel', 'noopener');
+
+    const heroBtn = document.getElementById('heroBtn');
+    if (platform === 'windows') {
+      heroBtn.href = windowsExe;
+      heroBtn.textContent = '⬇ 下载 Windows 版';
+    } else if (platform === 'macos') {
+      heroBtn.href = releaseUrl;
+      heroBtn.textContent = '⬇ 下载 macOS 版';
+    } else if (platform === 'linux') {
+      heroBtn.href = releaseUrl;
+      heroBtn.textContent = '⬇ 下载 Linux 版';
+    } else {
+      heroBtn.href = releaseUrl;
+      heroBtn.textContent = '⬇ 立即下载';
+    }
+    heroBtn.setAttribute('target', '_blank');
+    heroBtn.setAttribute('rel', 'noopener');
+  </script>
+</body>
+</html>
