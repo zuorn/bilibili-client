@@ -40,3 +40,7 @@ oss-config.json
 .claude/
 .claude
 .mimocode/
+.codebuddy/
+.codegraph/
+.trae/
+.idea/

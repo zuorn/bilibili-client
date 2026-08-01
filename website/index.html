@@ -642,12 +642,10 @@
     // ===== 配置（发布新版本时只需更新这里） =====
     const CONFIG = {
       version: '0.0.7',
-      repo: 'zuorn/bilibili-client',
-      ossBase: 'https://talktime.oss-cn-shanghai.aliyuncs.com/doc/bl/bl'
+      repo: 'zuorn/bilibili-client'
     };
 
     const releaseUrl = 'https://github.com/' + CONFIG.repo + '/releases/latest';
-    const windowsExe = CONFIG.ossBase + '/Bilibili-Client-Setup-' + CONFIG.version + '.exe';
 
     document.getElementById('versionBadge').textContent = 'v' + CONFIG.version;
 
@@ -667,15 +665,15 @@
         '检测到你正在使用 ' + platformLabel[platform] + ' · 也支持其他平台';
     }
 
-    // ===== 下载链接 =====
+    // ===== 下载链接（全部跳转 GitHub Releases） =====
     const dlWindows = document.getElementById('dl-windows');
-    dlWindows.href = windowsExe;
+    dlWindows.href = releaseUrl;
     dlWindows.setAttribute('target', '_blank');
     dlWindows.setAttribute('rel', 'noopener');
 
     const heroBtn = document.getElementById('heroBtn');
     if (platform === 'windows') {
-      heroBtn.href = windowsExe;
+      heroBtn.href = releaseUrl;
       heroBtn.textContent = '⬇ 下载 Windows 版';
     } else if (platform === 'macos') {
       heroBtn.href = releaseUrl;

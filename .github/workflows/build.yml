@@ -1,9 +1,15 @@
 name: Build & Release
 
+# 触发条件：
+#   1. push v* 标签      → 三平台打包 + 自动发布 Release
+#   2. PR 到 main/master → 仅三平台打包验证（release job 通过 if 跳过）
+#   3. 手动触发          → 可选是否发布 Release
 on:
   push:
     tags:
       - 'v*'
+  pull_request:
+    branches: [main, master]
   workflow_dispatch:
     inputs:
       create_release:
@@ -16,6 +22,9 @@ permissions:
   contents: write
 
 jobs:
+  # ============================================================
+  # Windows 构建
+  # ============================================================
   build-windows:
     runs-on: windows-latest
     steps:
@@ -41,6 +50,9 @@ jobs:
           path: dist/*.exe
           retention-days: 7
 
+  # ============================================================
+  # macOS 构建
+  # ============================================================
   build-macos:
     runs-on: macos-latest
     steps:
@@ -66,6 +78,9 @@ jobs:
           path: dist/*.dmg
           retention-days: 7
 
+  # ============================================================
+  # Linux 构建
+  # ============================================================
   build-linux:
     runs-on: ubuntu-latest
     steps:
@@ -91,10 +106,14 @@ jobs:
           path: dist/*.AppImage
           retention-days: 7
 
+  # ============================================================
+  # 发布 Release
+  # 仅在 push tag 或手动触发且 create_release=true 时执行
+  # ============================================================
   release:
     needs: [build-windows, build-macos, build-linux]
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') || github.event.inputs.create_release == 'true'
+    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
     steps:
       - name: Checkout
         uses: actions/checkout@v4
