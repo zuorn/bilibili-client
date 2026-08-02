@@ -23,6 +23,12 @@ function loadPageContent(page) {
       if (typeof resetUpProfileUI === 'function' && pageStates.up.mid) {
         resetUpProfileUI()
       }
+    },
+    search: () => {
+      // 确保搜索筛选器已初始化
+      if (typeof initSearchFilters === 'function') {
+        initSearchFilters()
+      }
     }
   }
   actions[page]?.()

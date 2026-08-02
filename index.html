@@ -749,6 +749,25 @@
 
       <!-- 搜索页 -->
       <div class="page-content" id="page-search">
+        <!-- 搜索筛选区域 -->
+        <div class="search-filter">
+          <!-- 分类标签 -->
+          <div class="search-filter-tabs">
+            <div class="search-filter-tab active" data-type="all">综合</div>
+            <div class="search-filter-tab" data-type="video">视频</div>
+            <div class="search-filter-tab" data-type="media_bangumi">番剧</div>
+            <div class="search-filter-tab" data-type="media_ft">影视</div>
+            <div class="search-filter-tab" data-type="bili_user">用户</div>
+          </div>
+          <!-- 排序选项 -->
+          <div class="search-filter-sort" id="searchSortRow">
+            <div class="search-sort-item active" data-order="totalrank">综合排序</div>
+            <div class="search-sort-item" data-order="click">最多点击</div>
+            <div class="search-sort-item" data-order="pubdate">最新发布</div>
+            <div class="search-sort-item" data-order="dm">最多弹幕</div>
+            <div class="search-sort-item" data-order="stow">最多收藏</div>
+          </div>
+        </div>
         <div class="video-grid" id="searchGrid"></div>
       </div>
 

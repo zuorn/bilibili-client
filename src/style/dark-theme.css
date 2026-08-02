@@ -108,6 +108,23 @@ body.dark-theme .video-card {
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
 }
 
+body.dark-theme .user-card {
+  background-color: #2a2a2a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-theme .user-card:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+body.dark-theme .user-card-name {
+  color: #e0e0e0;
+}
+
+body.dark-theme .user-card-avatar {
+  background: linear-gradient(135deg, #333 0%, #222 100%);
+}
+
 body.dark-theme .video-title {
   color: #e0e0e0;
 }

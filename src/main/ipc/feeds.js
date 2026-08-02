@@ -33,26 +33,128 @@ function registerFeedsHandlers(deps) {
     }
   })
 
-  ipcMain.handle('search-videos', async (event, keyword, page = 1) => {
-    log('search-videos called, keyword:', keyword, 'page:', page)
-    const searchEndpoints = [
-      `https://api.bilibili.com/x/web-interface/search/type?search_type=video&keyword=${encodeURIComponent(keyword)}&page=${page}&ps=20`,
-      `https://api.bilibili.com/x/web-interface/search/all?keyword=${encodeURIComponent(keyword)}&page=${page}&ps=20`
-    ]
-    for (const endpoint of searchEndpoints) {
-      try {
-        log('Trying search endpoint:', endpoint.substring(0, 80) + '...')
+  ipcMain.handle('search-videos', async (event, keyword, page = 1, searchType = 'all', order = 'totalrank') => {
+    log('search-videos called, keyword:', keyword, 'page:', page, 'type:', searchType, 'order:', order)
+
+    try {
+      // 根据搜索类型确定 page_size、search_type、ad_resource
+      const typeConfig = {
+        'all':            { pageSize: 42, searchType: null,     adResource: '5646' },
+        'video':          { pageSize: 42, searchType: 'video',  adResource: '5654' },
+        'media_bangumi':  { pageSize: 12, searchType: 'media_bangumi', adResource: '5646' },
+        'media_ft':       { pageSize: 12, searchType: 'media_ft',      adResource: '5646' },
+        'bili_user':      { pageSize: 36, searchType: 'bili_user',     adResource: '5646' }
+      }
+      const config = typeConfig[searchType] || typeConfig['all']
+
+      // 构建请求参数（参与 WBI 签名），对齐真实 Bilibili 搜索接口参数
+      const params = {
+        keyword: keyword,
+        page: page,
+        page_size: config.pageSize,
+        platform: 'pc',
+        highlight: 1,
+        single_column: 0,
+        from_source: 'web_search',
+        from_spmid: '333.337',
+        source_tag: 3,
+        web_location: '1430654',
+        ad_resource: config.adResource,
+        __refresh__: 'true',
+        _extra: '',
+        context: '',
+        pubtime_begin_s: 0,
+        pubtime_end_s: 0,
+        category_id: '',
+        gaia_vtoken: ''
+      }
+
+      if (config.searchType) {
+        params.search_type = config.searchType
+      }
+
+      // 综合搜索特有参数
+      if (searchType === 'all') {
+        params.duration = ''
+        params.web_roll_page = 1
+      }
+
+      // 视频搜索支持排序参数
+      if (searchType === 'video') {
+        params.dynamic_offset = 0
+        params.web_roll_page = 1
+      }
+
+      // 视频和综合搜索始终发送 order 参数（综合排序为空字符串，与 B站接口对齐）
+      if (searchType === 'all' || searchType === 'video') {
+        params.order = (order && order !== 'totalrank') ? order : ''
+      }
+
+      // 番剧搜索
+      if (searchType === 'media_bangumi') {
+        params.duration = ''
+        params.order = ''
+      }
+
+      // 影视搜索
+      if (searchType === 'media_ft') {
+        params.duration = ''
+        params.order = ''
+      }
+
+      // 用户搜索需要额外参数
+      if (searchType === 'bili_user') {
+        params.order_sort = 0
+        params.user_type = 0
+        params.dynamic_offset = 0
+      }
+
+      // WBI 签名
+      const keys = await fetchWbiKeys()
+      if (!keys || !keys.imgKey) {
+        log('WBI keys 获取失败，尝试不带签名请求')
+        // 不带签名直接请求作为后备
+        const baseUrl = config.searchType
+          ? 'https://api.bilibili.com/x/web-interface/wbi/search/type'
+          : 'https://api.bilibili.com/x/web-interface/wbi/search/all/v2'
+        const queryString = Object.keys(params)
+          .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(String(params[k]))}`)
+          .join('&')
+        const endpoint = `${baseUrl}?${queryString}`
         const result = await fetchWithRetry(endpoint)
         if (result.success && result.data.code === 0) {
-          log('Search API成功, code:', result.data.code)
           return { success: true, data: result.data }
         }
-      } catch (error) {
-        log('Search endpoint失败:', error.message)
+        return { success: false, error: '搜索失败' }
       }
+
+      const mixKey = getMixKey(keys.imgKey, keys.subKey)
+      const signed = signParams(params, mixKey)
+
+      // 拼接最终 URL（签名参数 w_rid 和 wts 附加到末尾）
+      const allParams = { ...params, w_rid: signed.w_rid, wts: signed.wts }
+      const queryString = Object.keys(allParams)
+        .map(k => `${encodeURIComponent(k)}=${encodeURIComponent(String(allParams[k]))}`)
+        .join('&')
+
+      const baseUrl = config.searchType
+        ? 'https://api.bilibili.com/x/web-interface/wbi/search/type'
+        : 'https://api.bilibili.com/x/web-interface/wbi/search/all/v2'
+      const endpoint = `${baseUrl}?${queryString}`
+
+      log('Using search endpoint:', endpoint.substring(0, 120) + '...')
+      const result = await fetchWithRetry(endpoint)
+      if (result.success && result.data.code === 0) {
+        log('Search API成功, code:', result.data.code)
+        return { success: true, data: result.data }
+      }
+
+      log('Search API失败, code:', result.data?.code, 'message:', result.data?.message)
+      return { success: false, error: result.data?.message || '搜索失败' }
+    } catch (error) {
+      log('Search API错误:', error.message)
+      return { success: false, error: error.message }
     }
-    log('所有搜索API都失败')
-    return { success: false, error: '搜索失败' }
   })
 
   ipcMain.handle('fetch-popular-videos', async (event, ...args) => {

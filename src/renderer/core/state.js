@@ -29,7 +29,7 @@ let pageStates = {
   home: { pageNum: 1, videos: [], loading: false, hasMore: true },
   popular: { pageNum: 1, videos: [], loading: false, hasMore: true, currentTab: 'comprehensive', currentRid: 0 },
   media: { cursor: '', loading: false, hasMore: true, data: null },
-  search: { keyword: '', pageNum: 1, loading: false, hasMore: true },
+  search: { keyword: '', pageNum: 1, loading: false, hasMore: true, searchType: 'all', order: 'totalrank' },
   up: { mid: null, name: '', offset: '', loading: false, hasMore: true, currentTab: 'videos', dynamicOffset: '', hasMoreDynamics: true, dynamicLoading: false, isSelf: false },
   my: { historyCursor: null, hasMoreHistory: true, isHistoryLoading: false, tabsOriginalOffset: null, favoritesPageNum: 1, hasMoreFavorites: true, isFavoritesLoading: false, favoritesDefaultPageNum: 1, hasMoreFavoritesDefault: true, isFavoritesDefaultLoading: false, collectionsPageNum: 1, hasMoreCollections: true, isCollectionsLoading: false, toviewPageNum: 1, hasMoreToview: true, isToviewLoading: false },
   bangumi: { cursor: '', loading: false, hasMore: true, data: null },

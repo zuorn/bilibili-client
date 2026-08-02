@@ -91,6 +91,41 @@ function createVideoCard(video, onAuthorClick, options = {}) {
   card.dataset.bvid = video.bvid
   card.dataset.cid = video.cid || ''
 
+  // 用户卡片使用独立的布局
+  const isUserCard = !video.bvid && video.mid && video.isUser
+  if (isUserCard) {
+    card.className = 'video-card user-card'
+    card.dataset.mid = video.mid
+
+    const coverSrc = video.pic ? optimizeCoverUrl(video.pic, 200, 200) : ''
+    const fansText = formatPlayCount(video.fans || 0)
+    const videoText = formatPlayCount(video.videoCount || 0)
+
+    card.innerHTML = `
+      <div class="user-card-avatar">
+        <img src="" alt="${video.title}" data-src="${coverSrc}">
+      </div>
+      <div class="user-card-name">${video.title}</div>
+      ${video.author ? `<div class="user-card-sign">${video.author}</div>` : ''}
+      <div class="user-card-stats">
+        <span class="user-card-fans">${fansText} 粉丝</span>
+        <span class="user-card-videos">${videoText} 视频</span>
+      </div>
+    `
+
+    const img = card.querySelector('img')
+    if (options.eager) {
+      loadCoverImage(img)
+    } else {
+      coverObserver.observe(img)
+    }
+
+    card.addEventListener('click', () => {
+      if (video.mid) navigateToUP(video.mid)
+    })
+    return card
+  }
+
   const rankBadge = options.showRank && video.rank ? `
     <span class="video-rank badge-${video.rank <= 3 ? video.rank : 'default'}">${video.rank}</span>
   ` : ''

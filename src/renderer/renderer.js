@@ -1076,17 +1076,13 @@ async function searchVideos(keyword, page = 1, append = false) {
   state.loading = true
 
   try {
-    const result = await ipcRenderer.invoke('search-videos', keyword, page)
+    const result = await ipcRenderer.invoke('search-videos', keyword, page, state.searchType, state.order)
     let items = []
 
     if (result.success && result.data && result.data.code === 0) {
       const data = result.data.data || {}
       if (Array.isArray(data.result)) {
         items = data.result
-      } else if (Array.isArray(data.video)) {
-        items = data.video
-      } else if (data.result && typeof data.result === 'object' && Array.isArray(data.result.video)) {
-        items = data.result.video
       } else if (data.result && typeof data.result === 'object') {
         const resultObj = data.result
         for (const key of Object.keys(resultObj)) {
@@ -1099,7 +1095,9 @@ async function searchVideos(keyword, page = 1, append = false) {
     }
 
     if (items.length > 0) {
-      state.hasMore = items.length >= 20
+      const pageSizeMap = { all: 42, video: 42, media_bangumi: 12, media_ft: 12, bili_user: 36 }
+      const pageSize = pageSizeMap[state.searchType] || 20
+      state.hasMore = items.length >= pageSize
       const newVideos = items.map(item => mapVideoItem(item))
 
       if (append) appendVideos(newVideos, 'searchGrid', navigateToUP)
