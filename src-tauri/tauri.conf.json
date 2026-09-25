@@ -19,6 +19,7 @@
         "minWidth": 800,
         "minHeight": 600,
         "decorations": false,
+        "visible": false,
         "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --enable-logging=stderr --v=1 --log-level=0"
       }
     ],

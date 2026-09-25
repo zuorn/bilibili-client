@@ -52,9 +52,8 @@ async function playVideo(bvid, cid, title, progress, episodeData = null) {
   } catch (err) {
     console.error('[playback] play-video 异常:', err)
   } finally {
-    // Hold the guard for at least 3 seconds to prevent rapid re-clicks
-    // from triggering a second window before the first one loads.
-    setTimeout(() => { playerOpening = false }, 3000)
+    // 防抖：窗口已即时显示，短防抖仅防双击重复触发，过长会吞掉下一次点击
+    setTimeout(() => { playerOpening = false }, 1000)
   }
 }
 

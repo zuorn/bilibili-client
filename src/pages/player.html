@@ -3787,9 +3787,8 @@
 
     ipcRenderer.on('play-video-data', async (event, data) => {
       console.log('Received play-video-data:', data)
-      // 同步重置旧视频状态并立即确认，主进程收到确认后才显示窗口
+      // 同步重置旧视频状态（正常情况下窗口关闭时已重置过，这里兜底）
       resetPlayerForNewVideo()
-      ipcRenderer.send('player-data-applied')
       currentVideoData = data
       videoTitle.textContent = data.title
       infoTitle.textContent = data.title
@@ -3865,6 +3864,13 @@
       if (currentAudioElement) {
         currentAudioElement.pause()
       }
+    })
+
+    // 窗口被"关闭"（移到屏外保活）时同步重置播放器界面：
+    // 清掉旧视频画面/进度/弹幕并盖上加载遮罩，下次点击视频立即显示窗口时不会闪现旧内容
+    ipcRenderer.on('player-hidden', () => {
+      console.log('[player] player-hidden received, resetting UI')
+      resetPlayerForNewVideo()
     })
 
     // 通知主进程：事件监听已全部注册，可以发送 play-video-data 了

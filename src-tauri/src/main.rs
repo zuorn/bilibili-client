@@ -174,12 +174,14 @@ pub fn move_window(window: &WebviewWindow, direction: &str) {
 // ==================== 窗口状态持久化 ====================
 
 /// 启动时恢复上次窗口位置/大小/最大化（对应 Electron createWindow 内逻辑）
+/// 主窗口以 visible=false 创建（tauri.conf.json），恢复完成后由
+/// on_page_load（页面加载完毕）显示，避免用户先看到默认尺寸再跳到恢复尺寸
 fn restore_window_state(app: &AppHandle) {
     let Some(window) = app.get_webview_window("main") else {
         return;
     };
     let Some(state) = window_state::load(app) else {
-        return;
+        return; // 首次启动无保存状态：保持默认尺寸，仍由 on_page_load 显示
     };
 
     let monitors = app.available_monitors().unwrap_or_default();
@@ -287,7 +289,30 @@ fn main() {
                 player_window::precreate_player_window(&app_handle);
             });
 
+            // 兜底：主窗口页面加载事件因异常未触发时，3 秒后强制显示，
+            // 避免窗口永远不出现（show 对已可见窗口是幂等 no-op）
+            let app_handle_fallback = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(3)).await;
+                if let Some(w) = app_handle_fallback.get_webview_window("main") {
+                    if !w.is_visible().unwrap_or(true) {
+                        crate::log_to_file("[启动] 页面加载事件未触发，3 秒兜底强制显示主窗口");
+                        let _ = w.show();
+                        let _ = w.set_focus();
+                    }
+                }
+            });
+
             Ok(())
+        })
+        .on_page_load(|webview, payload| {
+            // 主窗口以 visible=false 创建，待首页渲染完成后再显示：
+            // 用户第一眼看到的就是恢复上次大小/位置后的窗口（对应 Electron ready-to-show）
+            if webview.label() == "main" && payload.event() == tauri::webview::PageLoadEvent::Finished {
+                crate::log_to_file("[启动] 主窗口页面加载完成，显示窗口");
+                let _ = webview.show();
+                let _ = webview.set_focus();
+            }
         })
         .on_window_event(|window, event| {
             // 播放器窗口：关闭保存状态 / 销毁最终上报 / 全屏变化推送

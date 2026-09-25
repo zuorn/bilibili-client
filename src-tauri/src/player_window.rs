@@ -56,10 +56,6 @@ static PLAYER_HIDDEN: AtomicBool = AtomicBool::new(false);
 /// 播放器页面就绪计数：页面注册完 play-video-data 等监听后通过 "player-ready" 通道上报。
 /// open_builtin_player 在发送事件前等待此信号，避免页面未加载完导致事件丢失。
 static PLAYER_READY_COUNT: AtomicU64 = AtomicU64::new(0);
-/// 页面确认已应用新视频数据（重置旧视频画面/进度/弹幕）的握手计数。
-/// open_builtin_player 发送 play-video-data 后等待此信号再显示窗口，
-/// 避免用户短暂看到上一个视频的画面与播放进度。
-static PLAYER_DATA_APPLIED_COUNT: AtomicU64 = AtomicU64::new(0);
 /// 已成功注册 CDN 请求头注入的窗口 label 集合（with_webview 异步执行，可能因
 /// CoreWebView2 未就绪而静默跳过，open_builtin_player 据此重试）。
 static CDN_ATTACHED_LABELS: Lazy<Mutex<std::collections::HashSet<String>>> =
@@ -74,11 +70,6 @@ pub fn mark_player_ready() {
     plog!("[播放器窗口] 收到 player-ready 信号（页面监听已注册）");
 }
 
-pub fn mark_player_data_applied() {
-    PLAYER_DATA_APPLIED_COUNT.fetch_add(1, Ordering::SeqCst);
-    plog!("[播放器窗口] 收到 player-data-applied 信号（页面已重置旧视频状态）");
-}
-
 /// 等待播放器页面就绪（计数 >= expected），最长 timeout。返回是否在超时前就绪。
 async fn wait_player_ready(expected: u64, timeout: Duration) -> bool {
     let deadline = tokio::time::Instant::now() + timeout;
@@ -90,20 +81,6 @@ async fn wait_player_ready(expected: u64, timeout: Duration) -> bool {
             return false;
         }
         tokio::time::sleep(Duration::from_millis(50)).await;
-    }
-}
-
-/// 等待页面确认已应用新视频数据（player-data-applied 握手），最长 timeout。
-async fn wait_player_data_applied(expected: u64, timeout: Duration) -> bool {
-    let deadline = tokio::time::Instant::now() + timeout;
-    loop {
-        if PLAYER_DATA_APPLIED_COUNT.load(Ordering::SeqCst) >= expected {
-            return true;
-        }
-        if tokio::time::Instant::now() >= deadline {
-            return false;
-        }
-        tokio::time::sleep(Duration::from_millis(20)).await;
     }
 }
 
@@ -469,9 +446,26 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
     }
 
     LAST_FULLSCREEN.store(window.is_fullscreen().unwrap_or(false), Ordering::SeqCst);
-    // 窗口保持隐藏状态下先调整尺寸/位置/全屏，等页面确认已切换到新视频后再显示
     let _ = window.set_size(LogicalSize::new(window_width, window_height));
     let _ = window.set_position(LogicalPosition::new(pos_x, pos_y));
+    // 立即显示窗口（速度优先）：页面在窗口关闭时已重置为加载遮罩状态，
+    // 不会闪现上一个视频的画面；新视频数据在后台继续加载
+    if restore_fullscreen {
+        let _ = window.set_fullscreen(true);
+    }
+    PLAYER_HIDDEN.store(false, Ordering::SeqCst);
+    let _ = window.set_skip_taskbar(false);
+    let _ = window.show();
+    let _ = window.set_focus();
+    // Windows 下主窗口可能立即抢回前台：稍后补一次置顶+聚焦，确保播放器在最前
+    let focus_win = window.clone();
+    tauri::async_runtime::spawn(async move {
+        tokio::time::sleep(Duration::from_millis(150)).await;
+        let _ = focus_win.set_always_on_top(true);
+        let _ = focus_win.set_focus();
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let _ = focus_win.set_always_on_top(false);
+    });
 
     let mut rx = rx;
     // 等待预加载结果（预加载任务已在上方并行启动）
@@ -492,35 +486,21 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
     plog!("[播放器窗口] 页面就绪信号: {}", if ready { "已收到" } else { "超时（仍然发送事件）" });
 
     plog!("[播放器窗口] 发送 play-video-data 事件，bvid={}, cid={}, title={}", bvid, final_cid, video_title);
-    let payload = json!({
-        "bvid": bvid.clone(),
-        "cid": if final_cid.is_empty() { Value::Null } else { json!(final_cid.clone()) },
-        "title": video_title.clone(),
-        "cookies": cookie_store::get_all_json(),
-        "progress": progress,
-        "episodeData": episode_data,
-        "preFetchVideoUrl": play_url,
-        "preFetchVideoInfo": video_info
-    });
-    // 先快照握手计数，再发送事件（窗口仍隐藏，页面同步重置旧视频状态后回执）
-    let applied_expected = PLAYER_DATA_APPLIED_COUNT.load(Ordering::SeqCst) + 1;
-    let emit_result = app.emit_to("player", "play-video-data", payload);
-    plog!("[播放器窗口] emit_to 结果: {:?}", emit_result);
-
-    // 等待页面确认已重置旧视频状态（最长 2 秒，超时兜底显示），再显示窗口。
-    // 这样窗口出现时已是加载遮罩 + 新视频标题，不会闪现上一个视频的画面与播放进度。
-    let applied = wait_player_data_applied(applied_expected, Duration::from_secs(2)).await;
-    plog!(
-        "[播放器窗口] player-data-applied: {}，显示窗口",
-        if applied { "已确认" } else { "超时（兜底显示）" }
+    let emit_result = app.emit_to(
+        "player",
+        "play-video-data",
+        json!({
+            "bvid": bvid.clone(),
+            "cid": if final_cid.is_empty() { Value::Null } else { json!(final_cid.clone()) },
+            "title": video_title.clone(),
+            "cookies": cookie_store::get_all_json(),
+            "progress": progress,
+            "episodeData": episode_data,
+            "preFetchVideoUrl": play_url,
+            "preFetchVideoInfo": video_info
+        }),
     );
-    if restore_fullscreen {
-        let _ = window.set_fullscreen(true);
-    }
-    PLAYER_HIDDEN.store(false, Ordering::SeqCst);
-    let _ = window.set_skip_taskbar(false);
-    let _ = window.show();
-    let _ = window.set_focus();
+    plog!("[播放器窗口] emit_to 结果: {:?}", emit_result);
 
     // 预加载未就绪：后台等待完成后补发 prefetch-data（对应 Electron 补发逻辑）
     if !has_prefetch {
@@ -673,6 +653,9 @@ pub fn handle_player_window_event(window: &tauri::Window, event: &tauri::WindowE
                 save_player_window_state(&ww);
                 // 窗口只是移到屏外，页面音视频会继续播放：通知前端暂停
                 let _ = window.app_handle().emit_to("player", "player-pause", Value::Null);
+                // 同步通知前端重置界面（清画面/进度/弹幕、显示加载遮罩），
+                // 这样下次点击视频立即显示窗口时不会闪现上一个视频
+                let _ = window.app_handle().emit_to("player", "player-hidden", Value::Null);
                 // 从任务栏移除，避免悬停任务栏时出现"已关闭"的播放器缩略图
                 let _ = ww.set_skip_taskbar(true);
             }
