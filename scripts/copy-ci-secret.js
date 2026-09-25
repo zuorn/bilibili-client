@@ -1,61 +1,55 @@
-// scripts/copy-ci-secret.js — 生成 CI 所需的签名私钥 Secret 值（Base64）并复制到剪贴板
+// scripts/copy-ci-secret.js — 复制 CI 所需的签名私钥到剪贴板（GitHub Secret: TAURI_SIGNING_PRIVATE_KEY）
 //
-// 背景：tauri.signingPrivateKey 是含换行的多行 Base64，手工粘贴到 GitHub Secrets
-// 容易被破坏（换行丢失/空白变化），导致 CI 报
-//   "failed to decode secret key: incorrect updater private key password: Missing comment in secret key"
-// 解决：把私钥整体再做一次 Base64，得到单行字符串，粘贴不会损坏；
-// CI 中 base64 -d 解码后使用（见 .github/workflows/build.yml 的 Decode updater signing key 步骤）。
+// 用途：env.json 的 tauri.signingPrivateKey（单行 Base64）就是 tauri 需要的私钥形态
+// （本地构建签名成功即为证明）。本脚本校验格式后整体复制到剪贴板，直接粘贴到
+// GitHub Secrets 即可，避免从文件手动复制时漏字符。
+//
+// 注意：不要粘贴其他形态（如密钥文件原文、或对它再编码的 Base64），
+// 否则 CI 会在签名时报 "Missing comment in secret key"。
 //
 // 用法：
-//   node scripts/copy-ci-secret.js          # 复制到剪贴板并写入 .workbuddy/ci-signing-key.b64
-//   node scripts/copy-ci-secret.js --check  # 校验现有 Secret 值是否正确（粘贴后可自行粘贴回车对比）
+//   node scripts/copy-ci-secret.js
 const fs = require('fs')
 const path = require('path')
 const { execSync } = require('child_process')
 
 const ROOT = path.resolve(__dirname, '..')
 const ENV_FILE = path.join(ROOT, 'env.json')
-const OUT_FILE = path.join(ROOT, '.workbuddy', 'ci-signing-key.b64')
 
 function main() {
   const env = JSON.parse(fs.readFileSync(ENV_FILE, 'utf8'))
-  const privateKey = (env.tauri && env.tauri.signingPrivateKey || '').replace(/\r?\n/g, '\n').trim()
+  const privateKey = ((env.tauri && env.tauri.signingPrivateKey) || '').replace(/\s+/g, '')
   if (!privateKey) {
     console.error('[ci-secret] env.json 中缺少 tauri.signingPrivateKey')
     process.exit(1)
   }
 
-  // 自检：私钥解码后必须是 minisign 私钥格式（含 untrusted comment 头）
+  // 自检：与 tauri 解码方式一致 —— base64 解码一次后应出现 minisign 私钥头
   const decoded = Buffer.from(privateKey, 'base64').toString('utf8')
   if (!decoded.includes('untrusted comment')) {
-    console.error('[ci-secret] env.json 的 signingPrivateKey 不是有效的 minisign 私钥（解码后缺少 untrusted comment 头）')
+    console.error('[ci-secret] env.json 的 signingPrivateKey 不是有效的 tauri 私钥（base64 解码后缺少 untrusted comment 头）')
     process.exit(1)
   }
+  console.log('[ci-secret] 私钥自检通过（base64 解码含 untrusted comment 头）')
+  console.log('[ci-secret] Secret 名: TAURI_SIGNING_PRIVATE_KEY（粘贴此单行 Base64 值）')
 
-  const b64 = Buffer.from(privateKey, 'utf8').toString('base64')
-  fs.mkdirSync(path.dirname(OUT_FILE), { recursive: true })
-  fs.writeFileSync(OUT_FILE, b64, 'utf8')
-  console.log('[ci-secret] 私钥自检通过（minisign 格式）')
-  console.log('[ci-secret] Secret 名: TAURI_SIGNING_PRIVATE_KEY_B64')
-  console.log('[ci-secret] 值已复制到剪贴板，并写入文件:', OUT_FILE)
+  const tmpFile = path.join(ROOT, '.workbuddy', 'ci-signing-key.txt')
+  fs.mkdirSync(path.dirname(tmpFile), { recursive: true })
+  fs.writeFileSync(tmpFile, privateKey, 'utf8')
 
   try {
     if (process.platform === 'win32') {
-      execSync(`powershell -NoProfile -Command "Set-Clipboard -Value (Get-Content -Raw '${OUT_FILE.replace(/'/g, "''")}')"`)
-      console.log('[ci-secret] 剪贴板已更新，直接到 GitHub Secrets 页面粘贴即可（单行 Base64）')
+      execSync(`powershell -NoProfile -Command "Set-Clipboard -Value (Get-Content -Raw '${tmpFile.replace(/'/g, "''")}')"`)
+      console.log('[ci-secret] 剪贴板已更新（单行 Base64），直接到 GitHub Secrets 页面粘贴即可')
     } else if (process.platform === 'darwin') {
-      execSync(`pbcopy < "${OUT_FILE}"`)
-      console.log('[ci-secret] 剪贴板已更新，直接到 GitHub Secrets 页面粘贴即可（单行 Base64）')
+      execSync(`pbcopy < "${tmpFile}"`)
+      console.log('[ci-secret] 剪贴板已更新，直接到 GitHub Secrets 页面粘贴即可')
     } else {
-      console.log('[ci-secret] 请手动打开文件复制内容:', OUT_FILE)
+      console.log('[ci-secret] 请手动打开文件复制全部内容（单行）:', tmpFile)
     }
   } catch (e) {
-    console.warn('[ci-secret] 复制到剪贴板失败，请手动打开文件复制:', OUT_FILE, e.message)
+    console.warn('[ci-secret] 复制到剪贴板失败，请手动打开文件复制:', tmpFile, e.message)
   }
-
-  // 回读校验：b64 解码后与原私钥逐字节一致
-  const roundTrip = Buffer.from(b64, 'base64').toString('utf8')
-  console.log('[ci-secret] 回读校验:', roundTrip === privateKey ? '一致 ✓' : '不一致 ✗（异常，请反馈）')
 }
 
 main()
