@@ -4,7 +4,7 @@
   "identifier": "com.example.bilibili-client",
   "build": {
     "beforeDevCommand": "",
-    "beforeBuildCommand": "",
+    "beforeBuildCommand": "npm run build:frontend",
     "frontendDist": "../app-dist"
   },
   "app": {

@@ -149,6 +149,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # release 构建开启前端 js/css 压缩（beforeBuildCommand 的 build-frontend.js 使用）
+          FRONTEND_MINIFY: '1'
         with:
           # 版本号唯一源头是 VERSION 文件；标签不存在时 tauri-action 会自动创建
           tagName: v${{ needs.prepare.outputs.version }}

@@ -10,6 +10,7 @@
     "build:mac": "electron-builder --mac && npm run clean:dist",
     "build:linux": "electron-builder --linux && npm run clean:dist",
     "clean": "rimraf dist",
+    "build:frontend": "node scripts/build-frontend.js",
     "clean:dist": "rimraf dist/win-unpacked dist/win-ia32-unpacked dist/mac dist/mac-arm64 dist/linux-unpacked dist/builder-debug.yml dist/builder-effective-config.yaml",
     "publish:oss": "node scripts/publish-oss.js",
     "tauri": "tauri",
