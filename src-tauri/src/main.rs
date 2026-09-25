@@ -10,6 +10,7 @@
 
 mod api;
 mod cookie_store;
+mod dashmux;
 mod ipc;
 mod player_window;
 mod state;

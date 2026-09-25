@@ -40,7 +40,10 @@ pub async fn dispatch_system_channel(
             Some(json!({ "success": true }))
         }
         "open-dev-tools" => {
+            // devtools 仅 debug 构建可用（release 未启用 devtools feature）
+            #[cfg(debug_assertions)]
             window.open_devtools();
+            let _ = &window;
             Some(json!({ "success": true }))
         }
         "reload-window" => {

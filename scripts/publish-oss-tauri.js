@@ -44,7 +44,10 @@ async function main() {
   }
 
   const conf = readJson(TAURI_CONF)
-  const version = conf.version
+  // 版本号唯一源头：根目录 VERSION 文件；回退 tauri.conf.json 的 version
+  const versionFile = path.join(PROJECT_ROOT, 'VERSION')
+  const version =
+    (fs.existsSync(versionFile) && fs.readFileSync(versionFile, 'utf8').trim()) || conf.version
 
   // 1. 定位产物（按 tauri.conf.json 的 version 精确匹配，避免选到旧版本残留）
   const files = fs.readdirSync(BUNDLE_DIR)

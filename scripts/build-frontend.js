@@ -41,6 +41,56 @@ function fail(message) {
   process.exit(1)
 }
 
+// 递归 minify 目录下所有 .js/.css（esbuild transformSync，单文件安全：
+// 顶层作用域不 mangle，仅压缩空白/局部改名，语义不变）。
+// 仅在 FRONTEND_MINIFY=1（tauri-build.js 注入）时执行，dev 保持可读源码。
+function minifyAssets(dir) {
+  const stats = { files: 0, before: 0, after: 0 }
+  if (process.env.FRONTEND_MINIFY !== '1') {
+    trace('minify skipped (FRONTEND_MINIFY!=1, dev mode)')
+    return stats
+  }
+  let esbuild = null
+  try {
+    esbuild = require('esbuild')
+  } catch (_) {
+    trace('WARN: esbuild 未安装，跳过 minify')
+    console.warn('[build-frontend] esbuild 未安装，跳过 minify')
+    return stats
+  }
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const p = path.join(dir, entry.name)
+    if (entry.isDirectory()) {
+      const sub = minifyAssets(p)
+      stats.files += sub.files
+      stats.before += sub.before
+      stats.after += sub.after
+      continue
+    }
+    const ext = path.extname(entry.name).toLowerCase()
+    if (ext !== '.js' && ext !== '.css') continue
+    try {
+      const code = fs.readFileSync(p, 'utf8')
+      const beforeBytes = Buffer.byteLength(code)
+      const result = esbuild.transformSync(code, {
+        loader: ext === '.css' ? 'css' : 'js',
+        minify: true,
+        charset: 'utf8',
+        legalComments: 'none',
+        target: 'es2020',
+      })
+      fs.writeFileSync(p, result.code)
+      stats.files += 1
+      stats.before += beforeBytes
+      stats.after += Buffer.byteLength(result.code)
+    } catch (e) {
+      // 单个文件失败保留原样（不影响运行），仅记录
+      trace(`WARN: minify 失败 ${entry.name}: ${e && e.message}`)
+    }
+  }
+  return stats
+}
+
 trace(`START node=${process.version} cwd=${process.cwd()} out=${OUT}`)
 
 try {
@@ -63,6 +113,14 @@ try {
     fs.copyFileSync(icon, path.join(OUT, 'icon.png'))
   }
   trace('step5 icon ok')
+
+  // step6: esbuild minify js/css（减小安装包体积；esbuild 缺失时降级为仅复制）
+  const stats = minifyAssets(path.join(OUT, 'src'))
+  trace(`step6 minify done, files=${stats.files} before=${stats.before}B after=${stats.after}B`)
+  console.log(
+    `[build-frontend] minified ${stats.files} js/css files: ` +
+      `${(stats.before / 1024).toFixed(0)}KB -> ${(stats.after / 1024).toFixed(0)}KB`
+  )
 
   const total = countFiles(OUT)
   const expected = countFiles(SRC) + 1 + (fs.existsSync(icon) ? 1 : 0)

@@ -1,14 +1,22 @@
 name: Build & Release
 
-# 触发条件：
-#   1. push v* 标签      → Windows 打包 + 自动发布 Release（含 tauri updater 的 latest.json）
-#   2. PR 到 main/master → 仅打包验证
-#   3. 手动触发          → 可选是否发布 Release
+# 版本号唯一源头：根目录 VERSION 文件（一行纯文本版本号，如 0.2.0）。
 #
-# 注意：Release 发布需要仓库 Secrets 中配置 TAURI_SIGNING_PRIVATE_KEY（值来自本地 env.json
-# 的 tauri.signingPrivateKey，可选 TAURI_SIGNING_PRIVATE_KEY_PASSWORD）。
+# 触发条件：
+#   1. push v* 标签      → 校验 tag 与 VERSION 一致后，三平台打包 + 发布 Release
+#   2. push main/master  → 读取 VERSION：若 v<VERSION> 标签已存在则跳过；
+#                          否则自动打标签 v<VERSION> 并发布 Release（推送即发版）
+#   3. PR 到 main/master → 仅三平台打包验证
+#   4. 手动触发          → 按 VERSION 发版（可选是否发布 Release）
+#
+# 注意：Release 发布需要仓库 Secrets（值均来自本地 env.json）：
+#   TAURI_SIGNING_PRIVATE_KEY            → env.json 的 tauri.signingPrivateKey
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD   → 可选
+#   TAURI_UPDATER_PUBKEY                 → env.json 的 tauri.updaterPubkey
+#   （tauri.conf.json 不含公钥与版本号，CI 通过生成的 tauri.updater.conf.json 注入）
 on:
   push:
+    branches: [main, master]
     tags:
       - 'v*'
   pull_request:
@@ -25,8 +33,74 @@ permissions:
   contents: write
 
 jobs:
-  build-windows:
-    runs-on: windows-latest
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.prepare.outputs.version }}
+      should_build: ${{ steps.prepare.outputs.should_build }}
+      should_release: ${{ steps.prepare.outputs.should_release }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Resolve version & release decision
+        id: prepare
+        shell: bash
+        run: |
+          VERSION=$(tr -d ' \t\n\r' < VERSION)
+          if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+([-+].+)?$ ]]; then
+            echo "::error::VERSION 文件内容非法: '$VERSION'（应为 x.y.z 格式）"
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            # 标签触发：tag 必须与 VERSION 一致
+            TAG_VERSION="${GITHUB_REF_NAME#v}"
+            echo "tag=$GITHUB_REF_NAME, VERSION=$VERSION"
+            if [ "$TAG_VERSION" != "$VERSION" ]; then
+              echo "::error::tag $GITHUB_REF_NAME 与 VERSION ($VERSION) 不一致，请修正后重新打标签"
+              exit 1
+            fi
+            echo "should_build=true"  >> "$GITHUB_OUTPUT"
+            echo "should_release=true" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_EVENT_NAME" == "pull_request" ]]; then
+            # PR：仅打包验证，不发布
+            echo "should_build=true"   >> "$GITHUB_OUTPUT"
+            echo "should_release=false" >> "$GITHUB_OUTPUT"
+          elif [[ "$GITHUB_EVENT_NAME" == "workflow_dispatch" ]]; then
+            echo "should_build=true"   >> "$GITHUB_OUTPUT"
+            echo "should_release=${{ github.event.inputs.create_release }}" >> "$GITHUB_OUTPUT"
+          else
+            # push main/master：v<VERSION> 标签已存在（该版本已发布）则跳过
+            if git ls-remote --tags origin "refs/tags/v$VERSION" | grep -q "refs/tags/v$VERSION"; then
+              echo "v$VERSION 已发布，跳过本次构建"
+              echo "should_build=false" >> "$GITHUB_OUTPUT"
+              echo "should_release=false" >> "$GITHUB_OUTPUT"
+            else
+              echo "新版本 $VERSION，自动打标签并发布"
+              echo "should_build=true"   >> "$GITHUB_OUTPUT"
+              echo "should_release=true" >> "$GITHUB_OUTPUT"
+            fi
+          fi
+
+  build:
+    needs: prepare
+    if: needs.prepare.outputs.should_build == 'true'
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: windows-latest     # Windows x64
+            args: '--bundles nsis --config src-tauri/tauri.updater.conf.json'
+          - platform: macos-latest       # macOS Apple Silicon
+            args: '--target aarch64-apple-darwin --bundles app,dmg --config src-tauri/tauri.updater.conf.json'
+          - platform: macos-13           # macOS Intel
+            args: '--target x86_64-apple-darwin --bundles app,dmg --config src-tauri/tauri.updater.conf.json'
+          - platform: ubuntu-22.04       # Linux x64
+            args: '--bundles appimage --config src-tauri/tauri.updater.conf.json'
+
+    runs-on: ${{ matrix.platform }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -40,13 +114,34 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Linux 打包需要系统依赖
+      - name: Install Linux dependencies
+        if: matrix.platform == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf libfuse2
+
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin' || (matrix.platform == 'macos-13' && 'x86_64-apple-darwin' || '') }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+
+      # 生成注入配置：版本号（来自 VERSION）+ 公钥（来自 Secret）
+      # tauri.conf.json 不含版本号与公钥，通过 JSON merge patch 合并注入
+      - name: Write version & updater pubkey config
+        shell: bash
+        run: |
+          cat > src-tauri/tauri.updater.conf.json <<EOF
+          { "version": "${{ needs.prepare.outputs.version }}", "plugins": { "updater": { "pubkey": "${TAURI_UPDATER_PUBKEY}" } } }
+          EOF
+          cat src-tauri/tauri.updater.conf.json
+        env:
+          TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
@@ -55,23 +150,27 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
-          # tagName / releaseName 仅在发布时使用；不发布时只产出构建产物
-          tagName: ${{ github.ref_name }}
-          releaseName: 'Bilibili Client ${{ github.ref_name }}'
-          releaseBody: '## Downloads\n\n- Windows: `Bilibili-Client_*_x64-setup.exe`'
+          # 版本号唯一源头是 VERSION 文件；标签不存在时 tauri-action 会自动创建
+          tagName: v${{ needs.prepare.outputs.version }}
+          releaseName: 'Bilibili Client v${{ needs.prepare.outputs.version }}'
+          releaseBody: '## Downloads\n\n- Windows: `Bilibili-Client_*_x64-setup.exe`\n- macOS (Apple Silicon): `Bilibili-Client_*_aarch64.app.tar.gz` / `*_aarch64.dmg`\n- macOS (Intel): `Bilibili-Client_*_x64.app.tar.gz` / `*_x64.dmg`\n- Linux: `Bilibili-Client_*_amd64.AppImage`'
           releaseDraft: false
           prerelease: false
-          # 仅在 push tag 或手动触发且 create_release=true 时发布 Release
           includeUpdaterJson: true
-          args: ${{ (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')) && '' || '--no-bundle' }}
+          args: ${{ needs.prepare.outputs.should_release == 'true' && matrix.args || concat(matrix.args, ' --no-bundle') }}
 
-      - name: Upload Windows artifact
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: windows-installer
+          name: bilibili-client-${{ matrix.platform }}
           path: |
-            src-tauri/target/release/bundle/nsis/*.exe
-            src-tauri/target/release/bundle/nsis/*.sig
-            src-tauri/target/release/bundle/nsis/latest.json
+            src-tauri/target/**/bundle/nsis/*.exe
+            src-tauri/target/**/bundle/nsis/*.sig
+            src-tauri/target/**/bundle/macos/*.app.tar.gz
+            src-tauri/target/**/bundle/macos/*.app.tar.gz.sig
+            src-tauri/target/**/bundle/macos/*.dmg
+            src-tauri/target/**/bundle/appimage/*.AppImage
+            src-tauri/target/**/bundle/appimage/*.AppImage.sig
+            src-tauri/target/**/bundle/latest.json
           retention-days: 7
           if-no-files-found: ignore

@@ -737,7 +737,7 @@ pub async fn dispatch_player_window_channel(
     channel: &str,
     args: &[Value],
 ) -> Option<Value> {
-    // download-video 独立处理（含对话框/ffmpeg）
+    // download-video 独立处理（含对话框/原生 remux 合并）
     match channel {
         "download-video" => return Some(download_video(app, args).await),
         _ => {}
@@ -772,7 +772,10 @@ pub async fn dispatch_player_window_channel(
             Value::Null
         }
         "open-player-dev-tools" => {
+            // devtools 仅 debug 构建可用（release 未启用 devtools feature）
+            #[cfg(debug_assertions)]
             pw.open_devtools();
+            let _ = &pw;
             Value::Null
         }
         "get-window-position" => {
@@ -1059,22 +1062,7 @@ fn qn_name(qn: u64) -> String {
 }
 
 fn find_ffmpeg() -> Option<std::path::PathBuf> {
-    // 1. 打包后：exe 同目录（bundle.resources 映射到 "ffmpeg.exe"）
-    if let Ok(exe) = std::env::current_exe() {
-        if let Some(dir) = exe.parent() {
-            for rel in [
-                std::path::PathBuf::from("ffmpeg.exe"),
-                std::path::PathBuf::from("resources").join("ffmpeg.exe"),
-                std::path::PathBuf::from("..").join("resources").join("ffmpeg.exe"),
-            ] {
-                let p = dir.join(rel);
-                if p.exists() {
-                    return Some(p);
-                }
-            }
-        }
-    }
-    // 2. 开发环境：node_modules/ffmpeg-static（仅 debug 构建，release 下路径无意义）
+    // 1. 开发环境：node_modules/ffmpeg-static（仅 debug 构建使用）
     #[cfg(debug_assertions)]
     {
         let dev = std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -1090,7 +1078,7 @@ fn find_ffmpeg() -> Option<std::path::PathBuf> {
             }
         }
     }
-    // 3. PATH
+    // 2. PATH（release 下原生 remux 已覆盖绝大多数场景，此处仅作最后回退）
     if which_ffmpeg_on_path() {
         return Some(std::path::PathBuf::from("ffmpeg"));
     }
@@ -1205,14 +1193,26 @@ fn player_client_get(url: &str) -> reqwest::RequestBuilder {
         .header("Origin", "https://www.bilibili.com")
 }
 
-/// ffmpeg 合并音视频（DASH m4s → mp4）
-async fn run_ffmpeg_merge(
+/// DASH 音视频合并：优先原生 remux（mp4 crate，无外部依赖），失败回退 ffmpeg on PATH
+async fn merge_dash(
     video_temp: &std::path::Path,
     audio_temp: &std::path::Path,
     save_path: &std::path::Path,
 ) -> Result<(), String> {
+    let (v, a, o) = (
+        video_temp.to_path_buf(),
+        audio_temp.to_path_buf(),
+        save_path.to_path_buf(),
+    );
+    let native = tokio::task::spawn_blocking(move || crate::dashmux::remux_dash_to_mp4(&v, &a, &o))
+        .await
+        .map_err(|e| format!("remux 任务异常: {}", e))?;
+    if native.is_ok() {
+        return Ok(());
+    }
+    eprintln!("[下载] 原生 remux 失败，尝试回退 ffmpeg: {}", native.as_ref().unwrap_err());
     let Some(ffmpeg) = find_ffmpeg() else {
-        return Err("未找到 ffmpeg".to_string());
+        return native;
     };
     let out = tokio::process::Command::new(&ffmpeg)
         .args([
@@ -1323,7 +1323,7 @@ async fn download_video(app: &AppHandle, args: &[Value]) -> Value {
     let temp_dir = std::env::temp_dir();
     let now = crate::api::now_millis_js();
 
-    // 4. 下载：DASH（需 ffmpeg 合并）或 durl（已合并）
+    // 4. 下载：DASH（原生 remux 合并音视频）或 durl（已合并）
     if let Some(audio_url) = &audio_url {
         // DASH 合并模式
         let video_temp = temp_dir.join(format!("bili_video_{}.m4s", now));
@@ -1339,7 +1339,7 @@ async fn download_video(app: &AppHandle, args: &[Value]) -> Value {
         };
         if let Ok(()) = dl_audio {
             send_progress("merge", None);
-            match run_ffmpeg_merge(&video_temp, &audio_temp, &save_path).await {
+            match merge_dash(&video_temp, &audio_temp, &save_path).await {
                 Ok(()) => {
                     let _ = tokio::fs::remove_file(&video_temp).await;
                     let _ = tokio::fs::remove_file(&audio_temp).await;
@@ -1350,7 +1350,7 @@ async fn download_video(app: &AppHandle, args: &[Value]) -> Value {
                     return json!({ "success": true, "fileName": file_name, "quality": quality_title });
                 }
                 Err(merge_err) => {
-                    eprintln!("[下载] ffmpeg 不可用，回退到 durl 合并流: {}", merge_err);
+                    eprintln!("[下载] 音视频合并失败（无可用方式），回退到 durl 合并流: {}", merge_err);
                     let _ = tokio::fs::remove_file(&save_path).await;
                     // 回退：durl 合并流 720P → 480P → 360P
                     for dqn in [64u64, 32, 16] {

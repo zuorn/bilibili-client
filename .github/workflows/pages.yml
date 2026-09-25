@@ -3,9 +3,10 @@ name: Deploy to GitHub Pages
 on:
   push:
     branches: [master]
-    # 仅当 website 目录或本工作流变动时才重新部署，避免无关提交浪费运行额度
+    # 仅当 website 目录、VERSION 或本工作流变动时才重新部署，避免无关提交浪费运行额度
     paths:
       - 'website/**'
+      - 'VERSION'
       - '.github/workflows/pages.yml'
   workflow_dispatch:
 
@@ -29,6 +30,14 @@ jobs:
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
+
+      # 版本号唯一源头是根目录 VERSION 文件，部署时注入 website/index.html
+      # （本地文件里的版本号无需手改，部署时总会被覆盖为 VERSION 的值）
+      - name: Inject version from VERSION
+        run: |
+          VERSION=$(tr -d ' \t\n\r' < VERSION)
+          sed -i -E "s/(version:[[:space:]]*')[0-9]+\.[0-9]+\.[0-9]+(')/\1${VERSION}\2/" website/index.html
+          grep -n "version:" website/index.html | head -1
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

@@ -1,7 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Bilibili Client",
-  "version": "0.1.0",
   "identifier": "com.example.bilibili-client",
   "build": {
     "beforeDevCommand": "",
@@ -29,7 +28,6 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUxQTdERjlCN0UwM0VGRjEKUldUeDd3TittOStuNGFLcHJWQUVodTlqcERNT3E2R3J2MkRnbWhqZVkxZmg1aWdTNllpcjRBVlgK",
       "endpoints": [
         "https://talktime.oss-cn-shanghai.aliyuncs.com/doc/bl/bl/latest.json"
       ]
@@ -37,12 +35,16 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": ["nsis", "app", "dmg", "appimage"],
     "createUpdaterArtifacts": true,
-    "icon": ["icons/icon.ico", "icons/icon.png"],
-    "resources": {
-      "../node_modules/ffmpeg-static/ffmpeg.exe": "ffmpeg.exe"
-    },
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico",
+      "icons/icon.png"
+    ],
     "windows": {
       "nsis": {
         "languages": ["SimpChinese", "English"],
