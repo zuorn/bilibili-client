@@ -95,7 +95,7 @@ jobs:
             args: '--bundles nsis --config src-tauri/tauri.updater.conf.json'
           - platform: macos-latest       # macOS Apple Silicon
             args: '--target aarch64-apple-darwin --bundles app,dmg --config src-tauri/tauri.updater.conf.json'
-          - platform: macos-13           # macOS Intel
+          - platform: macos-15-intel      # macOS Intel（macos-13 已于 2025-12 退役，官方替代标签）
             args: '--target x86_64-apple-darwin --bundles app,dmg --config src-tauri/tauri.updater.conf.json'
           - platform: ubuntu-22.04       # Linux x64
             args: '--bundles appimage --config src-tauri/tauri.updater.conf.json'
@@ -124,7 +124,7 @@ jobs:
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin' || (matrix.platform == 'macos-13' && 'x86_64-apple-darwin' || '') }}
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin' || (matrix.platform == 'macos-15-intel' && 'x86_64-apple-darwin' || '') }}
 
       - name: Rust cache
         uses: swatinem/rust-cache@v2
