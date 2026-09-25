@@ -173,34 +173,9 @@ jobs:
           # release 构建开启前端 js/css 压缩（beforeBuildCommand 的 build-frontend.js 使用）
           FRONTEND_MINIFY: '1'
         with:
-          # 版本号唯一源头是 VERSION 文件；标签不存在时 tauri-action 会自动创建
-          tagName: v${{ needs.prepare.outputs.version }}
-          releaseName: 'Bilibili Client v${{ needs.prepare.outputs.version }}'
-          # 注意：必须用 YAML 块标量（|）传入真实换行，单引号里的 \n 会被当作字面量
-          releaseBody: |
-            ## 下载
-
-            | 平台 | 文件 |
-            | --- | --- |
-            | Windows x64 | `Bilibili-Client_*_x64-setup.exe` |
-            | macOS Apple Silicon | `Bilibili-Client_*_aarch64.dmg` |
-            | macOS Intel | `Bilibili-Client_*_x64.dmg` |
-            | Linux x64 | `Bilibili-Client_*_amd64.AppImage` |
-
-            ## 自动更新
-
-            已安装用户无需手动下载，应用会在启动后自动检测新版本并升级（设置 → 检查更新）。
-
-            ## 安装说明
-
-            - Windows：下载 setup.exe 双击安装
-            - macOS：未做公证，首次打开需右键点击应用 → 「打开」
-            - Linux：`chmod +x Bilibili-Client_*.AppImage` 后直接运行
-          releaseDraft: false
-          prerelease: false
-          includeUpdaterJson: true
-          # GitHub Actions 表达式没有 concat 函数，用 format 拼接 --no-bundle
-          args: ${{ needs.prepare.outputs.should_release == 'true' && matrix.args || format('{0} --no-bundle', matrix.args) }}
+          # 只构建不发布：不传 tagName/releaseName，Release 由 publish job 统一创建
+          # （tauri-action 并发更新同一 Release 资产时存在 404 竞态）
+          args: ${{ matrix.args }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
@@ -214,6 +189,49 @@ jobs:
             src-tauri/target/**/bundle/macos/*.dmg
             src-tauri/target/**/bundle/appimage/*.AppImage
             src-tauri/target/**/bundle/appimage/*.AppImage.sig
-            src-tauri/target/**/bundle/latest.json
           retention-days: 7
           if-no-files-found: ignore
+
+  # 统一发布：下载所有平台产物，用发布脚本生成 latest.json 并以 gh CLI 幂等上传
+  # （顺序执行 + --clobber，重跑/重试均安全，规避并发更新 Release 资产的 404 竞态）
+  publish:
+    needs: [prepare, build]
+    if: needs.prepare.outputs.should_release == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ci-artifacts
+          merge-multiple: true
+
+      - name: Publish Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_SHA: ${{ github.sha }}
+        run: |
+          NOTES=$(cat <<'NOTES_EOF'
+          ## 下载
+
+          | 平台 | 文件 |
+          | --- | --- |
+          | Windows x64 | `Bilibili-Client_*_x64-setup.exe` |
+          | macOS Apple Silicon | `Bilibili-Client_*_aarch64.dmg` |
+          | macOS Intel | `Bilibili-Client_*_x64.dmg` |
+          | Linux x64 | `Bilibili-Client_*_amd64.AppImage` |
+
+          ## 自动更新
+
+          已安装用户无需手动下载，应用会在启动后自动检测新版本并升级（设置 → 检查更新）。
+
+          ## 安装说明
+
+          - Windows：下载 setup.exe 双击安装
+          - macOS：未做公证，首次打开需右键点击应用 → 「打开」
+          - Linux：`chmod +x Bilibili-Client_*.AppImage` 后直接运行
+          NOTES_EOF
+          )
+          node scripts/publish-github-tauri.js --dir ci-artifacts --notes "$NOTES"

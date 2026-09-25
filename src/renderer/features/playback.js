@@ -1,6 +1,7 @@
 // 播放模块
-
-let playerOpening = false
+// 说明：不再做渲染层防抖。窗口复用 + Rust 侧 OPEN_GEN 代际计数保证：
+// 连续快速点击只会重开同一个窗口并播放最后一次点击的视频，无副作用。
+// 任何前置检查/等待都可能"吞掉"点击，这里必须直接穿透到 play-video。
 
 function getMpvPath() {
   return localStorage.getItem('mpvPath') || ''
@@ -13,10 +14,6 @@ function useBuiltinPlayer() {
 
 async function playVideo(bvid, cid, title, progress, episodeData = null) {
   console.log('[playback] playVideo called:', { bvid, cid, title, progress, episodeData })
-  if (playerOpening) {
-    console.log('Player is already opening, ignoring duplicate click')
-    return
-  }
 
   const useBuiltin = useBuiltinPlayer()
   const mpvPath = getMpvPath()
@@ -28,19 +25,9 @@ async function playVideo(bvid, cid, title, progress, episodeData = null) {
     return
   }
 
-  // 未传进度时，从播放历史中查找上次观看进度
-  if ((progress === null || progress === undefined) && useBuiltin) {
-    try {
-      const histResult = await ipcRenderer.invoke('get-video-progress', bvid)
-      if (histResult.success && histResult.progress > 0) {
-        progress = histResult.progress
-      }
-    } catch (e) {
-      // 查找失败不影响播放，从头开始
-    }
-  }
+  // 未传进度时由 Rust 侧后台查询历史进度（网络请求），不阻塞窗口打开。
+  // 这里绝对不要 await 任何网络请求——否则请求慢时窗口迟迟不开，点击像"失灵"。
 
-  playerOpening = true
   try {
     const showDanmaku = localStorage.getItem('showDanmaku') !== 'false'
     console.log('[playback] 调用 play-video IPC...')
@@ -51,9 +38,6 @@ async function playVideo(bvid, cid, title, progress, episodeData = null) {
     }
   } catch (err) {
     console.error('[playback] play-video 异常:', err)
-  } finally {
-    // 防抖：窗口已即时显示，短防抖仅防双击重复触发，过长会吞掉下一次点击
-    setTimeout(() => { playerOpening = false }, 1000)
   }
 }
 

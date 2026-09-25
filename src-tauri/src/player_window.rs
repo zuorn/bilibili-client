@@ -18,12 +18,15 @@ use tauri::{
     WebviewWindowBuilder,
 };
 
-// 日志宏：同时输出到 stderr 和日志文件
+// 日志宏：同时输出到 stderr 和日志文件（带时间戳，便于对齐用户操作时序）
 macro_rules! plog {
     ($($arg:tt)*) => {{
         let msg = format!($($arg)*);
-        eprintln!("{}", msg);
-        crate::log_to_file(&msg);
+        let now = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap_or_default();
+        let secs = now.as_secs() % 86400;
+        let line = format!("[{:02}:{:02}:{:02}.{:03}] {}", secs / 3600, (secs % 3600) / 60, secs % 60, now.subsec_millis(), msg);
+        eprintln!("{}", line);
+        crate::log_to_file(&line);
     }};
 }
 
@@ -385,32 +388,51 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
     }
     PLAYER_HIDDEN.store(false, Ordering::SeqCst);
     let _ = window.set_skip_taskbar(false);
+    if window.is_minimized().unwrap_or(false) {
+        let _ = window.unminimize();
+    }
     let _ = window.show();
     let _ = window.set_focus();
-    // Windows 下主窗口可能立即抢回前台：稍后补一次置顶+聚焦，确保播放器在最前
+    // Windows 前台锁定（SetForegroundWindow 可能静默失败，窗口藏在主窗口后面）：
+    // 多次补聚焦 + 短暂置顶，确保播放器一定出现在最前
     let focus_win = window.clone();
     tauri::async_runtime::spawn(async move {
-        tokio::time::sleep(Duration::from_millis(150)).await;
-        let _ = focus_win.set_always_on_top(true);
+        tokio::time::sleep(Duration::from_millis(100)).await;
         let _ = focus_win.set_focus();
         tokio::time::sleep(Duration::from_millis(100)).await;
+        let _ = focus_win.set_always_on_top(true);
+        let _ = focus_win.set_focus();
+        tokio::time::sleep(Duration::from_millis(200)).await;
         let _ = focus_win.set_always_on_top(false);
+        let _ = focus_win.set_focus();
     });
+    plog!(
+        "[播放器窗口] 已执行 show+set_focus（可见: {:?}，最小化: {:?}）",
+        window.is_visible(),
+        window.is_minimized()
+    );
 
     // ===== 第二阶段：后台解析视频信息并下发播放数据（不阻塞窗口显示）=====
     let gen = OPEN_GEN.fetch_add(1, Ordering::SeqCst) + 1;
     let app_bg = app.clone();
+    let window_bg = window.clone();
     let bvid_bg = bvid.clone();
     let title_bg = title.clone();
     tauri::async_runtime::spawn(async move {
         open_builtin_player_load(
             app_bg,
+            window_bg,
             bvid_bg,
             final_cid,
             title_bg,
             progress,
             episode_data,
             gen,
+            pos_x,
+            pos_y,
+            window_width,
+            window_height,
+            restore_fullscreen,
         )
         .await;
     });
@@ -421,14 +443,22 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
 /// 第二阶段：解析视频信息、预取播放地址并下发 play-video-data。
 /// 全部在后台执行，窗口显示（第一阶段）不等待本函数；
 /// 代际计数 gen 用于丢弃被更新播放请求 supersede 的过期任务。
+/// pos/size 参数为阶段一设置的初始窗口几何，用于按视频比例调整时保持中心不变。
+#[allow(clippy::too_many_arguments)]
 async fn open_builtin_player_load(
     app: AppHandle,
+    window: WebviewWindow,
     bvid: String,
     mut final_cid: String,
     title: String,
     progress: Value,
     episode_data: Value,
     gen: u64,
+    pos_x: f64,
+    pos_y: f64,
+    window_width: f64,
+    window_height: f64,
+    restore_fullscreen: bool,
 ) {
     let video_title = if title.is_empty() {
         "哔哩哔哩视频".to_string()
@@ -436,12 +466,14 @@ async fn open_builtin_player_load(
         title.clone()
     };
 
-    // 获取视频信息（cid/dimension/aid/duration）
+    // 获取视频信息（cid/dimension/aid/duration）。
+    // 快速连点两个视频时，B 站接口可能对第二次请求限流，失败后稍候重试一次
     let first_video_info = match get_video_info(&bvid).await {
         Some(info) => info,
         None => {
-            plog!("[播放器窗口] get_video_info 失败（返回 None）");
-            Value::Null
+            plog!("[播放器窗口] get_video_info 失败（返回 None），400ms 后重试一次");
+            tokio::time::sleep(Duration::from_millis(400)).await;
+            get_video_info(&bvid).await.unwrap_or(Value::Null)
         }
     };
     if OPEN_GEN.load(Ordering::SeqCst) != gen {
@@ -454,18 +486,57 @@ async fn open_builtin_player_load(
             final_cid = c.to_string();
         }
     }
-    // 更新宽高比（供窗口移动/缩放的限制逻辑使用），不改变当前窗口大小
+    // 按视频比例调整窗口大小（保持窗口中心不变）。
+    // 全屏恢复时不调整，避免破坏全屏状态
     if let Some(dim) = first_video_info.get("dimension") {
         let dw = dim.get("width").and_then(|v| v.as_f64()).unwrap_or(0.0);
         let dh = dim.get("height").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        if dw > 0.0 && dh > 0.0 {
+        if dw > 0.0 && dh > 0.0 && !restore_fullscreen {
             let mut video_w = dw;
             let mut video_h = dh;
             let rotate = dim.get("rotate").and_then(|v| v.as_f64()).unwrap_or(0.0);
             if rotate == 90.0 || rotate == 270.0 {
                 std::mem::swap(&mut video_w, &mut video_h);
             }
-            ui().video_aspect = video_w / video_h;
+            let video_aspect = video_w / video_h;
+            ui().video_aspect = video_aspect;
+
+            // 与当前窗口比例差异明显时才调整，避免同比例视频反复抖动
+            let cur_aspect = window_width / window_height;
+            if ((video_aspect - cur_aspect) / video_aspect).abs() > 0.03 {
+                let wa = primary_workarea(&app);
+                let default_height = (wa.3 * 0.7).floor();
+                let default_width = (default_height * video_aspect).floor();
+                let (mut new_w, mut new_h) = if default_width > wa.2 * 0.85 {
+                    let w = (wa.2 * 0.85).floor();
+                    (w, (w / video_aspect).floor())
+                } else {
+                    (default_width, default_height)
+                };
+                new_w = new_w.max(480.0);
+                new_h = new_h.max(270.0);
+                // 以阶段一设置的窗口中心为锚点缩放，并夹回工作区
+                let center_x = pos_x + window_width / 2.0;
+                let center_y = pos_y + window_height / 2.0;
+                let wa_near = nearest_workarea(&app, center_x, center_y);
+                let (nx, ny) = clamp_to_workarea(
+                    center_x - new_w / 2.0,
+                    center_y - new_h / 2.0,
+                    new_w,
+                    new_h,
+                    wa_near,
+                );
+                let _ = window.set_size(LogicalSize::new(new_w, new_h));
+                let _ = window.set_position(LogicalPosition::new(nx, ny));
+                plog!(
+                    "[播放器窗口] 按视频比例调整窗口: {}x{}（比例 {:.2}，原 {}x{}）",
+                    new_w,
+                    new_h,
+                    video_aspect,
+                    window_width,
+                    window_height
+                );
+            }
         }
     }
 
@@ -493,6 +564,37 @@ async fn open_builtin_player_load(
         _ => None,
     };
     let has_prefetch = play_url.is_some();
+
+    // 上次观看进度（网络查询）：与预取并行执行，限时 1.5 秒；查不到则从 0 开始播放。
+    // 注意：进度查询绝不能阻塞窗口显示（阶段一已完成），只影响起播位置。
+    let progress_handle = if progress.is_null() {
+        let bvid_p = bvid.clone();
+        Some(tauri::async_runtime::spawn(async move {
+            match tokio::time::timeout(
+                Duration::from_millis(1500),
+                crate::ipc::history::get_video_progress(&[json!(bvid_p)]),
+            )
+            .await
+            {
+                Ok(v) => v
+                    .get("progress")
+                    .and_then(|p| p.as_f64())
+                    .filter(|p| *p > 0.0)
+                    .map(|p| json!(p)),
+                Err(_) => None,
+            }
+        }))
+    } else {
+        None
+    };
+    let progress = match progress_handle {
+        Some(h) => match h.await {
+            Ok(Some(p)) => p,
+            _ => progress,
+        },
+        None => progress,
+    };
+
     if OPEN_GEN.load(Ordering::SeqCst) != gen {
         return;
     }
@@ -825,9 +927,9 @@ pub async fn dispatch_player_window_channel(
         "move-window-bounds" => {
             let x = a.first().and_then(|v| v.as_f64()).unwrap_or(0.0);
             let y = a.get(1).and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let width = a.get(2).and_then(|v| v.as_f64()).unwrap_or(0.0);
-            let height = a.get(3).and_then(|v| v.as_f64()).unwrap_or(0.0);
-            set_bounds_logical(&pw, x.round(), y.round(), width.round(), height.round());
+            // 拖拽移动只改位置、不改尺寸：尺寸本就不变，反复 set_size 会触发
+            // WebView 重排，竖屏视频（object-fit:contain）在重排瞬间会闪现黑边
+            let _ = pw.set_position(tauri::LogicalPosition::new(x.round(), y.round()));
             Value::Null
         }
         "set-window-position" | "set-window-position-direct" | "set-window-position-smooth" => {

@@ -2785,6 +2785,19 @@
     let currentAudioElement = null
     let pendingPrefetchData = null
     let loadVideoTimeout = null
+    // 当前加载任务挂在 video/audio 元素上的一次性监听器：
+    // 快速切换视频时，旧任务的监听器若不摘除，会被新视频的事件误触发（错位 seek/播放）
+    let activeLoadListeners = []
+    function addLoadListener(target, type, fn) {
+      target.addEventListener(type, fn, { once: true })
+      activeLoadListeners.push({ target, type, fn })
+    }
+    function clearLoadListeners() {
+      activeLoadListeners.forEach(function (l) {
+        try { l.target.removeEventListener(l.type, l.fn) } catch (e) {}
+      })
+      activeLoadListeners = []
+    }
     let currentOwnerMid = null
     let currentUserMid = null
     let isLiked = false
@@ -3783,6 +3796,13 @@
       danmakuList = []
       danmakuIndex = 0
       danmakuContainer.innerHTML = ''
+      // 摘除上一个加载任务挂在元素上的一次性监听器 + 清除其超时定时器，
+      // 避免旧任务被新视频的事件误触发（错位 seek、提前隐藏加载遮罩、误报错误）
+      clearLoadListeners()
+      if (loadVideoTimeout) {
+        clearTimeout(loadVideoTimeout)
+        loadVideoTimeout = null
+      }
       // 清掉上一个视频遗留的预加载数据，避免被误用作新视频的播放地址
       pendingPrefetchData = null
     }
@@ -4040,6 +4060,8 @@
       console.log('Loading video, bvid:', bvid, 'cid:', cid, 'progress:', progress, 'preFetch:', !!preFetchResult)
       loadingOverlay.style.display = 'flex'
       errorOverlay.style.display = 'none'
+      // 摘除上一个加载任务残留的一次性监听器（快速切换视频时防旧回调误触发）
+      clearLoadListeners()
       
       // 重置快照缓存，以便加载新视频的缩略图
       if (typeof resetSnapshotCache === 'function') {
@@ -4047,6 +4069,16 @@
       }
 
       try {
+        if (!cid) {
+          // 快速连点时 Rust 侧 get_video_info 可能限流失败导致 cid 缺失，这里兜底解析
+          try {
+            const cidResult = await ipcRenderer.invoke('get-cid-by-bvid', bvid)
+            if (cidResult && cidResult.success && cidResult.data) {
+              cid = String(cidResult.data)
+              console.log('[player] cid 兜底解析成功:', cid)
+            }
+          } catch (e) {}
+        }
         if (!cid) {
           throw new Error('缺少视频cid')
         }
@@ -4078,7 +4110,16 @@
         }
 
         if (!result.success) {
-          throw new Error(result.error || '获取视频地址失败')
+          // 快速连点时 B 站接口可能限流，稍候重试一次再放弃
+          console.log('get-video-url 失败，600ms 后重试一次:', result.error)
+          await new Promise(r => setTimeout(r, 600))
+          if (loadId !== null && loadId !== loadSeq) {
+            return
+          }
+          result = await ipcRenderer.invoke('get-video-url', bvid, cid)
+          if (!result.success) {
+            throw new Error(result.error || '获取视频地址失败')
+          }
         }
 
         console.log('Video URL:', result.url)
@@ -4115,14 +4156,14 @@
           hasSeparateAudio = true
 
           // 音频 ready 后，若视频已经在播放，立即跟上并同步时间
-          currentAudioElement.addEventListener('canplay', function onAudioCanPlay() {
+          addLoadListener(currentAudioElement, 'canplay', function onAudioCanPlay() {
             markAudioReady()
             // 如果视频已经开始播放但音频还没跟上，立即同步并播放
             if (currentAudioElement && !videoPlayer.paused && currentAudioElement.paused) {
               currentAudioElement.currentTime = videoPlayer.currentTime
               currentAudioElement.play().catch(e => console.log('Audio play error:', e))
             }
-          }, { once: true })
+          })
 
           videoPlayer.addEventListener('play', dashSyncHandlers.onPlay)
           videoPlayer.addEventListener('pause', dashSyncHandlers.onPause)
@@ -4185,17 +4226,19 @@
           }
         }
 
-        videoPlayer.addEventListener('loadedmetadata', function onMeta() {
+        // 登记到活动监听表：切换视频时由 resetPlayerForNewVideo 统一摘除，
+        // 防止旧加载任务的回调被新视频的事件误触发（错位 seek / 提前隐藏遮罩）
+        addLoadListener(videoPlayer, 'loadedmetadata', function onMeta() {
           console.log('Video metadata loaded')
           videoReady = true
           tryStartPlayback()
-        }, { once: true })
+        })
 
-        videoPlayer.addEventListener('canplay', function onCanPlay() {
+        addLoadListener(videoPlayer, 'canplay', function onCanPlay() {
           console.log('Video can play')
           videoReady = true
           tryStartPlayback()
-        }, { once: true })
+        })
 
         // 标记音频就绪
         function markAudioReady() {
@@ -4204,7 +4247,7 @@
           tryStartPlayback()
         }
 
-        videoPlayer.addEventListener('error', function onErr(e) {
+        addLoadListener(videoPlayer, 'error', function onErr(e) {
           console.error('Video player error:', videoPlayer.error)
           console.error('Error code:', videoPlayer.error?.code)
           console.error('Error message:', videoPlayer.error?.message)
@@ -4212,7 +4255,7 @@
             hasError = true
             showError('播放失败', '无法加载视频资源 (code: ' + (videoPlayer.error?.code || 'unknown') + ')')
           }
-        }, { once: true })
+        })
 
         // 清除上一次的超时定时器，避免干扰当前加载
         if (loadVideoTimeout) {
