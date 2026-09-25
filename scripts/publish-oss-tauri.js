@@ -14,7 +14,8 @@ const fs = require('fs')
 
 const PROJECT_ROOT = path.resolve(__dirname, '..')
 const BUNDLE_DIR = path.join(PROJECT_ROOT, 'src-tauri', 'target', 'release', 'bundle', 'nsis')
-const CONFIG_PATH = path.join(PROJECT_ROOT, 'oss-config.json')
+const CONFIG_PATH = path.join(PROJECT_ROOT, 'oss-config.json') // 旧配置，向后兼容
+const ENV_PATH = path.join(PROJECT_ROOT, 'env.json') // 推荐配置位置
 const TAURI_CONF = path.join(PROJECT_ROOT, 'src-tauri', 'tauri.conf.json')
 
 const argv = process.argv.slice(2)
@@ -66,16 +67,25 @@ async function main() {
   const signature = fs.readFileSync(path.join(BUNDLE_DIR, sigFile), 'utf8').trim()
   const exeSize = (fs.statSync(exePath).size / 1024 / 1024).toFixed(2)
 
-  // 2. 读取 OSS 配置（dry-run 时允许缺失）
+  // 2. 读取 OSS 配置：优先 env.json 的 oss 字段，其次旧版 oss-config.json（dry-run 时允许缺失）
   let config = null
-  if (fs.existsSync(CONFIG_PATH)) {
+  if (fs.existsSync(ENV_PATH)) {
+    try {
+      const envJson = JSON.parse(fs.readFileSync(ENV_PATH, 'utf8'))
+      if (envJson.oss && envJson.oss.accessKeyId) config = envJson.oss
+    } catch (err) {
+      console.error('[OSS] env.json 解析失败:', err.message)
+    }
+  }
+  if (!config && fs.existsSync(CONFIG_PATH)) {
     config = readJson(CONFIG_PATH)
-  } else if (!DRY_RUN) {
-    console.error('[OSS] 未找到配置文件:', CONFIG_PATH)
+  }
+  if (!config && !DRY_RUN) {
+    console.error('[OSS] 未找到 OSS 配置（env.json 的 oss 字段或 oss-config.json）')
     process.exit(1)
   }
   if (!config) {
-    console.error('[OSS] 未找到 oss-config.json，--dry-run 模式将只生成本地 latest.json')
+    console.error('[OSS] 未找到 OSS 配置，--dry-run 模式将只生成本地 latest.json')
   }
 
   const prefix = ((config && config.prefix) || 'doc/bl/bl').replace(/\/$/, '')
@@ -115,7 +125,7 @@ async function main() {
 
   const { region: _r, accessKeyId, accessKeySecret } = config
   if (!accessKeyId || !accessKeySecret || accessKeyId === 'your-access-key-id') {
-    console.error('[OSS] 请在 oss-config.json 中填入真实的 AccessKeyId / AccessKeySecret')
+    console.error('[OSS] 请在 env.json 的 oss 字段中填入真实的 AccessKeyId / AccessKeySecret')
     process.exit(1)
   }
 

@@ -15,11 +15,7 @@ npm run publish:oss:tauri      # 发布安装包/签名/latest.json 到阿里云
 npm run publish:oss:tauri:dry  # 发布演练（只校验不上传）
 ```
 
-发布正式包时需提供更新器签名私钥：
-
-```bash
-TAURI_SIGNING_PRIVATE_KEY=$(cat .workbuddy/updater.key) npm run tauri:build
-```
+构建时更新器签名私钥由 `scripts/tauri-build.js` 自动注入：从根目录 `env.json`（已加入 `.gitignore`，含 `tauri.signingPrivateKey` 与 `oss` 配置，不提交）读取后设置 `TAURI_SIGNING_PRIVATE_KEY` 再执行 `tauri build`。已导出的同名环境变量优先。
 
 构建产物位于 `src-tauri/target/release/bundle/nsis/`（安装包 exe + `.sig` 更新签名）。
 

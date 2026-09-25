@@ -14,8 +14,8 @@
     "publish:oss": "node scripts/publish-oss.js",
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
-    "tauri:build": "tauri build",
-    "tauri:build:nsis": "tauri build --bundles nsis",
+    "tauri:build": "node scripts/tauri-build.js",
+    "tauri:build:nsis": "node scripts/tauri-build.js --bundles nsis",
     "publish:oss:tauri": "node scripts/publish-oss-tauri.js",
     "publish:oss:tauri:dry": "node scripts/publish-oss-tauri.js --dry-run"
   },
