@@ -56,6 +56,9 @@ static PLAYER_HIDDEN: AtomicBool = AtomicBool::new(false);
 /// 播放器页面就绪计数：页面注册完 play-video-data 等监听后通过 "player-ready" 通道上报。
 /// open_builtin_player 在发送事件前等待此信号，避免页面未加载完导致事件丢失。
 static PLAYER_READY_COUNT: AtomicU64 = AtomicU64::new(0);
+/// 打开播放器的代际计数：连续快速点击时，只有最新一次调用的后台加载任务允许下发数据，
+/// 过期任务在各检查点直接退出，避免旧视频数据覆盖新请求。
+static OPEN_GEN: AtomicU64 = AtomicU64::new(0);
 /// 已成功注册 CDN 请求头注入的窗口 label 集合（with_webview 异步执行，可能因
 /// CoreWebView2 未就绪而静默跳过，open_builtin_player 据此重试）。
 static CDN_ATTACHED_LABELS: Lazy<Mutex<std::collections::HashSet<String>>> =
@@ -271,73 +274,20 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
         .and_then(|v| v.as_str())
         .unwrap_or("")
         .to_string();
-    let mut final_cid = args.get(1).and_then(|v| v.as_str()).unwrap_or("").to_string();
+    let final_cid = args.get(1).and_then(|v| v.as_str()).unwrap_or("").to_string();
     let title = args.get(2).and_then(|v| v.as_str()).unwrap_or("").to_string();
     let progress = args.get(6).cloned().unwrap_or(Value::Null);
     let episode_data = args.get(7).cloned().unwrap_or(Value::Null);
     plog!("[播放器窗口] 参数: bvid={}, cid={}, title={}", bvid, final_cid, title);
-    let video_title = if title.is_empty() {
-        "哔哩哔哩视频".to_string()
-    } else {
-        title.clone()
-    };
 
     stop_video();
     // 复用模式：不销毁重建窗口，仅停止旧播放并推送新数据
 
-    // 获取视频信息（cid/dimension/aid/duration）
-    let mut first_video_info: Option<Value> = None;
-    match get_video_info(&bvid).await {
-        Some(info) => first_video_info = Some(info),
-        None => plog!("[播放器窗口] get_video_info 失败（返回 None）"),
-    }
-    let first_video_info = match first_video_info {
-        Some(v) => v,
-        None => Value::Null,
-    };
-    if first_video_info.is_object() {
-        if final_cid.is_empty() {
-            if let Some(c) = first_video_info.get("cid").and_then(|c| c.as_i64()) {
-                final_cid = c.to_string();
-            }
-        }
-    }
-    let video_dimension = first_video_info.get("dimension").cloned();
-    let video_aid = first_video_info.get("aid").cloned().unwrap_or(Value::Null);
-    let video_duration = first_video_info.get("duration").cloned().unwrap_or(Value::Null);
-
-    // 重置上一个视频的运行时状态（必须在写入 video_aspect 之前，否则竖屏比例会被清掉）
+    // 重置上一个视频的运行时状态
     *UI.lock().unwrap() = PlayerUiState::default();
 
-    // 计算窗口大小 — 默认工作区 70% 高度
-    let mut window_width = 1280.0f64;
-    let mut window_height = 720.0f64;
-    let wa = primary_workarea(app);
-    if let Some(dim) = &video_dimension {
-        let dw = dim.get("width").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        let dh = dim.get("height").and_then(|v| v.as_f64()).unwrap_or(0.0);
-        if dw > 0.0 && dh > 0.0 {
-            let mut video_w = dw;
-            let mut video_h = dh;
-            let rotate = dim.get("rotate").and_then(|v| v.as_f64()).unwrap_or(0.0);
-            if rotate == 90.0 || rotate == 270.0 {
-                std::mem::swap(&mut video_w, &mut video_h);
-            }
-            let video_aspect = video_w / video_h;
-            let default_height = (wa.3 * 0.7).floor();
-            let default_width = (default_height * video_aspect).floor();
-            if default_width > wa.2 * 0.85 {
-                window_width = (wa.2 * 0.85).floor();
-                window_height = (window_width / video_aspect).floor();
-            } else {
-                window_width = default_width;
-                window_height = default_height;
-            }
-            window_width = window_width.max(480.0);
-            window_height = window_height.max(270.0);
-            ui().video_aspect = video_aspect;
-        }
-    }
+    // ===== 第一阶段：立即显示窗口（速度优先，不做任何网络请求）=====
+    // 视频信息解析与播放数据下发全部放到第二阶段后台执行
 
     // 恢复上次窗口状态（位置/大小/全屏）
     let saved = load_player_window_state(app);
@@ -350,9 +300,22 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
         .and_then(|s| s.get("fullscreen").and_then(|f| f.as_bool()))
         .unwrap_or(false);
 
+    // 初始尺寸：优先沿用上次窗口大小，否则默认 1280x720
+    let mut window_width = 1280.0f64;
+    let mut window_height = 720.0f64;
+    if let Some(sb) = &saved_bounds {
+        let sw = sb.get("width").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let sh = sb.get("height").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        if sw >= 480.0 && sh >= 270.0 {
+            window_width = sw;
+            window_height = sh;
+        }
+    }
+
     // 所有分支均会在使用前赋值，无需初始化
     let pos_x: f64;
     let pos_y: f64;
+    let wa = primary_workarea(app);
     if let Some(sb) = &saved_bounds {
         let (sx, sy, sw, sh) = (
             sb.get("x").and_then(|v| v.as_f64()).unwrap_or(0.0),
@@ -389,39 +352,6 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
         let y = (wa.1 + (wa.3 - window_height) / 2.0).floor();
         pos_x = x;
         pos_y = y;
-    }
-
-    // 预加载：与窗口加载并行获取视频 URL 和视频信息
-    let (tx, rx) = tokio::sync::oneshot::channel::<(Option<Value>, Option<Value>)>();
-    {
-        let vi_preload = first_video_info.clone();
-        let bvid_pre = bvid.clone();
-        let cid = final_cid.clone();
-        tauri::async_runtime::spawn(async move {
-            let bvid_info = bvid_pre.clone();
-            let video_info_task = async move {
-                if vi_preload.is_object() {
-                    Some(vi_preload)
-                } else {
-                    get_video_info(&bvid_info).await
-                }
-            };
-            let cookie_string = cookie_store::get_cookie_string();
-            let play_url_task = async {
-                if cid.is_empty() {
-                    None
-                } else {
-                    let r = fetch_best_play_url(&bvid_pre, &cid, &cookie_string).await;
-                    if r.get("success").and_then(|s| s.as_bool()) == Some(true) {
-                        Some(r)
-                    } else {
-                        None
-                    }
-                }
-            };
-            let (vi, pu) = tokio::join!(video_info_task, play_url_task);
-            let _ = tx.send((vi, pu));
-        });
     }
 
     // 获取或动态创建播放器窗口
@@ -467,23 +397,114 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
         let _ = focus_win.set_always_on_top(false);
     });
 
-    let mut rx = rx;
-    // 等待预加载结果（预加载任务已在上方并行启动）
-    let prefetch = match tokio::time::timeout(Duration::from_secs(2), &mut rx).await {
-        Ok(Ok(data)) => Some(data),
+    // ===== 第二阶段：后台解析视频信息并下发播放数据（不阻塞窗口显示）=====
+    let gen = OPEN_GEN.fetch_add(1, Ordering::SeqCst) + 1;
+    let app_bg = app.clone();
+    let bvid_bg = bvid.clone();
+    let title_bg = title.clone();
+    tauri::async_runtime::spawn(async move {
+        open_builtin_player_load(
+            app_bg,
+            bvid_bg,
+            final_cid,
+            title_bg,
+            progress,
+            episode_data,
+            gen,
+        )
+        .await;
+    });
+
+    json!({ "success": true, "hasDanmaku": false, "playerOpened": true })
+}
+
+/// 第二阶段：解析视频信息、预取播放地址并下发 play-video-data。
+/// 全部在后台执行，窗口显示（第一阶段）不等待本函数；
+/// 代际计数 gen 用于丢弃被更新播放请求 supersede 的过期任务。
+async fn open_builtin_player_load(
+    app: AppHandle,
+    bvid: String,
+    mut final_cid: String,
+    title: String,
+    progress: Value,
+    episode_data: Value,
+    gen: u64,
+) {
+    let video_title = if title.is_empty() {
+        "哔哩哔哩视频".to_string()
+    } else {
+        title.clone()
+    };
+
+    // 获取视频信息（cid/dimension/aid/duration）
+    let first_video_info = match get_video_info(&bvid).await {
+        Some(info) => info,
+        None => {
+            plog!("[播放器窗口] get_video_info 失败（返回 None）");
+            Value::Null
+        }
+    };
+    if OPEN_GEN.load(Ordering::SeqCst) != gen {
+        return; // 已有更新的播放请求，丢弃本次
+    }
+    let video_aid = first_video_info.get("aid").cloned().unwrap_or(Value::Null);
+    let video_duration = first_video_info.get("duration").cloned().unwrap_or(Value::Null);
+    if first_video_info.is_object() && final_cid.is_empty() {
+        if let Some(c) = first_video_info.get("cid").and_then(|c| c.as_i64()) {
+            final_cid = c.to_string();
+        }
+    }
+    // 更新宽高比（供窗口移动/缩放的限制逻辑使用），不改变当前窗口大小
+    if let Some(dim) = first_video_info.get("dimension") {
+        let dw = dim.get("width").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        let dh = dim.get("height").and_then(|v| v.as_f64()).unwrap_or(0.0);
+        if dw > 0.0 && dh > 0.0 {
+            let mut video_w = dw;
+            let mut video_h = dh;
+            let rotate = dim.get("rotate").and_then(|v| v.as_f64()).unwrap_or(0.0);
+            if rotate == 90.0 || rotate == 270.0 {
+                std::mem::swap(&mut video_w, &mut video_h);
+            }
+            ui().video_aspect = video_w / video_h;
+        }
+    }
+
+    // 预取播放地址（限时 2 秒，超时则由页面自行请求）
+    let (tx, mut rx) = tokio::sync::oneshot::channel::<Option<Value>>();
+    {
+        let bvid_pre = bvid.clone();
+        let cid_pre = final_cid.clone();
+        tauri::async_runtime::spawn(async move {
+            if cid_pre.is_empty() {
+                let _ = tx.send(None);
+                return;
+            }
+            let cookie_string = cookie_store::get_cookie_string();
+            let r = fetch_best_play_url(&bvid_pre, &cid_pre, &cookie_string).await;
+            let _ = tx.send(if r.get("success").and_then(|s| s.as_bool()) == Some(true) {
+                Some(r)
+            } else {
+                None
+            });
+        });
+    }
+    let play_url = match tokio::time::timeout(Duration::from_secs(2), &mut rx).await {
+        Ok(Ok(data)) => data,
         _ => None,
     };
-    let (video_info, play_url) = match prefetch {
-        Some((vi, pu)) => (vi, pu),
-        None => (None, None),
-    };
     let has_prefetch = play_url.is_some();
+    if OPEN_GEN.load(Ordering::SeqCst) != gen {
+        return;
+    }
 
     // 等待播放器页面就绪握手（页面注册完监听后上报 player-ready）。
     // 页面不 reload，预创建时加载一次即长期存活，因此等待计数 >= 1 即可。
     plog!("[播放器窗口] 等待页面就绪信号（player-ready，最长 15 秒）...");
     let ready = wait_player_ready(1, Duration::from_secs(15)).await;
     plog!("[播放器窗口] 页面就绪信号: {}", if ready { "已收到" } else { "超时（仍然发送事件）" });
+    if OPEN_GEN.load(Ordering::SeqCst) != gen {
+        return;
+    }
 
     plog!("[播放器窗口] 发送 play-video-data 事件，bvid={}, cid={}, title={}", bvid, final_cid, video_title);
     let emit_result = app.emit_to(
@@ -497,7 +518,7 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
             "progress": progress,
             "episodeData": episode_data,
             "preFetchVideoUrl": play_url,
-            "preFetchVideoInfo": video_info
+            "preFetchVideoInfo": first_video_info
         }),
     );
     plog!("[播放器窗口] emit_to 结果: {:?}", emit_result);
@@ -505,21 +526,21 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
     // 预加载未就绪：后台等待完成后补发 prefetch-data（对应 Electron 补发逻辑）
     if !has_prefetch {
         let app_prefetch = app.clone();
-        let rx_late = rx;
         tauri::async_runtime::spawn(async move {
-            if let Ok((vi, pu)) = rx_late.await {
-                if pu.is_some() {
-                    let _ = app_prefetch.emit_to(
-                        "player",
-                        "prefetch-data",
-                        json!({
-                            "preFetchVideoUrl": pu,
-                            "preFetchVideoInfo": vi
-                        }),
-                    );
-                }
+            if let Ok(Some(pu)) = rx.await {
+                let _ = app_prefetch.emit_to(
+                    "player",
+                    "prefetch-data",
+                    json!({
+                        "preFetchVideoUrl": pu
+                    }),
+                );
             }
         });
+    }
+
+    if OPEN_GEN.load(Ordering::SeqCst) != gen {
+        return;
     }
 
     // 设置当前播放视频信息用于历史上报
@@ -542,8 +563,6 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
     }
 
     start_builtin_report_timer(app.clone());
-
-    json!({ "success": true, "hasDanmaku": false, "playerOpened": true })
 }
 
 // ==================== 播放器窗口动态创建 ====================

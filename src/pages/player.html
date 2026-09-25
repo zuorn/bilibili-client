@@ -2849,6 +2849,8 @@
     let danmakuEnabled = localStorage.getItem('showDanmaku') !== 'false'
     let danmakuList = []
     let danmakuIndex = 0
+    // 加载代际计数：快速连续点击时丢弃过期的 loadVideo 任务
+    let loadSeq = 0
     let danmakuTimer = null
 
     // 初始化弹幕按钮状态
@@ -3789,6 +3791,7 @@
       console.log('Received play-video-data:', data)
       // 同步重置旧视频状态（正常情况下窗口关闭时已重置过，这里兜底）
       resetPlayerForNewVideo()
+      const loadId = ++loadSeq
       currentVideoData = data
       videoTitle.textContent = data.title
       infoTitle.textContent = data.title
@@ -3825,7 +3828,7 @@
 
       try {
         // 优先使用预加载的视频URL，否则 loadVideo 内部会自行请求
-        await loadVideo(data.bvid, data.cid, data.progress, data.preFetchVideoUrl)
+        await loadVideo(data.bvid, data.cid, data.progress, data.preFetchVideoUrl, loadId)
 
         // 视频信息：优先用预加载数据
         if (data.preFetchVideoInfo && data.preFetchVideoInfo.owner) {
@@ -3841,7 +3844,10 @@
         }
       } catch (error) {
         console.error('Error loading video:', error)
-        showError('加载失败', error.message)
+        // 过期的加载任务不再报错，避免覆盖新视频的界面
+        if (loadId === loadSeq) {
+          showError('加载失败', error.message)
+        }
       }
     })
 
@@ -4030,7 +4036,7 @@
       })
     }
 
-    async function loadVideo(bvid, cid, progress = null, preFetchResult = null) {
+    async function loadVideo(bvid, cid, progress = null, preFetchResult = null, loadId = null) {
       console.log('Loading video, bvid:', bvid, 'cid:', cid, 'progress:', progress, 'preFetch:', !!preFetchResult)
       loadingOverlay.style.display = 'flex'
       errorOverlay.style.display = 'none'
@@ -4063,6 +4069,12 @@
             result = await ipcRenderer.invoke('get-video-url', bvid, cid)
             console.log('get-video-url result:', result)
           }
+        }
+
+        // 已有更新的播放请求：静默中止，避免旧视频覆盖新视频的 src
+        if (loadId !== null && loadId !== loadSeq) {
+          console.log('[player] loadVideo 过期，中止（loadId:', loadId, '当前:', loadSeq, '）')
+          return
         }
 
         if (!result.success) {
