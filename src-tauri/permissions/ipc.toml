@@ -1,0 +1,4 @@
+[[permission]]
+identifier = "allow-ipc"
+description = "Allows the custom ipc command for renderer IPC"
+commands.allow = ["ipc"]

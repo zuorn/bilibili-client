@@ -60,9 +60,16 @@ process.on('unhandledRejection', (reason) => {
 })
 
 // 绕过 Chromium GPU 黑名单，确保 WebGL 可用（Anime4K 依赖）
-app.commandLine.appendSwitch('ignore-gpu-blacklist')
-app.commandLine.appendSwitch('enable-gpu-rasterization')
-app.commandLine.appendSwitch('enable-zero-copy')
+// 如果启动时传了 --disable-gpu 则跳过所有 GPU 加速开关
+const gpuDisabled = process.argv.includes('--disable-gpu')
+if (!gpuDisabled) {
+  app.commandLine.appendSwitch('ignore-gpu-blacklist')
+  app.commandLine.appendSwitch('enable-gpu-rasterization')
+  app.commandLine.appendSwitch('enable-zero-copy')
+} else {
+  app.commandLine.appendSwitch('disable-gpu')
+  app.commandLine.appendSwitch('disable-gpu-compositing')
+}
 
 const cookieManager = require('./src/main/cookieManager')
 

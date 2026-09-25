@@ -1,0 +1,12 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "主窗口与播放器窗口默认能力",
+  "windows": ["main", "player"],
+  "permissions": [
+    "core:default",
+    "core:window:default",
+    "core:event:default",
+    "allow-ipc"
+  ]
+}

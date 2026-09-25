@@ -3,6 +3,8 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- CDN 防盗链已由 Rust 侧 WebView2 COM 请求头注入处理（Referer=bilibili.com）。
+       禁止在此加 meta no-referrer：会抑制 IPC 请求的 Origin 头导致 Tauri IPC 500 -->
   <title>哔哩哔哩 - (゜-゜)つロ 干杯~</title>
   <!-- 基础样式 -->
   <link rel="stylesheet" href="src/style/base.css">
@@ -1199,6 +1201,8 @@
   </div>
 
   <!-- 核心模块 - 必须最先加载 -->
+  <!-- Tauri IPC 兼容层：必须最先加载，伪造 ipcRenderer 与 require('electron') -->
+  <script src="src/renderer/core/ipc-shim.js"></script>
   <script src="src/renderer/core/state.js"></script>
   <script src="src/renderer/core/utils.js"></script>
   <script src="src/renderer/core/navigation.js"></script>

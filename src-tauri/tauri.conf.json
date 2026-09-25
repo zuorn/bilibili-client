@@ -1,0 +1,54 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Bilibili Client",
+  "version": "0.1.0",
+  "identifier": "com.example.bilibili-client",
+  "build": {
+    "beforeDevCommand": "",
+    "beforeBuildCommand": "",
+    "frontendDist": "../app-dist"
+  },
+  "app": {
+    "withGlobalTauri": true,
+    "windows": [
+      {
+        "label": "main",
+        "title": "Bilibili Client",
+        "url": "index.html?v=2",
+        "width": 1700,
+        "height": 1000,
+        "minWidth": 800,
+        "minHeight": 600,
+        "decorations": false,
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --enable-logging=stderr --v=1 --log-level=0"
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEUxQTdERjlCN0UwM0VGRjEKUldUeDd3TittOStuNGFLcHJWQUVodTlqcERNT3E2R3J2MkRnbWhqZVkxZmg1aWdTNllpcjRBVlgK",
+      "endpoints": [
+        "https://talktime.oss-cn-shanghai.aliyuncs.com/doc/bl/bl/latest.json"
+      ]
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis"],
+    "createUpdaterArtifacts": true,
+    "icon": ["icons/icon.ico", "icons/icon.png"],
+    "resources": {
+      "../node_modules/ffmpeg-static/ffmpeg.exe": "ffmpeg.exe"
+    },
+    "windows": {
+      "nsis": {
+        "languages": ["SimpChinese", "English"],
+        "displayLanguageSelector": false,
+        "installMode": "currentUser"
+      }
+    }
+  }
+}

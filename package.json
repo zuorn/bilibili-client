@@ -1,6 +1,6 @@
 {
   "name": "bilibili-client",
-  "version": "0.0.7",
+  "version": "0.1.0",
   "main": "main.js",
   "scripts": {
     "start": "node scripts/start.js",
@@ -11,7 +11,13 @@
     "build:linux": "electron-builder --linux && npm run clean:dist",
     "clean": "rimraf dist",
     "clean:dist": "rimraf dist/win-unpacked dist/win-ia32-unpacked dist/mac dist/mac-arm64 dist/linux-unpacked dist/builder-debug.yml dist/builder-effective-config.yaml",
-    "publish:oss": "node scripts/publish-oss.js"
+    "publish:oss": "node scripts/publish-oss.js",
+    "tauri": "tauri",
+    "tauri:dev": "tauri dev",
+    "tauri:build": "tauri build",
+    "tauri:build:nsis": "tauri build --bundles nsis",
+    "publish:oss:tauri": "node scripts/publish-oss-tauri.js",
+    "publish:oss:tauri:dry": "node scripts/publish-oss-tauri.js --dry-run"
   },
   "keywords": [],
   "author": "Zuorn",
@@ -31,6 +37,7 @@
     "xml2js": "^0.6.2"
   },
   "devDependencies": {
+    "@tauri-apps/cli": "^2.11.5",
     "electron": "^41.4.0",
     "electron-builder": "^26.8.1",
     "png-to-ico": "^3.0.1",

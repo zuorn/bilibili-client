@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- CDN 防盗链已由 Rust 侧 WebView2 COM 请求头注入处理（Referer=bilibili.com） -->
   <title>哔哩哔哩播放器</title>
   <style>
     * {
@@ -2708,6 +2709,8 @@
     </div>
   </div>
 
+  <!-- Tauri IPC 兼容层：必须最先加载，伪造 ipcRenderer 与 require('electron') -->
+  <script src="../renderer/core/ipc-shim.js"></script>
   <script src="anime4k.js"></script>
   <script>
     const { ipcRenderer } = require('electron')

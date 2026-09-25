@@ -12,6 +12,7 @@ function useBuiltinPlayer() {
 }
 
 async function playVideo(bvid, cid, title, progress, episodeData = null) {
+  console.log('[playback] playVideo called:', { bvid, cid, title, progress, episodeData })
   if (playerOpening) {
     console.log('Player is already opening, ignoring duplicate click')
     return
@@ -19,6 +20,7 @@ async function playVideo(bvid, cid, title, progress, episodeData = null) {
 
   const useBuiltin = useBuiltinPlayer()
   const mpvPath = getMpvPath()
+  console.log('[playback] useBuiltin:', useBuiltin, 'mpvPath:', mpvPath)
 
   // Neither player is configured — tell the user to set one up
   if (!useBuiltin && !mpvPath) {
@@ -41,10 +43,14 @@ async function playVideo(bvid, cid, title, progress, episodeData = null) {
   playerOpening = true
   try {
     const showDanmaku = localStorage.getItem('showDanmaku') !== 'false'
+    console.log('[playback] 调用 play-video IPC...')
     const result = await ipcRenderer.invoke('play-video', bvid, cid, title, mpvPath, showDanmaku, useBuiltin, progress, episodeData)
+    console.log('[playback] play-video 结果:', result)
     if (!result.success) {
       showToast(result.error || '播放失败')
     }
+  } catch (err) {
+    console.error('[playback] play-video 异常:', err)
   } finally {
     // Hold the guard for at least 3 seconds to prevent rapid re-clicks
     // from triggering a second window before the first one loads.
