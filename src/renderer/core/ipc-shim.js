@@ -127,4 +127,13 @@
     throw new Error('[ipc-shim] require("' + moduleName + '") is not available under Tauri')
   }
 
+  // WebView2 中脚本调用 window.close() 会绕过 Tauri 的 CloseRequested 事件，
+  // 直接把页面内容清空（留下空白窗口，事件监听全部失效）。
+  // 统一改走 close-window 通道，由 Rust 侧决定行为（主窗口隐藏到托盘 / 播放器窗口移到屏外）。
+  window.close = function () {
+    ipcRenderer.invoke('close-window').catch(function (err) {
+      console.warn('[ipc-shim] window.close() via close-window failed:', err)
+    })
+  }
+
 })()

@@ -5,7 +5,7 @@
 // CDN 请求头注入（Referer/UA）见 handle_player_webview（with_webview，Step C）。
 use once_cell::sync::Lazy;
 use serde_json::{json, Value};
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -17,6 +17,15 @@ use tauri::{
     AppHandle, Emitter, LogicalPosition, LogicalSize, Manager, WebviewUrl, WebviewWindow,
     WebviewWindowBuilder,
 };
+
+// 日志宏：同时输出到 stderr 和日志文件
+macro_rules! plog {
+    ($($arg:tt)*) => {{
+        let msg = format!($($arg)*);
+        eprintln!("{}", msg);
+        crate::log_to_file(&msg);
+    }};
+}
 
 // ==================== 播放器窗口运行时状态 ====================
 
@@ -40,6 +49,40 @@ impl Default for PlayerUiState {
 
 static UI: Lazy<Mutex<PlayerUiState>> = Lazy::new(|| Mutex::new(PlayerUiState::default()));
 static LAST_FULLSCREEN: AtomicBool = AtomicBool::new(false);
+/// 播放器窗口是否处于"已关闭"状态（移到屏外保活）。
+/// 关闭后页面可能仍持有键盘焦点，WASD/±= 等快捷键会继续触发窗口操控 IPC，
+/// 把屏外窗口重新拉回屏幕，因此关闭期间需要拦截这些请求。
+static PLAYER_HIDDEN: AtomicBool = AtomicBool::new(false);
+/// 播放器页面就绪计数：页面注册完 play-video-data 等监听后通过 "player-ready" 通道上报。
+/// open_builtin_player 在发送事件前等待此信号，避免页面未加载完导致事件丢失。
+static PLAYER_READY_COUNT: AtomicU64 = AtomicU64::new(0);
+/// 已成功注册 CDN 请求头注入的窗口 label 集合（with_webview 异步执行，可能因
+/// CoreWebView2 未就绪而静默跳过，open_builtin_player 据此重试）。
+static CDN_ATTACHED_LABELS: Lazy<Mutex<std::collections::HashSet<String>>> =
+    Lazy::new(|| Mutex::new(std::collections::HashSet::new()));
+
+pub fn cdn_injection_attached(label: &str) -> bool {
+    CDN_ATTACHED_LABELS.lock().unwrap().contains(label)
+}
+
+pub fn mark_player_ready() {
+    PLAYER_READY_COUNT.fetch_add(1, Ordering::SeqCst);
+    plog!("[播放器窗口] 收到 player-ready 信号（页面监听已注册）");
+}
+
+/// 等待播放器页面就绪（计数 >= expected），最长 timeout。返回是否在超时前就绪。
+async fn wait_player_ready(expected: u64, timeout: Duration) -> bool {
+    let deadline = tokio::time::Instant::now() + timeout;
+    loop {
+        if PLAYER_READY_COUNT.load(Ordering::SeqCst) >= expected {
+            return true;
+        }
+        if tokio::time::Instant::now() >= deadline {
+            return false;
+        }
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+}
 
 fn ui() -> std::sync::MutexGuard<'static, PlayerUiState> {
     UI.lock().unwrap()
@@ -222,7 +265,7 @@ async fn final_report_on_closed() {
 /// 对应 openBuiltinPlayer。args 与 play-video 一致：
 /// (bvid, cid, title, mpvPath, showDanmaku, useBuiltin, progress, episodeData)
 pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
-    eprintln!("[播放器窗口] open_builtin_player 被调用");
+    plog!("[播放器窗口] open_builtin_player 被调用");
     let bvid = args
         .first()
         .and_then(|v| v.as_str())
@@ -232,7 +275,7 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
     let title = args.get(2).and_then(|v| v.as_str()).unwrap_or("").to_string();
     let progress = args.get(6).cloned().unwrap_or(Value::Null);
     let episode_data = args.get(7).cloned().unwrap_or(Value::Null);
-    eprintln!("[播放器窗口] 参数: bvid={}, cid={}, title={}", bvid, final_cid, title);
+    plog!("[播放器窗口] 参数: bvid={}, cid={}, title={}", bvid, final_cid, title);
     let video_title = if title.is_empty() {
         "哔哩哔哩视频".to_string()
     } else {
@@ -246,7 +289,7 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
     let mut first_video_info: Option<Value> = None;
     match get_video_info(&bvid).await {
         Some(info) => first_video_info = Some(info),
-        None => eprintln!("[播放器窗口] get_video_info 失败（返回 None）"),
+        None => plog!("[播放器窗口] get_video_info 失败（返回 None）"),
     }
     let first_video_info = match first_video_info {
         Some(v) => v,
@@ -262,6 +305,9 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
     let video_dimension = first_video_info.get("dimension").cloned();
     let video_aid = first_video_info.get("aid").cloned().unwrap_or(Value::Null);
     let video_duration = first_video_info.get("duration").cloned().unwrap_or(Value::Null);
+
+    // 重置上一个视频的运行时状态（必须在写入 video_aspect 之前，否则竖屏比例会被清掉）
+    *UI.lock().unwrap() = PlayerUiState::default();
 
     // 计算窗口大小 — 默认工作区 70% 高度
     let mut window_width = 1280.0f64;
@@ -378,31 +424,39 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
         });
     }
 
-    // 复用预创建的播放器窗口（setup 阶段在主线程创建）。
-    // WebView2 窗口运行期二次创建会丢失初始导航（窗口停在 about:blank、
-    // on_page_load 永不触发），因此播放时只做显示与数据推送，不再销毁重建。
-    let Some(window) = app.get_webview_window("player") else {
-        eprintln!("[播放器窗口] player 窗口不存在（未预创建或已销毁）");
-        return json!({ "success": false, "error": "播放器窗口未就绪，请重启应用" });
+    // 获取或动态创建播放器窗口
+    let window = match ensure_player_window(app) {
+        Some(win) => {
+            plog!("[播放器窗口] 获取窗口成功");
+            let current_url = win.url().map(|u| u.to_string()).unwrap_or_default();
+            plog!("[播放器窗口] 窗口当前 URL: {}", current_url);
+            let is_visible = win.is_visible().unwrap_or(false);
+            plog!("[播放器窗口] 窗口当前是否可见: {}", is_visible);
+            win
+        }
+        None => {
+            plog!("[播放器窗口] 窗口创建失败");
+            return json!({ "success": false, "error": "播放器窗口创建失败" });
+        }
     };
-    eprintln!("[播放器窗口] 找到 player 窗口，准备显示");
-    // 重置窗口 UI 状态（原"销毁重建"方案中由 Destroyed 事件完成）
-    *UI.lock().unwrap() = PlayerUiState::default();
+    plog!("[播放器窗口] 准备显示窗口");
+    if !cdn_injection_attached("player") {
+        plog!("[播放器窗口] CDN 注入未就绪，重新附加");
+        attach_cdn_header_injection(&window);
+    }
 
-    // 按视频比例/上次位置调整窗口，再显示。
-    // 先同步全屏基线（复用窗口的上次状态可能是全屏），
-    // 确保后续 set_fullscreen 触发的 Resized 事件能正确推送 fullscreen-changed。
     LAST_FULLSCREEN.store(window.is_fullscreen().unwrap_or(false), Ordering::SeqCst);
     let _ = window.set_size(LogicalSize::new(window_width, window_height));
     let _ = window.set_position(LogicalPosition::new(pos_x, pos_y));
     if restore_fullscreen {
         let _ = window.set_fullscreen(true);
     }
-    eprintln!("[播放器窗口] 调用 show() 和 set_focus()");
-    let show_result = window.show();
-    eprintln!("[播放器窗口] show() 结果: {:?}", show_result);
-    let focus_result = window.set_focus();
-    eprintln!("[播放器窗口] set_focus() 结果: {:?}", focus_result);
+
+    plog!("[播放器窗口] 调用 show() 和 set_focus()");
+    PLAYER_HIDDEN.store(false, Ordering::SeqCst);
+    let _ = window.set_skip_taskbar(false);
+    let _ = window.show();
+    let _ = window.set_focus();
 
     let mut rx = rx;
     // 等待预加载结果（预加载任务已在上方并行启动）
@@ -416,7 +470,13 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
     };
     let has_prefetch = play_url.is_some();
 
-    eprintln!("[播放器窗口] 发送 play-video-data 事件，bvid={}, cid={}, title={}", bvid, final_cid, video_title);
+    // 等待播放器页面就绪握手（页面注册完监听后上报 player-ready）。
+    // 页面不 reload，预创建时加载一次即长期存活，因此等待计数 >= 1 即可。
+    plog!("[播放器窗口] 等待页面就绪信号（player-ready，最长 15 秒）...");
+    let ready = wait_player_ready(1, Duration::from_secs(15)).await;
+    plog!("[播放器窗口] 页面就绪信号: {}", if ready { "已收到" } else { "超时（仍然发送事件）" });
+
+    plog!("[播放器窗口] 发送 play-video-data 事件，bvid={}, cid={}, title={}", bvid, final_cid, video_title);
     let emit_result = app.emit_to(
         "player",
         "play-video-data",
@@ -431,7 +491,7 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
             "preFetchVideoInfo": video_info
         }),
     );
-    eprintln!("[播放器窗口] emit_to 结果: {:?}", emit_result);
+    plog!("[播放器窗口] emit_to 结果: {:?}", emit_result);
 
     // 预加载未就绪：后台等待完成后补发 prefetch-data（对应 Electron 补发逻辑）
     if !has_prefetch {
@@ -477,43 +537,93 @@ pub async fn open_builtin_player(app: &AppHandle, args: &[Value]) -> Value {
     json!({ "success": true, "hasDanmaku": false, "playerOpened": true })
 }
 
-// ==================== 预创建播放器窗口（setup 阶段） ====================
+// ==================== 播放器窗口动态创建 ====================
 
-/// setup 阶段在主线程预创建播放器窗口（隐藏，对应 Electron 的 show: false + frame: false）。
-/// 必须在启动时预创建：WebView2 环境在运行期（尤其从 async command 的 tokio 线程）
-/// 二次创建会丢失初始导航——窗口停在 about:blank、on_page_load 永不触发。
-/// 播放时只做显示 + 数据推送，不再销毁重建（见 open_builtin_player）。
-pub fn create_player_window(app: &AppHandle) {
+/// 启动时预创建播放器窗口（隐藏）。
+/// 必须在 setup 阶段调用（延迟 2 秒），此时 asset handler 已就绪，页面能正常加载。
+/// 从 IPC 异步上下文创建窗口会导致页面停留在 about:blank。
+pub fn precreate_player_window(app: &AppHandle) {
     if app.get_webview_window("player").is_some() {
         return;
     }
-    let builder = WebviewWindowBuilder::new(app, "player", WebviewUrl::App("src/pages/player.html?v=2".into()))
-        .title("哔哩哔哩视频")
-        .inner_size(1280.0, 720.0)
-        .minimizable(true)
-        .maximizable(true)
-        .closable(true)
-        .decorations(false)
-        .visible(false)
-        // 必须与主窗口 tauri.conf.json 的 additionalBrowserArgs 逐字一致：
-        // 同一 user data directory 的所有 WebView2 环境参数不一致会导致
-        // 第二个环境创建静默失败。
-        .additional_browser_args(
-            "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --disable-background-timer-throttling --disable-backgrounding-occluded-windows --disable-renderer-backgrounding",
-        )
-        .on_page_load(move |_webview, payload| {
-            if let tauri::webview::PageLoadEvent::Finished = payload.event() {
-                eprintln!("[播放器窗口] 页面加载完成（预创建）");
-            }
-        });
+
+    plog!("[播放器窗口] 预创建窗口（隐藏）...");
+
+    let data_dir = {
+        let local_app_data = tauri::path::BaseDirectory::LocalData;
+        app.path().resolve("com.example.bilibili-client/player-dyn", local_app_data).ok()
+    };
+
+    let mut builder = WebviewWindowBuilder::new(
+        app,
+        "player",
+        WebviewUrl::App("src/pages/player.html?v=2".into()),
+    )
+    .title("哔哩哔哩视频")
+    .inner_size(1280.0, 720.0)
+    .minimizable(true)
+    .maximizable(true)
+    .closable(true)
+    .decorations(false)
+    .visible(false);
+
+    if let Some(ref dir) = data_dir {
+        builder = builder.data_directory(dir.clone());
+    }
+
     match builder.build() {
         Ok(win) => {
-            // CDN 请求头注入：对应 Electron onBeforeSendHeaders（bilivideo/hdslb 等
-            // 域名强制 User-Agent/Referer/Origin，否则 CDN 返回 403）
+            plog!("[播放器窗口] 预创建成功");
             attach_cdn_header_injection(&win);
-            eprintln!("[播放器窗口] 预创建完成（隐藏）");
+            let _ = win.set_position(LogicalPosition::new(30000, 30000));
         }
-        Err(e) => eprintln!("[播放器窗口] 预创建失败: {}", e),
+        Err(e) => {
+            plog!("[播放器窗口] 预创建失败: {}", e);
+        }
+    }
+}
+
+/// 创建新的播放器窗口。
+/// 返回 Some(window) 表示窗口就绪，None 表示创建失败。
+pub fn ensure_player_window(app: &AppHandle) -> Option<WebviewWindow> {
+    if let Some(win) = app.get_webview_window("player") {
+        return Some(win);
+    }
+
+    plog!("[播放器窗口] 窗口不存在，创建新窗口...");
+
+    let data_dir = {
+        let local_app_data = tauri::path::BaseDirectory::LocalData;
+        app.path().resolve("com.example.bilibili-client/player-dyn", local_app_data).ok()
+    };
+
+    let mut builder = WebviewWindowBuilder::new(
+        app,
+        "player",
+        WebviewUrl::App("src/pages/player.html?v=2".into()),
+    )
+    .title("哔哩哔哩视频")
+    .inner_size(1280.0, 720.0)
+    .minimizable(true)
+    .maximizable(true)
+    .closable(true)
+    .decorations(false)
+    .visible(true);
+
+    if let Some(ref dir) = data_dir {
+        builder = builder.data_directory(dir.clone());
+    }
+
+    match builder.build() {
+        Ok(win) => {
+            plog!("[播放器窗口] 创建成功");
+            attach_cdn_header_injection(&win);
+            Some(win)
+        }
+        Err(e) => {
+            plog!("[播放器窗口] 创建失败: {}", e);
+            None
+        }
     }
 }
 
@@ -525,23 +635,30 @@ pub fn handle_player_window_event(window: &tauri::Window, event: &tauri::WindowE
     }
     match event {
         tauri::WindowEvent::CloseRequested { api, .. } => {
-            // 复用模式：不销毁窗口——停止播放、保存状态后隐藏，下次播放直接复用
-            if !crate::tray::is_quitting() {
-                api.prevent_close();
-                stop_video();
-                if let Some(ww) = window.app_handle().get_webview_window("player") {
-                    save_player_window_state(&ww);
-                    let _ = ww.hide();
-                }
-                *UI.lock().unwrap() = PlayerUiState::default();
-                tauri::async_runtime::spawn(async move {
-                    final_report_on_closed().await;
-                });
+            plog!("[播放器窗口] CloseRequested — 移到屏外（不销毁，保持 WebView 存活）");
+            api.prevent_close();
+            // 先保存窗口状态（此时坐标还是用户可见位置），再移到屏外
+            if let Some(ww) = window.app_handle().get_webview_window("player") {
+                save_player_window_state(&ww);
+                // 窗口只是移到屏外，页面音视频会继续播放：通知前端暂停
+                let _ = window.app_handle().emit_to("player", "player-pause", Value::Null);
+                // 从任务栏移除，避免悬停任务栏时出现"已关闭"的播放器缩略图
+                let _ = ww.set_skip_taskbar(true);
             }
-            // 正在退出应用：放行关闭，走 Destroyed 分支
+            let _ = window.set_position(LogicalPosition::new(30000, 30000));
+            PLAYER_HIDDEN.store(true, Ordering::SeqCst);
+            // 把键盘焦点交还主窗口，避免残留焦点让 WASD/±= 继续作用于屏外播放器
+            if let Some(main) = window.app_handle().get_webview_window("main") {
+                let _ = main.set_focus();
+            }
+            stop_video();
+            *UI.lock().unwrap() = PlayerUiState::default();
+            tauri::async_runtime::spawn(async move {
+                final_report_on_closed().await;
+            });
         }
         tauri::WindowEvent::Destroyed => {
-            let _app = window.app_handle().clone();
+            plog!("[播放器窗口] Destroyed — 窗口已销毁");
             *UI.lock().unwrap() = PlayerUiState::default();
             tauri::async_runtime::spawn(async move {
                 final_report_on_closed().await;
@@ -627,6 +744,19 @@ pub async fn dispatch_player_window_channel(
     }
 
     let pw = get_player_window(app)?;
+    // 窗口"已关闭"（屏外保活）期间，拦截所有会移动/缩放/显示窗口的请求，
+    // 防止页面残留焦点下的 WASD、±=、g 等快捷键把窗口重新拉回屏幕。
+    if PLAYER_HIDDEN.load(Ordering::SeqCst) {
+        match channel {
+            "minimize-player-window" | "maximize-player-window" | "move-window-bounds"
+            | "set-window-position" | "set-window-position-direct" | "set-window-position-smooth"
+            | "zoom-player-window" | "toggle-fullscreen" | "resize-player-window"
+            | "rotate-player-window" | "move-to-next-display" | "move-player-window" => {
+                return Some(Value::Null)
+            }
+            _ => {}
+        }
+    }
     let a = args;
     let result = match channel {
         "minimize-player-window" => {
@@ -884,37 +1014,8 @@ pub async fn dispatch_player_window_channel(
             let Some((bx, by, bw, bh)) = window_bounds_logical(&pw) else {
                 return Some(Value::Null);
             };
-            {
-                let mut st = ui();
-                if st.landscape.is_none() {
-                    st.landscape = Some((bw, bh));
-                    let ratio = bw / bh;
-                    let workarea = player_workarea(&pw);
-                    let reference = bw.min(bh);
-                    let mut pw3 = 480.0f64.max(reference);
-                    let mut ph3 = (pw3 * ratio).round();
-                    let mxw = (workarea.2 * 0.95).floor();
-                    let mxh = (workarea.3 * 0.95).floor();
-                    if pw3 > mxw {
-                        pw3 = mxw;
-                        ph3 = (pw3 * ratio).round();
-                    }
-                    if ph3 > mxh {
-                        ph3 = mxh;
-                        pw3 = (ph3 / ratio).round();
-                    }
-                    st.portrait = Some((pw3, ph3));
-                }
-            }
-            // 按当前窗口实际宽高比选择基准
-            let st = ui();
-            let is_currently_portrait = bw <= bh;
-            let base = if is_currently_portrait {
-                st.portrait.or(st.landscape).unwrap_or((bw, bh))
-            } else {
-                st.landscape.unwrap_or((bw, bh))
-            };
-            drop(st);
+            // 纯移动：只改位置、绝不重写尺寸。读取 outer_size 再 set_size
+            // 会在非整数 DPI 缩放下反复取整，导致窗口每按一次键就变大一点。
             let direction = a.first().and_then(|v| v.as_str()).unwrap_or("");
             let step = 50.0;
             let (mut new_x, mut new_y) = (bx, by);
@@ -926,8 +1027,8 @@ pub async fn dispatch_player_window_channel(
                 _ => {}
             }
             let workarea = player_workarea(&pw);
-            let (cx, cy) = clamp_to_workarea(new_x, new_y, base.0, base.1, workarea);
-            set_bounds_logical(&pw, cx, cy, base.0, base.1);
+            let (cx, cy) = clamp_to_workarea(new_x, new_y, bw, bh, workarea);
+            let _ = pw.set_position(tauri::LogicalPosition::new(cx, cy));
             Value::Null
         }
         _ => return None,
@@ -1322,7 +1423,10 @@ async fn download_video(app: &AppHandle, args: &[Value]) -> Value {
 
 /// 对应 Electron 版 session.webRequest.onBeforeSendHeaders：
 /// 对 bilivideo / bilibili / hdslb / mountaintoys 域名强制注入
-/// User-Agent / Referer / Origin（B 站 CDN 缺 Referer 返回 403）。
+/// User-Agent / Referer（B 站 CDN 缺 Referer 返回 403）。
+/// 注意：不能注入 Origin——CDN 会把请求的 Origin 原样作为
+/// Access-Control-Allow-Origin 回显，改写后 WebView2 用内部真实 Origin
+/// 做 CORS 校验会不匹配，导致媒体请求失败（media error 4）。
 #[cfg(windows)]
 pub fn attach_cdn_header_injection(window: &WebviewWindow) {
     use webview2_com::{
@@ -1340,27 +1444,41 @@ pub fn attach_cdn_header_injection(window: &WebviewWindow) {
         "hdslb.com",
     ];
 
+    let label = window.label().to_string();
     let result = window.with_webview(move |webview| unsafe {
         let controller = webview.controller();
         let Ok(core) = controller.CoreWebView2() else {
+            plog!("[CDN注入] {} CoreWebView2 未就绪，注入跳过", label);
             return;
         };
-        // 过滤器：仅注册 CDN 域名模式（每个域 http/https 各一个）。
+        // 过滤器：仅注册 CDN 域名模式。glob 按整串匹配、不会隐式匹配端口，
+        // 所以每个域要同时注册「默认端口」与「任意端口」两种模式
+        //（mcdn 边缘节点走 *:4483 等非标端口，漏掉会 403 → media error 4）。
         // 注意：不能用 "*" + REQUEST_SOURCE_KINDS_ALL 拦截全部请求——
         // 那会把主文档导航也压进 UI 线程的 WebResourceRequested 同步 handler，
         // 造成页面永远无法完成加载（on_page_load Finished 不触发）的死锁。
         for domain in CDN_MATCH {
             for scheme in ["https", "http"] {
-                let filter = HSTRING::from(format!("{}://*.{}/*", scheme, domain));
-                let _ = core.AddWebResourceRequestedFilter(
-                    &filter,
-                    COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
-                );
+                for filter in [
+                    format!("{}://*.{}/*", scheme, domain),
+                    format!("{}://*.{}:*/*", scheme, domain),
+                ] {
+                    let filter = HSTRING::from(filter);
+                    let r = core.AddWebResourceRequestedFilter(
+                        &filter,
+                        COREWEBVIEW2_WEB_RESOURCE_CONTEXT_ALL,
+                    );
+                    if let Err(e) = r {
+                        plog!("[CDN注入] 添加过滤器失败: {:?}", e);
+                    }
+                }
             }
         }
         let mut token = i64::default();
-        let _ = core.add_WebResourceRequested(
-            &WebResourceRequestedEventHandler::create(Box::new(|_, args| {
+        let log_budget = std::sync::atomic::AtomicU8::new(0);
+        let label_inner = label.clone();
+        let r = core.add_WebResourceRequested(
+            &WebResourceRequestedEventHandler::create(Box::new(move |_, args| {
                 let Some(args) = args else {
                     return Ok(());
                 };
@@ -1372,15 +1490,28 @@ pub fn attach_cdn_header_injection(window: &WebviewWindow) {
                     let headers = request.Headers()?;
                     let _ = headers.SetHeader(w!("User-Agent"), &HSTRING::from(crate::api::UA_120));
                     let _ = headers.SetHeader(w!("Referer"), w!("https://www.bilibili.com/"));
-                    let _ = headers.SetHeader(w!("Origin"), w!("https://www.bilibili.com"));
+                    if log_budget.load(Ordering::SeqCst) < 3 {
+                        log_budget.fetch_add(1, Ordering::SeqCst);
+                        plog!(
+                            "[CDN注入] 已改写请求头: {}",
+                            uri.chars().take(80).collect::<String>()
+                        );
+                    }
                 }
                 Ok(())
             })),
             &mut token,
         );
+        match r {
+            Ok(_) => {
+                CDN_ATTACHED_LABELS.lock().unwrap().insert(label_inner.clone());
+                plog!("[CDN注入] {} 注册成功", label_inner);
+            }
+            Err(e) => plog!("[CDN注入] {} 注册失败: {:?}", label_inner, e),
+        }
     });
     if let Err(e) = result {
-        eprintln!("[播放器窗口] CDN 请求头注入失败: {}", e);
+        plog!("[播放器窗口] CDN 请求头注入失败: {}", e);
     }
 }
 

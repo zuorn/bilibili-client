@@ -141,6 +141,11 @@ pub async fn dispatch(
         // ---- player（播放器 20 通道）----
         "play-video" => Ok(player::play_video(app, a).await),
         "play-video-new-window" => Ok(player::play_video_new_window(app, a).await),
+        // 播放器页面就绪握手：页面注册完事件监听后上报，open_builtin_player 等待此信号
+        "player-ready" => {
+            crate::player_window::mark_player_ready();
+            Ok(Value::Null)
+        }
         "get-video-url" => Ok(player::get_video_url(a).await),
         "get-video-preview-url" => Ok(player::get_video_preview_url(a).await),
         "get-video-info" => Ok(player::get_video_info_channel(a).await),

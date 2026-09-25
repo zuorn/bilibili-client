@@ -20,6 +20,36 @@ mod window_state;
 
 use serde_json::Value;
 use tauri::{AppHandle, LogicalPosition, LogicalSize, Manager, WebviewWindow, WindowEvent};
+use std::fs::OpenOptions;
+use std::io::Write;
+use std::sync::Mutex;
+
+// 全局日志文件
+static LOG_FILE: Mutex<Option<std::fs::File>> = Mutex::new(None);
+
+fn init_log_file() {
+    let log_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap().join("player_window_debug.log");
+    match OpenOptions::new().create(true).write(true).truncate(true).open(&log_path) {
+        Ok(file) => {
+            if let Ok(mut guard) = LOG_FILE.lock() {
+                *guard = Some(file);
+            }
+            eprintln!("[日志] 日志文件已初始化: {:?}", log_path);
+        }
+        Err(e) => {
+            eprintln!("[日志] 无法创建日志文件: {}", e);
+        }
+    }
+}
+
+fn log_to_file(msg: &str) {
+    if let Ok(mut guard) = LOG_FILE.lock() {
+        if let Some(ref mut file) = *guard {
+            let _ = writeln!(file, "{}", msg);
+            let _ = file.flush();
+        }
+    }
+}
 
 // ==================== IPC 统一分发入口 ====================
 
@@ -214,6 +244,8 @@ fn save_window_state(window: &tauri::Window) {
 // ==================== 应用入口 ====================
 
 fn main() {
+    init_log_file();
+    log_to_file("=== 应用启动 ===");
     tauri::Builder::default()
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_clipboard_manager::init())
@@ -221,18 +253,20 @@ fn main() {
         .invoke_handler(tauri::generate_handler![ipc])
         .setup(|app| {
             restore_window_state(app.handle());
-            // 预创建播放器窗口（必须在主线程/setup 阶段；播放时复用，见 player_window.rs）
-            player_window::create_player_window(app.handle());
-            // 主窗口也挂 CDN 请求头注入（hdslb 图片/bilivideo 视频强制 bilibili Referer，
-            // 否则 CDN 403——替代前端 meta no-referrer 方案，避免抑制 IPC Origin 头）
-            if let Some(main_window) = app.get_webview_window("main") {
-                // [临时对照实验] 验证主窗口 CDN 注入是否会阻塞导航
-                if std::env::var("BILI_DISABLE_MAIN_CDN").is_err() {
-                    player_window::attach_cdn_header_injection(&main_window);
-                } else {
-                    eprintln!("[实验] 已跳过主窗口 CDN 注入");
-                }
+
+            // 诊断：列出所有窗口
+            let webview_windows = app.webview_windows();
+            crate::log_to_file(&format!("[启动] 存在的窗口数量: {}", webview_windows.len()));
+            for (label, window) in webview_windows {
+                let url = window.url().map(|u| u.to_string()).unwrap_or_default();
+                crate::log_to_file(&format!("[启动] 窗口: label={}, url={}", label, url));
             }
+
+            // 主窗口 CDN 请求头注入
+            if let Some(main_window) = app.get_webview_window("main") {
+                player_window::attach_cdn_header_injection(&main_window);
+            }
+
             // 加载 cookies.json（路径与 Electron 版一致，登录态无缝迁移）
             if let Some(dir) = app.path().app_data_dir().ok() {
                 cookie_store::load(dir.join("cookies.json"));
@@ -243,78 +277,14 @@ fn main() {
             if let Err(e) = tray::create_tray(app.handle()) {
                 eprintln!("[托盘] 创建失败: {}", e);
             }
-            // 启动后自动检查更新（已临时禁用：更新渠道不可达时报错弹窗影响使用）
-            // updater::schedule_auto_check(app.handle().clone());
-            // [临时诊断] 多时间点打印主窗口 URL，验证导航完成时间
-            {
-                let app_diag = app.handle().clone();
-                tauri::async_runtime::spawn(async move {
-                    for delay in [5u64, 15, 30] {
-                        tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
-                        if let Some(w) = app_diag.get_webview_window("main") {
-                            let url = w.url().map(|u| u.to_string()).unwrap_or_default();
-                            eprintln!("[诊断] t+{}s main 窗口 URL: {}", delay, url);
-                        } else {
-                            eprintln!("[诊断] t+{}s main 窗口不存在！", delay);
-                        }
-                    }
-                });
-            }
 
-            // [临时诊断] 让主窗口内的脚本把状态写进 document.title，Rust 侧读窗口标题
-            {
-                let app_diag = app.handle().clone();
-                tauri::async_runtime::spawn(async move {
-                    tokio::time::sleep(std::time::Duration::from_secs(6)).await;
-                    let js = r#"(function(){
-  var base = { href: location.href, ready: document.readyState, hasTauri: !!window.__TAURI__, hasCore: !!(window.__TAURI__ && window.__TAURI__.core), imgs: document.images.length, bodyLen: (document.body ? document.body.innerHTML.length : -1) };
-  function set(extra){
-    var o = {}; for (var k in base) o[k] = base[k];
-    if (extra) for (var k2 in extra) o[k2] = extra[k2];
-    try { document.title = 'DIAG:' + JSON.stringify(o); } catch (e) {}
-  }
-  set();
-  try {
-    fetch('http://tauri.localhost/index.html', { cache: 'no-store' })
-      .then(function(r){ return r.text().then(function(t){ set({ fetchStatus: r.status, textLen: t.length, head: t.slice(0, 80) }); }); })
-      .catch(function(e){ set({ fetchErr: String(e) }); });
-  } catch (e) { set({ fetchThrow: String(e) }); }
-})()"#;
-                    if let Some(w) = app_diag.get_webview_window("main") {
-                        match w.eval(js) {
-                            Ok(()) => eprintln!("[标题诊断] eval 调用成功"),
-                            Err(e) => eprintln!("[标题诊断] eval 调用失败: {}", e),
-                        }
-                    }
-                    for delay in [4u64, 8] {
-                        tokio::time::sleep(std::time::Duration::from_secs(delay)).await;
-                        if let Some(w) = app_diag.get_webview_window("main") {
-                            match w.title() {
-                                Ok(t) => eprintln!("[标题诊断] +{}s: {}", delay, t),
-                                Err(e) => eprintln!("[标题诊断] +{}s 读取失败: {}", delay, e),
-                            }
-                        }
-                    }
-                    // 对照：导航到外部网址，判断是「导航整体失效」还是「仅应用资源协议失效」
-                    if std::env::var("BILI_DIAG_EXTERNAL_NAV").is_ok() {
-                        if let Some(w) = app_diag.get_webview_window("main") {
-                            match tauri::Url::parse("https://www.bilibili.com/") {
-                                Ok(u) => match w.navigate(u) {
-                                    Ok(()) => eprintln!("[外链诊断] navigate 调用成功"),
-                                    Err(e) => eprintln!("[外链诊断] navigate 失败: {}", e),
-                                },
-                                Err(e) => eprintln!("[外链诊断] URL 解析失败: {}", e),
-                            }
-                        }
-                        tokio::time::sleep(std::time::Duration::from_secs(8)).await;
-                        if let Some(w) = app_diag.get_webview_window("main") {
-                            let url = w.url().map(|u| u.to_string()).unwrap_or_default();
-                            let title = w.title().unwrap_or_default();
-                            eprintln!("[外链诊断] 导航后 URL={} title={}", url, title);
-                        }
-                    }
-                });
-            }
+            // 预创建播放器窗口（隐藏，2秒后）。
+            // 必须在 setup 阶段创建——从 IPC 异步上下文创建窗口时页面无法加载（about:blank）。
+            let app_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                player_window::precreate_player_window(&app_handle);
+            });
 
             Ok(())
         })

@@ -3820,6 +3820,19 @@
       }
     })
 
+    // 窗口被"关闭"（移到屏外）时暂停音视频，避免后台继续出声
+    ipcRenderer.on('player-pause', () => {
+      console.log('[player] player-pause received')
+      videoPlayer.pause()
+      if (currentAudioElement) {
+        currentAudioElement.pause()
+      }
+    })
+
+    // 通知主进程：事件监听已全部注册，可以发送 play-video-data 了
+    ipcRenderer.send('player-ready')
+    console.log('[player] player-ready sent')
+
     function renderEpisodeList(episodeData) {
       currentEpisodeData = episodeData
       if (!panelSeason) return
