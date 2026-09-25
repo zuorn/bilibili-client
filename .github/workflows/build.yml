@@ -9,11 +9,11 @@ name: Build & Release
 #   3. PR 到 main/master → 仅三平台打包验证
 #   4. 手动触发          → 按 VERSION 发版（可选是否发布 Release）
 #
-# 注意：Release 发布需要仓库 Secrets（值均来自本地 env.json）：
-#   TAURI_SIGNING_PRIVATE_KEY            → env.json 的 tauri.signingPrivateKey
-#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD   → 可选
-#   TAURI_UPDATER_PUBKEY                 → env.json 的 tauri.updaterPubkey
-#   （tauri.conf.json 不含公钥与版本号，CI 通过生成的 tauri.updater.conf.json 注入）
+# 注意：Release 发布需要仓库 Secrets（生成方式见 scripts/copy-ci-secret.js）：
+#   TAURI_UPDATER_PUBKEY       → env.json 的 tauri.updaterPubkey（公钥，原样粘贴）
+#   TAURI_SIGNING_PRIVATE_KEY_B64 → env.json 的 tauri.signingPrivateKey 的 Base64（防粘贴损坏）
+#   （旧 TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD 已废弃，可删除）
+#   tauri.conf.json 不含公钥与版本号，CI 通过生成的 tauri.updater.conf.json 注入
 on:
   push:
     branches: [main, master]
@@ -143,12 +143,36 @@ jobs:
         env:
           TAURI_UPDATER_PUBKEY: ${{ secrets.TAURI_UPDATER_PUBKEY }}
 
+      # 解码签名私钥：Secret 存 Base64（单行，避免手工粘贴时换行/空白被破坏）
+      # 解码后校验 minisign 私钥头，内容不对时立即失败并给出明确提示
+      - name: Decode updater signing key
+        id: signing_key
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY_B64: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_B64 }}
+        run: |
+          if [ -z "$TAURI_SIGNING_PRIVATE_KEY_B64" ]; then
+            echo "::error::缺少 Secret TAURI_SIGNING_PRIVATE_KEY_B64（值为 env.json tauri.signingPrivateKey 的 Base64，可运行 node scripts/copy-ci-secret.js 复制）"
+            exit 1
+          fi
+          echo "$TAURI_SIGNING_PRIVATE_KEY_B64" | base64 -d > "$RUNNER_TEMP/updater.key"
+          if ! head -c 60 "$RUNNER_TEMP/updater.key" | grep -q "untrusted comment"; then
+            echo "::error::TAURI_SIGNING_PRIVATE_KEY_B64 解码后不是有效的 tauri 私钥（缺少 untrusted comment 头），请重新生成 Secret"
+            exit 1
+          fi
+          {
+            echo "key<<KEY_OUTPUT_EOF"
+            cat "$RUNNER_TEMP/updater.key"
+            echo "KEY_OUTPUT_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
-          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ steps.signing_key.outputs.key }}
+          # 私钥未加密（env.json 中密码为空），固定空值避免误配导致解密失败
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ''
           # release 构建开启前端 js/css 压缩（beforeBuildCommand 的 build-frontend.js 使用）
           FRONTEND_MINIFY: '1'
         with:
