@@ -3,8 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Bilibili Client</title>
-  <meta name="description" content="Bilibili Client —— 一个基于 Electron 的哔哩哔哩桌面客户端，支持 Windows / macOS / Linux。">
+  <title>Bilibili Client — 精致的哔哩哔哩桌面客户端</title>
+  <meta name="description" content="Bilibili Client —— 一个基于 Tauri 2 的哔哩哔哩桌面客户端，轻量、快速、开源。支持 MPV 双引擎播放、弹幕同步、Anime4K 画质增强、Vim 风格快捷键与自动更新，支持 Windows / macOS / Linux。">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="Bilibili Client — 精致的哔哩哔哩桌面客户端">
+  <meta property="og:description" content="基于 Tauri 2 的开源哔哩哔哩桌面客户端：双播放引擎、实时弹幕、Anime4K 画质增强、Vim 快捷键。">
   <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Crect x='2' y='6' width='20' height='14' rx='3' fill='%23FB7299'/%3E%3Crect x='6' y='3' width='3' height='4' rx='1' fill='%23FB7299'/%3E%3Crect x='15' y='3' width='3' height='4' rx='1' fill='%23FB7299'/%3E%3Ccircle cx='9' cy='13' r='1.4' fill='white'/%3E%3Ccircle cx='15' cy='13' r='1.4' fill='white'/%3E%3C/svg%3E">
   <style>
     :root {
@@ -256,6 +259,14 @@
       background: linear-gradient(135deg, var(--pink), var(--pink-2)); color: #fff;
       font-size: 11px; font-weight: 700; padding: 4px 40px;
     }
+    .card.coming .cover { filter: saturate(.15) opacity(.75); }
+    .card.coming:hover { transform: none; border-color: var(--border); }
+    .card.coming::before { display: none; }
+    .card.coming .dl {
+      background: none; color: var(--text-faint); box-shadow: none;
+      border: 1.5px dashed var(--border); cursor: not-allowed;
+    }
+    .card.coming .dl:hover { transform: none; }
     .card .cover {
       position: relative; height: 122px; display: grid; place-items: center;
       border-top-left-radius: var(--radius); border-top-right-radius: var(--radius);
@@ -354,13 +365,16 @@
     footer a { color: var(--text-soft); transition: .2s; }
     footer a:hover { color: var(--pink); }
 
-    /* ===== 入场动画 ===== */
+    /* ===== 入场动画（首屏） ===== */
     .anim { opacity: 0; transform: translateY(24px); animation: rise .9s cubic-bezier(.2,.7,.3,1) forwards; }
     .anim.d1 { animation-delay: .05s; } .anim.d2 { animation-delay: .15s; }
     .anim.d3 { animation-delay: .25s; } .anim.d4 { animation-delay: .35s; }
+    /* 滚动渐入 */
+    .reveal { opacity: 0; transform: translateY(28px); transition: opacity .8s cubic-bezier(.2,.7,.3,1), transform .8s cubic-bezier(.2,.7,.3,1); }
+    .reveal.in { opacity: 1; transform: translateY(0); }
     @keyframes rise { to { opacity: 1; transform: translateY(0); } }
     @media (prefers-reduced-motion: reduce) {
-      .anim, .preview { animation: none; opacity: 1; transform: none; }
+      .anim, .preview, .reveal { animation: none; opacity: 1; transform: none; transition: none; }
       .orb { animation: none; }
     }
 
@@ -395,7 +409,7 @@
         </div>
         <div>
           <div class="brand-name">Bilibili Client</div>
-          <div class="brand-sub">基于 Electron 的桌面客户端</div>
+          <div class="brand-sub">基于 Tauri 2 的桌面客户端</div>
         </div>
       </div>
       <nav class="nav">
@@ -407,7 +421,7 @@
     <section class="hero">
       <div class="badge anim d1"><span class="dot"></span><span id="versionBadge">最新版本</span></div>
       <h1 class="anim d2">把 B 站<br><span class="grad">装进你的桌面</span></h1>
-      <p class="anim d2">一个轻量、精致的哔哩哔哩桌面客户端。用 MPV 播放器、实时弹幕与 Vim 风格快捷键，重新定义你的桌面看番体验。</p>
+      <p class="anim d2">一个轻量、精致的开源哔哩哔哩桌面客户端。基于 Tauri 2 打造，双播放引擎、实时弹幕与 Vim 风格快捷键，重新定义你的桌面看番体验。</p>
       <div class="hero-cta anim d3">
         <a class="btn btn-primary" id="heroBtn" href="#">⬇ 立即下载</a>
         <a class="btn btn-ghost" href="https://github.com/zuorn/bilibili-client" target="_blank" rel="noopener">在 GitHub 查看</a>
@@ -525,23 +539,23 @@
       </div>
     </section>
 
-    <h2 class="section-title anim d1">选择你的平台</h2>
-    <p class="section-sub anim d1">免费、开源，一次下载即可使用</p>
+    <h2 class="section-title reveal" id="download">选择你的平台</h2>
+    <p class="section-sub reveal">免费、开源，一次下载即可使用</p>
     <div class="cards" id="cards">
-      <div class="card anim d1 windows" data-platform="windows">
+      <div class="card reveal windows" data-platform="windows">
         <div class="cover">
           <div class="mock"><span class="m-side"></span><span class="m-main"><span class="m-play"></span></span></div>
           <span class="os-badge"><svg viewBox="0 0 24 24" fill="currentColor"><rect x="2.5" y="2.5" width="8.5" height="8.5" rx="1"/><rect x="13" y="2.5" width="8.5" height="8.5" rx="1"/><rect x="2.5" y="13" width="8.5" height="8.5" rx="1"/><rect x="13" y="13" width="8.5" height="8.5" rx="1"/></svg></span>
         </div>
         <div class="card-body">
           <h3>Windows</h3>
-          <div class="fmt">.exe 安装包</div>
-          <a class="dl" id="dl-windows" href="#">下载 Windows 版</a>
+          <div class="fmt">.exe 安装包（NSIS）</div>
+          <a class="dl" id="dl-windows" href="https://github.com/zuorn/bilibili-client/releases/latest" target="_blank" rel="noopener">下载 Windows 版</a>
           <a class="alt" href="https://github.com/zuorn/bilibili-client/releases/latest" target="_blank" rel="noopener">备用下载 / 其他版本</a>
         </div>
       </div>
 
-      <div class="card anim d2 macos" data-platform="macos">
+      <div class="card coming macos" data-platform="macos">
         <div class="cover">
           <div class="mock"><span class="m-side"></span><span class="m-main"><span class="m-play"></span></span></div>
           <span class="os-badge"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M16.365 1.43c0 1.14-.42 2.21-1.12 3.01-.79.93-2.06 1.65-3.11 1.56-.13-1.09.42-2.24 1.09-2.98.75-.85 2.05-1.51 3.14-1.59zM20.94 17.04c-.55 1.27-.82 1.84-1.53 2.96-.99 1.56-2.39 3.5-4.12 3.51-1.54.02-2.00-1.01-4.16-1.00-2.16.01-2.61 1.02-4.15 1.00-1.73-.01-3.05-1.78-4.04-3.33C.45 16.27-.23 11.5 1.4 8.6c1.04-1.99 2.69-3.17 4.34-3.17 1.62 0 2.65 1.03 4.01 1.03 1.33 0 2.14-1.03 4.05-1.03 1.43 0 2.95.78 4.03 2.13-3.54 1.94-2.97 6.99.11 8.48z"/></svg></span>
@@ -549,12 +563,12 @@
         <div class="card-body">
           <h3>macOS</h3>
           <div class="fmt">.dmg 磁盘镜像</div>
-          <a class="dl" id="dl-macos" href="https://github.com/zuorn/bilibili-client/releases/latest" target="_blank" rel="noopener">下载 macOS 版</a>
-          <a class="alt" href="https://github.com/zuorn/bilibili-client/releases/latest" target="_blank" rel="noopener">备用下载 / 其他版本</a>
+          <a class="dl" href="https://github.com/zuorn/bilibili-client" target="_blank" rel="noopener">适配中，敬请期待</a>
+          <a class="alt" href="https://github.com/zuorn/bilibili-client/releases/latest" target="_blank" rel="noopener">关注 Releases 获取动态</a>
         </div>
       </div>
 
-      <div class="card anim d3 linux" data-platform="linux">
+      <div class="card coming linux" data-platform="linux">
         <div class="cover">
           <div class="mock"><span class="m-side"></span><span class="m-main"><span class="m-play"></span></span></div>
           <span class="os-badge"><svg viewBox="0 0 24 24"><ellipse cx="12" cy="6.3" rx="3.1" ry="2.3" fill="#1b1b1b"/><ellipse cx="12" cy="15" rx="6.6" ry="7.4" fill="#1b1b1b"/><ellipse cx="12" cy="15.5" rx="4" ry="5.6" fill="#fff"/><circle cx="9.1" cy="8" r="1.7" fill="#fff"/><circle cx="14.9" cy="8" r="1.7" fill="#fff"/><circle cx="9.2" cy="8.2" r="0.85" fill="#1b1b1b"/><circle cx="14.8" cy="8.2" r="0.85" fill="#1b1b1b"/><polygon points="10.7,10.2 13.3,10.2 12,12.3" fill="#ff9b3d"/><ellipse cx="12" cy="21.6" rx="3" ry="1.3" fill="#ff9b3d"/></svg></span>
@@ -562,27 +576,28 @@
         <div class="card-body">
           <h3>Linux</h3>
           <div class="fmt">.AppImage 便携版</div>
-          <a class="dl" id="dl-linux" href="https://github.com/zuorn/bilibili-client/releases/latest" target="_blank" rel="noopener">下载 Linux 版</a>
-          <a class="alt" href="https://github.com/zuorn/bilibili-client/releases/latest" target="_blank" rel="noopener">备用下载 / 其他版本</a>
+          <a class="dl" href="https://github.com/zuorn/bilibili-client" target="_blank" rel="noopener">适配中，敬请期待</a>
+          <a class="alt" href="https://github.com/zuorn/bilibili-client/releases/latest" target="_blank" rel="noopener">关注 Releases 获取动态</a>
         </div>
       </div>
     </div>
 
-    <h2 class="section-title anim d1">不只是浏览器，更是播放器</h2>
-    <p class="section-sub anim d1">为「看番」这件小事，做了很多特别的事</p>
+    <h2 class="section-title reveal">不只是浏览器，更是播放器</h2>
+    <p class="section-sub reveal">为「看番」这件小事，做了很多特别的事</p>
 
     <!-- 播放器聚光 -->
-    <div class="spotlight anim d1">
+    <div class="spotlight reveal">
       <div class="sl-text">
         <h3>为播放而生的桌面播放器</h3>
-        <p>不只是换个窗口看视频。Bilibili Client 内置独立播放窗口，同时支持 <b>外置 MPV</b> 与 <b>内置播放器</b> 双引擎：自动探测本机 MPV 可执行文件，找不到时无缝回退内置播放器，开箱即用。</p>
-        <p>播放时直接拉取 B 站 DASH 最高清晰度音视频直链（跳过网页解析，启动更快），并把弹幕 XML 实时转换为 ASS 字幕轨与画面同步渲染；观看进度自动记录并上报观看历史，下次打开接着看，播放窗口的位置、大小与全屏状态也会一并记忆还原。</p>
+        <p>不只是换个窗口看视频。Bilibili Client 内置独立播放窗口，同时支持 <b>外置 MPV</b> 与 <b>内置播放器</b> 双引擎：内置播放器支持 Anime4K WebGL 画质增强着色器，外置 MPV 自动探测本机可执行文件，找不到时无缝回退，开箱即用。</p>
+        <p>播放时直接拉取 B 站 DASH 最高清晰度音视频直链（跳过网页解析，启动更快），并把弹幕 XML 实时转换为 ASS 字幕轨与画面同步渲染；支持 ffmpeg 合并下载音视频流。观看进度自动记录并上报，下次打开接着看，播放窗口的位置、大小与全屏状态也会一并记忆还原。</p>
         <div class="tags">
           <span class="tag">MPV 硬解</span>
           <span class="tag">DASH 直链</span>
           <span class="tag">弹幕同步</span>
+          <span class="tag">Anime4K 增强</span>
+          <span class="tag">视频下载</span>
           <span class="tag">进度续播</span>
-          <span class="tag">窗口记忆</span>
         </div>
       </div>
       <div class="sl-visual">
@@ -596,35 +611,50 @@
     </div>
 
     <div class="features">
-      <div class="feature anim d1">
+      <div class="feature reveal">
         <div class="ficon">🎬</div>
         <h4>双播放引擎</h4>
         <p>内置播放器与外置 MPV 双模式，自动识别本机 MPV，缺失时无缝回退内置播放器。</p>
       </div>
-      <div class="feature anim d2">
+      <div class="feature reveal">
+        <div class="ficon">✨</div>
+        <h4>Anime4K 画质增强</h4>
+        <p>内置播放器集成 Anime4K WebGL 着色器，实时超分让低清片源焕发新生。</p>
+      </div>
+      <div class="feature reveal">
         <div class="ficon">💬</div>
         <h4>实时弹幕</h4>
         <p>把 B 站弹幕 XML 实时转换为 ASS 字幕轨，与画面同步飘过，原汁原味。</p>
       </div>
-      <div class="feature anim d3">
-        <div class="ficon">⏯️</div>
-        <h4>进度记忆续播</h4>
-        <p>自动记录并上报观看进度，关掉再打开接着看，追番不断档。</p>
-      </div>
-      <div class="feature anim d1">
+      <div class="feature reveal">
         <div class="ficon">⌨️</div>
         <h4>Vim 风格快捷键</h4>
-        <p>普通 / 插入 / 播放器多模式，h j k l 导航，支持自定义按键映射。</p>
+        <p>按 <b>f</b> 为可点击元素生成访问标签，h j k l 导航，内置录制界面支持自定义绑定。</p>
       </div>
-      <div class="feature anim d2">
+      <div class="feature reveal">
+        <div class="ficon">📥</div>
+        <h4>视频合并下载</h4>
+        <p>下载的音视频流自动调用 ffmpeg 合并，本地收藏想看就看。</p>
+      </div>
+      <div class="feature reveal">
+        <div class="ficon">📱</div>
+        <h4>扫码登录</h4>
+        <p>二维码扫码登录，Cookie 持久化保存，一次登录长期免打扰。</p>
+      </div>
+      <div class="feature reveal">
         <div class="ficon">⭐</div>
         <h4>收藏与追番</h4>
-        <p>统一管理收藏夹、追番进度与 UP 主动态，一处尽览不遗漏。</p>
+        <p>统一管理收藏夹、追番进度与 UP 主动态，视频悬停即可预览，一处尽览不遗漏。</p>
       </div>
-      <div class="feature anim d3">
+      <div class="feature reveal">
+        <div class="ficon">🌗</div>
+        <h4>深色主题</h4>
+        <p>内置深色模式全局适配，深夜看番不刺眼，跟随系统自动切换。</p>
+      </div>
+      <div class="feature reveal">
         <div class="ficon">🔄</div>
         <h4>自动更新</h4>
-        <p>内置更新检测，新版本后台就绪，一键升级始终用上最新特性。</p>
+        <p>启动自动检测新版本，OSS 与 GitHub Releases 双更新源取最高版本，一键升级。</p>
       </div>
     </div>
 
@@ -634,20 +664,20 @@
         <a href="https://github.com/zuorn/bilibili-client/releases" target="_blank" rel="noopener">全部版本</a>
         <a href="https://github.com/zuorn/bilibili-client/issues" target="_blank" rel="noopener">问题反馈</a>
       </div>
-      <div>Bilibili Client 并非官方应用 · 基于 ISC 许可证开源 · © Zuorn</div>
+      <div>Bilibili Client 并非官方应用 · 基于 MIT 许可证开源 · © Zuorn</div>
     </footer>
   </div>
 
   <script>
     // ===== 配置（发布新版本时只需更新这里） =====
     const CONFIG = {
-      version: '0.0.7',
+      version: '0.1.0',
       repo: 'zuorn/bilibili-client'
     };
 
     const releaseUrl = 'https://github.com/' + CONFIG.repo + '/releases/latest';
 
-    document.getElementById('versionBadge').textContent = 'v' + CONFIG.version;
+    document.getElementById('versionBadge').textContent = 'v' + CONFIG.version + ' 现已发布';
 
     // ===== 平台检测 =====
     const ua = navigator.userAgent;
@@ -660,33 +690,39 @@
 
     if (platform !== 'unknown') {
       const card = document.querySelector('.card[data-platform="' + platform + '"]');
-      if (card) card.classList.add('recommended');
-      document.getElementById('platforms').textContent =
-        '检测到你正在使用 ' + platformLabel[platform] + ' · 也支持其他平台';
+      if (card && !card.classList.contains('coming')) card.classList.add('recommended');
+      const available = platform === 'windows'
+        ? '检测到你正在使用 ' + platformLabel[platform] + '，可直接下载安装包'
+        : '检测到你正在使用 ' + platformLabel[platform] + ' · 该平台版本适配中，Windows 版现已可用';
+      document.getElementById('platforms').textContent = available;
     }
 
-    // ===== 下载链接（全部跳转 GitHub Releases） =====
-    const dlWindows = document.getElementById('dl-windows');
-    dlWindows.href = releaseUrl;
-    dlWindows.setAttribute('target', '_blank');
-    dlWindows.setAttribute('rel', 'noopener');
-
+    // ===== 主按钮跳转 GitHub Releases =====
     const heroBtn = document.getElementById('heroBtn');
+    heroBtn.href = releaseUrl;
     if (platform === 'windows') {
-      heroBtn.href = releaseUrl;
       heroBtn.textContent = '⬇ 下载 Windows 版';
-    } else if (platform === 'macos') {
-      heroBtn.href = releaseUrl;
-      heroBtn.textContent = '⬇ 下载 macOS 版';
-    } else if (platform === 'linux') {
-      heroBtn.href = releaseUrl;
-      heroBtn.textContent = '⬇ 下载 Linux 版';
-    } else {
-      heroBtn.href = releaseUrl;
-      heroBtn.textContent = '⬇ 立即下载';
+    } else if (platform !== 'unknown') {
+      heroBtn.textContent = '⬇ 前往 Releases';
     }
     heroBtn.setAttribute('target', '_blank');
     heroBtn.setAttribute('rel', 'noopener');
+
+    // ===== 滚动渐入（IntersectionObserver，含降级） =====
+    const revealEls = document.querySelectorAll('.reveal');
+    if ('IntersectionObserver' in window) {
+      const io = new IntersectionObserver((entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            entry.target.classList.add('in');
+            io.unobserve(entry.target);
+          }
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -40px 0px' });
+      revealEls.forEach((el) => io.observe(el));
+    } else {
+      revealEls.forEach((el) => el.classList.add('in'));
+    }
   </script>
 </body>
 </html>

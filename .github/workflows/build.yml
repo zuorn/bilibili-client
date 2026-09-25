@@ -1,9 +1,12 @@
 name: Build & Release
 
 # 触发条件：
-#   1. push v* 标签      → 三平台打包 + 自动发布 Release
-#   2. PR 到 main/master → 仅三平台打包验证（release job 通过 if 跳过）
+#   1. push v* 标签      → Windows 打包 + 自动发布 Release（含 tauri updater 的 latest.json）
+#   2. PR 到 main/master → 仅打包验证
 #   3. 手动触发          → 可选是否发布 Release
+#
+# 注意：Release 发布需要仓库 Secrets 中配置 TAURI_SIGNING_PRIVATE_KEY（值来自本地 env.json
+# 的 tauri.signingPrivateKey，可选 TAURI_SIGNING_PRIVATE_KEY_PASSWORD）。
 on:
   push:
     tags:
@@ -22,9 +25,6 @@ permissions:
   contents: write
 
 jobs:
-  # ============================================================
-  # Windows 构建
-  # ============================================================
   build-windows:
     runs-on: windows-latest
     steps:
@@ -40,106 +40,38 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Windows installer
-        run: npx electron-builder --win --publish never
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          # tagName / releaseName 仅在发布时使用；不发布时只产出构建产物
+          tagName: ${{ github.ref_name }}
+          releaseName: 'Bilibili Client ${{ github.ref_name }}'
+          releaseBody: '## Downloads\n\n- Windows: `Bilibili-Client_*_x64-setup.exe`'
+          releaseDraft: false
+          prerelease: false
+          # 仅在 push tag 或手动触发且 create_release=true 时发布 Release
+          includeUpdaterJson: true
+          args: ${{ (startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')) && '' || '--no-bundle' }}
 
       - name: Upload Windows artifact
         uses: actions/upload-artifact@v4
         with:
           name: windows-installer
-          path: dist/*.exe
+          path: |
+            src-tauri/target/release/bundle/nsis/*.exe
+            src-tauri/target/release/bundle/nsis/*.sig
+            src-tauri/target/release/bundle/nsis/latest.json
           retention-days: 7
-
-  # ============================================================
-  # macOS 构建
-  # ============================================================
-  build-macos:
-    runs-on: macos-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build macOS DMG
-        run: npx electron-builder --mac --publish never
-
-      - name: Upload macOS artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: macos-dmg
-          path: dist/*.dmg
-          retention-days: 7
-
-  # ============================================================
-  # Linux 构建
-  # ============================================================
-  build-linux:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-          cache: 'npm'
-
-      - name: Install dependencies
-        run: npm ci
-
-      - name: Build Linux AppImage
-        run: npx electron-builder --linux --publish never
-
-      - name: Upload Linux artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: linux-appimage
-          path: dist/*.AppImage
-          retention-days: 7
-
-  # ============================================================
-  # 发布 Release
-  # 仅在 push tag 或手动触发且 create_release=true 时执行
-  # ============================================================
-  release:
-    needs: [build-windows, build-macos, build-linux]
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v') || (github.event_name == 'workflow_dispatch' && github.event.inputs.create_release == 'true')
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          name: Release ${{ github.ref_name }}
-          body: |
-            ## Bilibili Client ${{ github.ref_name }}
-
-            ### Downloads
-            - **Windows**: `Bilibili-Client-Setup-*.exe`
-            - **macOS**: `Bilibili-Client-*.dmg`
-            - **Linux**: `Bilibili-Client-*.AppImage`
-          draft: false
-          prerelease: false
-          files: |
-            artifacts/windows-installer/*.exe
-            artifacts/macos-dmg/*.dmg
-            artifacts/linux-appimage/*.AppImage
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          if-no-files-found: ignore

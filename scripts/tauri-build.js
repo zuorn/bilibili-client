@@ -24,6 +24,10 @@ const path = require('path')
 
 const ROOT = path.resolve(__dirname, '..')
 const ENV_FILE = path.join(ROOT, 'env.json')
+// Release 专属配置：去掉 WebView2 的 --enable-logging=stderr / --v=1 / --log-level=0，
+// 否则安装版启动时 WebView2 会强制弹出控制台窗口（开发模式 tauri dev 不受影响，
+// 仍使用 tauri.conf.json 中的完整调试参数，日志照常输出到 stderr 与 player_window_debug.log）
+const RELEASE_CONFIG = path.join(ROOT, 'src-tauri', 'tauri.release.conf.json')
 
 function loadEnvJson() {
   if (!fs.existsSync(ENV_FILE)) {
@@ -62,6 +66,10 @@ function main() {
   }
 
   const args = process.argv.slice(2)
+  // 自动附加 release 专属配置（用户已显式传 --config 时尊重其选择）
+  if (!args.includes('--config')) {
+    args.push('--config', RELEASE_CONFIG)
+  }
   console.log(`[tauri-build] tauri build ${args.join(' ')}`)
 
   const cmd = process.platform === 'win32' ? 'npx.cmd' : 'npx'

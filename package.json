@@ -17,7 +17,9 @@
     "tauri:build": "node scripts/tauri-build.js",
     "tauri:build:nsis": "node scripts/tauri-build.js --bundles nsis",
     "publish:oss:tauri": "node scripts/publish-oss-tauri.js",
-    "publish:oss:tauri:dry": "node scripts/publish-oss-tauri.js --dry-run"
+    "publish:oss:tauri:dry": "node scripts/publish-oss-tauri.js --dry-run",
+    "publish:github:tauri": "node scripts/publish-github-tauri.js",
+    "publish:github:tauri:dry": "node scripts/publish-github-tauri.js --dry-run"
   },
   "keywords": [],
   "author": "Zuorn",
