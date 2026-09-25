@@ -52,8 +52,28 @@ async function fetchPopularVideosByTab(tab = 'comprehensive', page = 1, append =
   }
 }
 
-function initPopularTabs() {
+// 缓存渲染：切回热门页时用 state.videos 直接重画（page-loader.js 缓存路径调用）。
+// 同步恢复 tab 激活态与排行榜筛选显示，不发起任何网络请求。
+function renderPopularFromCache() {
+  const state = pageStates.popular
   const tabsContainer = document.getElementById('popularTabs')
+  if (tabsContainer) {
+    tabsContainer.querySelectorAll('.page-tab').forEach(t => {
+      t.classList.toggle('active', t.getAttribute('data-tab') === state.currentTab)
+    })
+  }
+  const filtersContainer = document.getElementById('rankingFilters')
+  if (filtersContainer) {
+    filtersContainer.style.display = state.currentTab === 'ranking' ? 'flex' : 'none'
+  }
+  const container = document.getElementById('popularGrid')
+  if (container) container.innerHTML = ''
+  renderVideos(state.videos, 'popularGrid', navigateToUP, {
+    showRank: state.currentTab === 'ranking'
+  })
+}
+
+function initPopularTabs() {  const tabsContainer = document.getElementById('popularTabs')
   const filtersContainer = document.getElementById('rankingFilters')
   if (!tabsContainer) return
 

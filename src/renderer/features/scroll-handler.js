@@ -1,6 +1,15 @@
 let scrollThrottleTimer = null
 let scrollAnimationFrame = null
 
+// 缓存 .content 引用：rAF 回调每帧执行，避免每帧 querySelector。
+// 元素被移除重建时 isConnected 为 false 会自动重新查询。
+let cachedContentEl = null
+function getContentEl() {
+  if (cachedContentEl && cachedContentEl.isConnected) return cachedContentEl
+  cachedContentEl = document.querySelector('.content')
+  return cachedContentEl
+}
+
 function throttle(func, limit = 100) {
   return function() {
     if (!scrollThrottleTimer) {
@@ -18,7 +27,7 @@ function handleScroll() {
   }
   
   scrollAnimationFrame = requestAnimationFrame(() => {
-    const content = document.querySelector('.content')
+    const content = getContentEl()
     if (!content) return
 
     const { scrollTop, scrollHeight, clientHeight } = content

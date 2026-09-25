@@ -78,6 +78,9 @@ function minifyAssets(dir) {
         charset: 'utf8',
         legalComments: 'none',
         target: 'es2020',
+        // 生产环境移除 console.* 与 debugger（dev 不 minify 不受影响）。
+        // 已确认项目内没有 console 作为值传递的用法（then(console.x) 等）。
+        drop: ['console', 'debugger'],
       })
       fs.writeFileSync(p, result.code)
       stats.files += 1
@@ -89,6 +92,68 @@ function minifyAssets(dir) {
     }
   }
   return stats
+}
+
+// step6.5: 主窗口脚本打包 —— index.html 的 26 个 <script src="src/..."> 按
+// 原顺序拼接为 app-dist/app.js，并重写 index.html 引用单文件。
+// 说明：
+//   - 26 个脚本均为顶层全局函数/变量声明，无 import/export、无内联脚本混排，
+//     顺序拼接与逐个执行语义等价（每个后续文件前加 ';' 防止 ASI 拼接歧义）
+//   - 仅处理以 src/ 开头的标签；dev（tauri-dev.js 直出 src/）不受影响
+//   - 拼接源文件读取的是 app-dist 内（已经过 step6 minify），产物天然是压缩版
+function bundleMainScripts() {
+  const htmlPath = path.join(OUT, 'index.html')
+  const html = fs.readFileSync(htmlPath, 'utf8')
+  // 注意：/g 正则的 lastIndex 有状态，exec 循环与 replace 各用独立实例
+  const tagRe = /<script src="(src\/[^"]+)"><\/script>/g
+  const parts = []
+  let m
+  while ((m = tagRe.exec(html)) !== null) {
+    const rel = m[1]
+    const abs = path.join(OUT, rel)
+    if (!fs.existsSync(abs)) fail(`打包失败：脚本不存在 ${rel}`)
+    parts.push(fs.readFileSync(abs, 'utf8'))
+  }
+  if (parts.length === 0) {
+    trace('WARN: bundle 未匹配到任何 <script src="src/..."> 标签，跳过')
+    return { files: 0, before: 0, after: 0 }
+  }
+  const before = Buffer.byteLength(html)
+  const bundle =
+    '/* bilibili-client 主窗口脚本包：由 scripts/build-frontend.js 按加载顺序拼接，勿手改 */\n' +
+    parts.join('\n;\n') + '\n'
+  fs.writeFileSync(path.join(OUT, 'app.js'), bundle)
+  const newHtml = html
+    .replace(/<script src="src\/[^"]+"><\/script>\n?/g, '')
+    .replace('</body>', '  <script src="app.js"></script>\n</body>')
+  fs.writeFileSync(htmlPath, newHtml)
+  trace(`step6.5 bundle ok, scripts=${parts.length}, bytes=${Buffer.byteLength(bundle)}`)
+  return { files: parts.length, before, after: Buffer.byteLength(bundle) }
+}
+
+// step6.6: 清理已打包进 app.js 的冗余脚本。
+// 运行时仅两处引用 src/renderer 下 js：index.html（已改引 app.js）与
+// player.html（引用 ../renderer/core/ipc-shim.js）。故除 ipc-shim.js 外
+// 的 renderer js 均可安全删除，避免旧文件残留在安装包里浪费体积。
+function pruneBundledScripts() {
+  const rendererDir = path.join(OUT, 'src', 'renderer')
+  if (!fs.existsSync(rendererDir)) return { removed: 0, bytes: 0 }
+  const keep = new Set([path.join(rendererDir, 'core', 'ipc-shim.js')])
+  let removed = 0
+  let bytes = 0
+  function walk(dir) {
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, entry.name)
+      if (entry.isDirectory()) walk(p)
+      else if (p.endsWith('.js') && !keep.has(p)) {
+        bytes += fs.statSync(p).size
+        fs.unlinkSync(p)
+        removed++
+      }
+    }
+  }
+  walk(rendererDir)
+  return { removed, bytes }
 }
 
 trace(`START node=${process.version} cwd=${process.cwd()} out=${OUT}`)
@@ -122,8 +187,27 @@ try {
       `${(stats.before / 1024).toFixed(0)}KB -> ${(stats.after / 1024).toFixed(0)}KB`
   )
 
+  // step6.5: 主窗口 26 个脚本拼接为单文件（减少请求与解析开销）
+  const bundleStats = bundleMainScripts()
+  console.log(
+    `[build-frontend] bundled ${bundleStats.files} scripts into app.js: ` +
+      `${(bundleStats.after / 1024).toFixed(0)}KB`
+  )
+
+  // step6.6: 删除已打包进 app.js 的冗余单文件脚本（player.html 引用的 ipc-shim.js 保留）
+  const pruneStats = pruneBundledScripts()
+  trace(`step6.6 prune ok, removed=${pruneStats.removed}, bytes=${pruneStats.bytes}`)
+  if (pruneStats.removed > 0) {
+    console.log(
+      `[build-frontend] pruned ${pruneStats.removed} redundant scripts: ` +
+        `-${(pruneStats.bytes / 1024).toFixed(0)}KB`
+    )
+  }
+
   const total = countFiles(OUT)
-  const expected = countFiles(SRC) + 1 + (fs.existsSync(icon) ? 1 : 0)
+  // step6.6 prune 会删除已打包进 app.js 的脚本，校验基线需相应扣除
+  const expected =
+    countFiles(SRC) + 1 + (fs.existsSync(icon) ? 1 : 0) - pruneStats.removed
   // 覆盖式复制可能残留旧文件，因此校验 >= 而非 ===
   if (total < expected) {
     fail(`资源数量不足: 实际 ${total}，期望至少 ${expected}`)
