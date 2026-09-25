@@ -146,6 +146,11 @@ pub async fn dispatch(
             crate::player_window::mark_player_ready();
             Ok(Value::Null)
         }
+        // 页面确认已应用新视频数据（重置旧视频画面/进度/弹幕），open_builtin_player 收到后才显示窗口
+        "player-data-applied" => {
+            crate::player_window::mark_player_data_applied();
+            Ok(Value::Null)
+        }
         "get-video-url" => Ok(player::get_video_url(a).await),
         "get-video-preview-url" => Ok(player::get_video_preview_url(a).await),
         "get-video-info" => Ok(player::get_video_info_channel(a).await),

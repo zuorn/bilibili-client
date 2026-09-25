@@ -13,12 +13,21 @@
 const { spawnSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
+const { syncPackageVersion } = require('./sync-version')
 
 const ROOT = path.resolve(__dirname, '..')
 const ENV_FILE = path.join(ROOT, 'env.json')
 const INJECTED_CONFIG = path.join(ROOT, 'src-tauri', 'target', 'tauri.dev-injected.conf.json')
 
 function main() {
+  // ---- 版本号同步：VERSION -> package.json（VERSION 为唯一源头）----
+  const syncedVersion = syncPackageVersion((m) => console.log('[tauri-dev]', m))
+  if (syncedVersion) {
+    console.log('[tauri-dev] 已同步 VERSION 版本到 package.json:', syncedVersion)
+  } else {
+    console.warn('[tauri-dev] 未找到 VERSION 文件，跳过 package.json 版本同步')
+  }
+
   let pubkey = (process.env.TAURI_UPDATER_PUBKEY || '').trim()
   if (!pubkey && fs.existsSync(ENV_FILE)) {
     try {

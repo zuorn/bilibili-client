@@ -31,6 +31,7 @@
 const { spawnSync } = require('child_process')
 const fs = require('fs')
 const path = require('path')
+const { syncPackageVersion } = require('./sync-version')
 
 const ROOT = path.resolve(__dirname, '..')
 const ENV_FILE = path.join(ROOT, 'env.json')
@@ -124,6 +125,14 @@ function writeInjectedConfig(configPaths, pubkey) {
 function main() {
   const envJson = loadEnvJson()
   const tauriEnv = (envJson && envJson.tauri) || {}
+
+  // ---- 版本号同步：VERSION -> package.json（VERSION 为唯一源头）----
+  const syncedVersion = syncPackageVersion((m) => console.log('[tauri-build]', m))
+  if (syncedVersion) {
+    console.log('[tauri-build] 已同步 VERSION 版本到 package.json:', syncedVersion)
+  } else {
+    console.warn('[tauri-build] 未找到 VERSION 文件，跳过 package.json 版本同步')
+  }
 
   // ---- 签名私钥 ----
   let privateKey = process.env.TAURI_SIGNING_PRIVATE_KEY || ''

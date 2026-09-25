@@ -176,7 +176,26 @@ jobs:
           # 版本号唯一源头是 VERSION 文件；标签不存在时 tauri-action 会自动创建
           tagName: v${{ needs.prepare.outputs.version }}
           releaseName: 'Bilibili Client v${{ needs.prepare.outputs.version }}'
-          releaseBody: '## Downloads\n\n- Windows: `Bilibili-Client_*_x64-setup.exe`\n- macOS (Apple Silicon): `Bilibili-Client_*_aarch64.app.tar.gz` / `*_aarch64.dmg`\n- macOS (Intel): `Bilibili-Client_*_x64.app.tar.gz` / `*_x64.dmg`\n- Linux: `Bilibili-Client_*_amd64.AppImage`'
+          # 注意：必须用 YAML 块标量（|）传入真实换行，单引号里的 \n 会被当作字面量
+          releaseBody: |
+            ## 下载
+
+            | 平台 | 文件 |
+            | --- | --- |
+            | Windows x64 | `Bilibili-Client_*_x64-setup.exe` |
+            | macOS Apple Silicon | `Bilibili-Client_*_aarch64.dmg` |
+            | macOS Intel | `Bilibili-Client_*_x64.dmg` |
+            | Linux x64 | `Bilibili-Client_*_amd64.AppImage` |
+
+            ## 自动更新
+
+            已安装用户无需手动下载，应用会在启动后自动检测新版本并升级（设置 → 检查更新）。
+
+            ## 安装说明
+
+            - Windows：下载 setup.exe 双击安装
+            - macOS：未做公证，首次打开需右键点击应用 → 「打开」
+            - Linux：`chmod +x Bilibili-Client_*.AppImage` 后直接运行
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true

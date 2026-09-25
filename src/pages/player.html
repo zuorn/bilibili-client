@@ -3750,8 +3750,46 @@
       }
     }, { passive: false })
 
+    // 播放新视频前重置旧视频的界面状态：清空画面、进度条/时间显示、弹幕、音频，
+    // 并盖上加载遮罩。由 play-video-data 处理器同步调用，
+    // 确保主进程收到 player-data-applied 确认后窗口内已看不到上一个视频。
+    function resetPlayerForNewVideo() {
+      try {
+        videoPlayer.pause()
+        videoPlayer.removeAttribute('src')
+        videoPlayer.load()
+      } catch (e) {}
+      if (currentAudioElement) {
+        try {
+          currentAudioElement.pause()
+          currentAudioElement.remove()
+        } catch (e) {}
+        currentAudioElement = null
+      }
+      stopDashSyncTimer()
+      loadingOverlay.style.display = 'flex'
+      errorOverlay.style.display = 'none'
+      // 重置上一个视频遗留的播放进度显示
+      progressFill.style.width = '0%'
+      progressBuffered.style.width = '0%'
+      timeDisplay.textContent = '00:00 / 00:00'
+      // 清空上一个视频的弹幕
+      if (danmakuTimer) {
+        clearInterval(danmakuTimer)
+        danmakuTimer = null
+      }
+      danmakuList = []
+      danmakuIndex = 0
+      danmakuContainer.innerHTML = ''
+      // 清掉上一个视频遗留的预加载数据，避免被误用作新视频的播放地址
+      pendingPrefetchData = null
+    }
+
     ipcRenderer.on('play-video-data', async (event, data) => {
       console.log('Received play-video-data:', data)
+      // 同步重置旧视频状态并立即确认，主进程收到确认后才显示窗口
+      resetPlayerForNewVideo()
+      ipcRenderer.send('player-data-applied')
       currentVideoData = data
       videoTitle.textContent = data.title
       infoTitle.textContent = data.title

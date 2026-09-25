@@ -1,19 +1,12 @@
 {
   "name": "bilibili-client",
-  "version": "0.1.0",
-  "main": "main.js",
+  "version": "0.2.0",
   "scripts": {
-    "start": "node scripts/start.js",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "build": "electron-builder && npm run clean:dist",
-    "build:win": "node scripts/build-win.js",
-    "build:mac": "electron-builder --mac && npm run clean:dist",
-    "build:linux": "electron-builder --linux && npm run clean:dist",
     "clean": "rimraf dist",
     "build:frontend": "node scripts/build-frontend.js",
-    "clean:dist": "rimraf dist/win-unpacked dist/win-ia32-unpacked dist/mac dist/mac-arm64 dist/linux-unpacked dist/builder-debug.yml dist/builder-effective-config.yaml",
-    "publish:oss": "node scripts/publish-oss.js",
     "tauri": "tauri",
+    "sync:version": "node scripts/sync-version.js",
     "tauri:dev": "node scripts/tauri-dev.js",
     "tauri:build": "node scripts/tauri-build.js",
     "tauri:build:nsis": "node scripts/tauri-build.js --bundles nsis",
@@ -28,86 +21,14 @@
   "author": "Zuorn",
   "license": "ISC",
   "description": "Bilibili client",
-  "overrides": {
-    "core-js": "^3.36.1"
-  },
   "dependencies": {
-    "ali-oss": "^6.23.0",
-    "axios": "^1.18.0",
-    "chalk": "^4.1.2",
-    "electron-updater": "^6.8.3",
-    "ffmpeg-static": "^5.3.0",
-    "js-yaml": "^4.1.1",
-    "node-mpv": "^1.5.0",
-    "xml2js": "^0.6.2"
+    "ali-oss": "^6.23.0"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.11.5",
-    "electron": "^41.4.0",
-    "electron-builder": "^26.8.1",
     "esbuild": "^0.28.2",
-    "png-to-ico": "^3.0.1",
+    "js-yaml": "^4.1.1",
     "rimraf": "^6.1.3",
     "sharp": "^0.34.5"
-  },
-  "build": {
-    "appId": "com.example.bilibili-client",
-    "productName": "Bilibili Client",
-    "compression": "maximum",
-    "publish": {
-      "provider": "github",
-      "owner": "zuorn",
-      "repo": "bilibili-client"
-    },
-    "asar": true,
-    "asarUnpack": [
-      "node_modules/node-mpv/**/*",
-      "node_modules/ffmpeg-static/**/*"
-    ],
-    "npmRebuild": false,
-    "nodeGypRebuild": false,
-    "directories": {
-      "output": "dist"
-    },
-    "files": [
-      "main.js",
-      "index.html",
-      "src/**/*",
-      "icon.png",
-      "icon.ico",
-      "package.json"
-    ],
-    "win": {
-      "target": {
-        "target": "nsis",
-        "arch": [
-          "x64"
-        ]
-      },
-      "artifactName": "Bilibili-Client-Setup-${version}.${ext}",
-      "icon": "icon.ico"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "installerIcon": "icon.ico",
-      "uninstallerIcon": "icon.ico",
-      "installerHeaderIcon": "icon.ico",
-      "include": "install/installer.nsh",
-      "license": "LICENSE",
-      "menuCategory": true,
-      "runAfterFinish": true,
-      "perMachine": false
-    },
-    "mac": {
-      "target": "dmg",
-      "icon": "icon.png"
-    },
-    "linux": {
-      "target": "AppImage",
-      "icon": "icon.png"
-    }
   }
 }
