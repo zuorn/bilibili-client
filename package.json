@@ -1,6 +1,6 @@
 {
   "name": "bilibili-client",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "clean": "rimraf dist",
