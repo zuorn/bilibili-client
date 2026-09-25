@@ -157,7 +157,8 @@ jobs:
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
-          args: ${{ needs.prepare.outputs.should_release == 'true' && matrix.args || concat(matrix.args, ' --no-bundle') }}
+          # GitHub Actions 表达式没有 concat 函数，用 format 拼接 --no-bundle
+          args: ${{ needs.prepare.outputs.should_release == 'true' && matrix.args || format('{0} --no-bundle', matrix.args) }}
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
