@@ -209,7 +209,14 @@ function main() {
   }
 
   // 4. 创建（或复用）Release 并上传资产 —— 顺序执行，--clobber 幂等
-  const existing = gh(['release', 'view', tag, '--repo', repo, '--json', 'id', '-q', '.id'], { capture: true })
+  // 注意：gh release view 对不存在的 Release 会以非零退出码报 "release not found"，
+  // execFileSync 会抛异常，这里必须捕获并视为「不存在」
+  let existing = ''
+  try {
+    existing = gh(['release', 'view', tag, '--repo', repo, '--json', 'id', '-q', '.id'], { capture: true })
+  } catch (_) {
+    existing = ''
+  }
   if (existing && existing.trim()) {
     console.log(`[GitHub] Release ${tag} 已存在，覆盖上传资产`)
     gh(['release', 'upload', tag, '--repo', repo, '--clobber', ...assets])
