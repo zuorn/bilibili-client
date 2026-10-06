@@ -87,18 +87,12 @@ pub async fn search_videos(args: &[Value]) -> Value {
         "all" => {
             params.push(("duration".into(), "".into()));
             params.push(("web_roll_page".into(), "1".into()));
-            params.push((
-                "order".into(),
-                if order == "totalrank" { "".into() } else { order.clone() },
-            ));
+            params.push(("order".into(), order));
         }
         "video" => {
             params.push(("dynamic_offset".into(), "0".into()));
             params.push(("web_roll_page".into(), "1".into()));
-            params.push((
-                "order".into(),
-                if order == "totalrank" { "".into() } else { order.clone() },
-            ));
+            params.push(("order".into(), order));
         }
         "media_bangumi" | "media_ft" => {
             params.push(("duration".into(), "".into()));

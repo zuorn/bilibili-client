@@ -1234,3 +1234,55 @@ body.dark-theme .add-favorite-cancel-btn {
 body.dark-theme .add-favorite-cancel-btn:hover {
   background-color: #3a3a3a;
 }
+
+/* 搜索页标题与空状态 */
+body.dark-theme .search-header h2 {
+  color: #e0e0e0;
+}
+
+body.dark-theme .no-more {
+  color: #808080;
+}
+
+body.dark-theme .user-card-sign,
+body.dark-theme .user-card-stats {
+  color: #9499a0;
+}
+
+/* 搜索筛选区域 */
+body.dark-theme .search-filter {
+  background: #2a2a2a;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+}
+
+body.dark-theme .search-filter-tabs {
+  border-bottom-color: #3a3a3a;
+}
+
+body.dark-theme .search-filter-tab {
+  color: #a0a0a0;
+}
+
+body.dark-theme .search-filter-tab:hover {
+  color: #fb7299;
+  background: rgba(251, 114, 153, 0.12);
+}
+
+body.dark-theme .search-filter-tab.active {
+  color: #fb7299;
+  background: rgba(251, 114, 153, 0.18);
+}
+
+body.dark-theme .search-sort-item {
+  color: #808080;
+}
+
+body.dark-theme .search-sort-item:hover {
+  color: #fb7299;
+  background: rgba(251, 114, 153, 0.12);
+}
+
+body.dark-theme .search-sort-item.active {
+  color: #fb7299;
+  background: rgba(251, 114, 153, 0.14);
+}
